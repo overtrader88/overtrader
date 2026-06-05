@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TradeAI — Análise · BTCUSDT 4h</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,900&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     TradeAI — "Editorial Instrument"
+     Data-journal de precisão. Papel quente + tinta + mono.
+     Assinatura: intervalos de confiança desenhados como barras
+     com whiskers. Prova antes de prometer, feita visual.
+     ============================================================ */
+  :root {
+    --paper:      #F2EEE4;
+    --paper-2:    #ECE7D9;
+    --card:       #F7F4EC;
+    --ink:        #1A1C19;
+    --ink-soft:   #4C4E47;
+    --ink-faint:  #8C8C81;
+    --line:       #D9D3C4;
+    --line-strong:#C5BEAC;
+    --bull:       #0B6E4F;
+    --bull-soft:  #D6E6DC;
+    --bear:       #B23A2E;
+    --bear-soft:  #ECD6CF;
+    --neutral:    #6B6E64;
+    --accent:     #B07E2C;   /* ocre — selo de qualidade / destaque */
+    --accent-soft:#EDE0C4;
+    --shadow:     12px 14px 0 rgba(26,28,25,.06);
+    --r:          4px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+  body {
+    font-family: "Hanken Grotesk", system-ui, sans-serif;
+    background-color: var(--paper);
+    color: var(--ink);
+    line-height: 1.5;
+    min-height: 100vh;
+    position: relative;
+    /* grade de blueprint sutil */
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 38px 38px;
+    background-position: -1px -1px;
+  }
+  /* grão de papel por cima de tudo */
+  body::after {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+    opacity: .045;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .mono { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .serif { font-family: "Fraunces", Georgia, serif; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 28px 96px; }
+
+  /* ---------- entrada escalonada ---------- */
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .rise { opacity: 0; animation: rise .7s cubic-bezier(.2,.7,.2,1) forwards; }
+  .d1{animation-delay:.05s}.d2{animation-delay:.13s}.d3{animation-delay:.21s}
+  .d4{animation-delay:.29s}.d5{animation-delay:.37s}.d6{animation-delay:.45s}
+  .d7{animation-delay:.53s}.d8{animation-delay:.61s}
+
+  /* ---------- topbar ---------- */
+  .topbar { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding-bottom:18px; border-bottom:1.5px solid var(--ink); margin-bottom:34px; flex-wrap:wrap; }
+  .brand { display:flex; align-items:baseline; gap:12px; }
+  .brand .logo { font-family:"Fraunces"; font-weight:900; font-size:26px; letter-spacing:-.02em; }
+  .brand .logo b { color: var(--bull); }
+  .brand .tag { font-size:11px; text-transform:uppercase; letter-spacing:.22em; color:var(--ink-faint); }
+  .asset-line { display:flex; align-items:baseline; gap:14px; }
+  .asset-line .sym { font-family:"IBM Plex Mono"; font-weight:600; font-size:22px; }
+  .asset-line .tf { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-soft); border:1px solid var(--line-strong); padding:3px 9px; border-radius:99px; }
+  .regime { font-size:12px; color:var(--ink-soft); }
+  .regime b { color: var(--bull); font-weight:600; }
+
+  /* ---------- grid base ---------- */
+  .grid { display:grid; gap:18px; }
+  .cols-2 { grid-template-columns: 1.32fr 1fr; }
+  .cols-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 880px){ .cols-2,.cols-3{ grid-template-columns:1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1.5px solid var(--ink);
+    border-radius: var(--r);
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .card.flat { box-shadow:none; border-color:var(--line-strong); }
+  .eyebrow { font-size:10.5px; text-transform:uppercase; letter-spacing:.24em; color:var(--ink-faint); display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .eyebrow::before { content:""; width:7px; height:7px; background:var(--ink); display:inline-block; transform:rotate(45deg); }
+
+  /* ---------- veredito principal ---------- */
+  .verdict { display:flex; flex-direction:column; gap:6px; }
+  .verdict .kicker { font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft); }
+  .verdict .big {
+    font-family:"Fraunces"; font-weight:900; font-size:clamp(48px, 8vw, 86px);
+    line-height:.92; letter-spacing:-.025em; color:var(--bull);
+    font-optical-sizing:auto;
+  }
+  .verdict .sub { font-size:14px; color:var(--ink-soft); max-width:46ch; margin-top:4px; }
+
+  .metrics-row { display:flex; gap:30px; margin-top:22px; flex-wrap:wrap; }
+  .metric .label { font-size:11px; text-transform:uppercase; letter-spacing:.14em; color:var(--ink-faint); margin-bottom:5px; }
+  .metric .val { font-family:"IBM Plex Mono"; font-weight:600; font-size:30px; line-height:1; }
+  .metric .val small { font-size:14px; color:var(--ink-faint); font-weight:400; }
+
+  /* medidor de força com ticks */
+  .meter { margin-top:24px; }
+  .meter .track { position:relative; height:14px; background:var(--paper-2); border:1px solid var(--line-strong); border-radius:2px; overflow:hidden; }
+  .meter .fill { position:absolute; inset:0 auto 0 0; width:0; background:repeating-linear-gradient(90deg, var(--bull) 0 6px, #0e7d5a 6px 8px); transition:width 1.2s cubic-bezier(.2,.7,.2,1); }
+  .meter .ticks { display:flex; justify-content:space-between; margin-top:6px; font-size:10px; color:var(--ink-faint); font-family:"IBM Plex Mono"; }
+
+  /* ---------- ConfidenceBadge: o elemento de assinatura ---------- */
+  .ci {
+    --lo: 0; --hi: 100; --v: 50; --min:0; --max:100;
+    display:grid; grid-template-columns: 1fr; gap:8px;
+    padding:14px 16px; border:1px solid var(--line-strong); border-radius:var(--r); background:var(--paper);
+  }
+  .ci .top { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .ci .name { font-size:11px; text-transform:uppercase; letter-spacing:.13em; color:var(--ink-soft); }
+  .ci .point { font-family:"IBM Plex Mono"; font-weight:600; font-size:22px; }
+  .ci .point.pos { color:var(--bull); } .ci .point.neg{ color:var(--bear); }
+  .ci .bar { position:relative; height:26px; }
+  .ci .axis { position:absolute; left:0; right:0; top:50%; height:1px; background:var(--line-strong); }
+  /* faixa do IC */
+  .ci .range {
+    position:absolute; top:50%; transform:translateY(-50%); height:9px; border-radius:2px;
+    background:var(--bull-soft); border:1px solid var(--bull);
+    left: calc((var(--lo) - var(--min)) / (var(--max) - var(--min)) * 100%);
+    width: calc((var(--hi) - var(--lo)) / (var(--max) - var(--min)) * 100%);
+  }
+  /* whiskers */
+  .ci .range::before, .ci .range::after { content:""; position:absolute; top:-5px; bottom:-5px; width:1.5px; background:var(--bull); }
+  .ci .range::before{ left:-1px; } .ci .range::after{ right:-1px; }
+  /* ponto-estimativa */
+  .ci .dot {
+    position:absolute; top:50%; width:11px; height:11px; border-radius:50%;
+    background:var(--ink); border:2px solid var(--card);
+    transform:translate(-50%,-50%);
+    left: calc((var(--v) - var(--min)) / (var(--max) - var(--min)) * 100%);
+    box-shadow:0 0 0 1px var(--ink);
+  }
+  .ci .foot { display:flex; justify-content:space-between; font-size:10.5px; color:var(--ink-faint); font-family:"IBM Plex Mono"; }
+  .ci.neg .range{ background:var(--bear-soft); border-color:var(--bear); }
+  .ci.neg .range::before,.ci.neg .range::after{ background:var(--bear); }
+
+  /* ---------- selo de qualidade (carimbo) ---------- */
+  .seal { display:flex; align-items:center; gap:16px; }
+  .stamp {
+    flex:none; width:92px; height:92px; border-radius:50%;
+    border:2.5px solid var(--bull); color:var(--bull);
+    display:grid; place-items:center; text-align:center; transform:rotate(-8deg);
+    position:relative;
+  }
+  .stamp::before { content:""; position:absolute; inset:5px; border:1px dashed var(--bull); border-radius:50%; opacity:.5; }
+  .stamp .lbl { font-family:"Fraunces"; font-weight:900; font-size:15px; line-height:.95; letter-spacing:.02em; text-transform:uppercase; }
+  .stamp .sm { font-size:8px; letter-spacing:.18em; text-transform:uppercase; margin-top:3px; }
+  .seal .why { font-size:13px; color:var(--ink-soft); }
+  .seal .why b { color:var(--ink); }
+
+  /* ---------- níveis de risco ---------- */
+  .levels { display:grid; grid-template-columns:repeat(5,1fr); gap:0; border:1px solid var(--line-strong); border-radius:var(--r); overflow:hidden; }
+  @media (max-width:560px){ .levels{ grid-template-columns:repeat(2,1fr);} }
+  .lvl { padding:13px 14px; border-right:1px solid var(--line); }
+  .lvl:last-child{ border-right:none; }
+  .lvl .k { font-size:10px; text-transform:uppercase; letter-spacing:.13em; color:var(--ink-faint); }
+  .lvl .p { font-family:"IBM Plex Mono"; font-weight:600; font-size:17px; margin-top:4px; }
+  .lvl .r { font-size:10.5px; color:var(--ink-faint); font-family:"IBM Plex Mono"; margin-top:2px; }
+  .lvl.sl .p{ color:var(--bear);} .lvl.tp .p{ color:var(--bull);} .lvl.entry .p{ color:var(--ink);}
+
+  /* ---------- gauge radial (RSI) ---------- */
+  .gauge-wrap { display:flex; align-items:center; gap:22px; }
+  .gauge { position:relative; width:132px; height:132px; flex:none; }
+  .gauge svg { transform:rotate(-90deg); overflow:visible; }
+  .gauge .ring-bg { fill:none; stroke:var(--paper-2); stroke-width:11; }
+  .gauge .ring-fg { fill:none; stroke:var(--accent); stroke-width:11; stroke-linecap:butt;
+    stroke-dasharray: var(--circ); stroke-dashoffset: var(--circ);
+    transition: stroke-dashoffset 1.4s cubic-bezier(.2,.7,.2,1); }
+  .gauge .center { position:absolute; inset:0; display:grid; place-items:center; text-align:center; }
+  .gauge .center .n { font-family:"IBM Plex Mono"; font-weight:600; font-size:30px; line-height:1; }
+  .gauge .center .t { font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-faint); }
+  .gauge-legend .row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft); margin-bottom:7px; }
+  .gauge-legend .row .sw{ width:10px;height:10px;border-radius:2px;}
+
+  /* ---------- monte carlo: cone ---------- */
+  .cone { margin-top:6px; }
+  .cone .scale { position:relative; height:54px; }
+  .cone .band {
+    position:absolute; top:14px; height:24px; border-radius:3px;
+    background:linear-gradient(90deg, var(--bear-soft), var(--accent-soft), var(--bull-soft));
+    border:1px solid var(--line-strong);
+    left: var(--p10); right: var(--p90r);
+  }
+  .cone .median { position:absolute; top:6px; bottom:6px; width:2px; background:var(--ink); left:var(--p50); }
+  .cone .now { position:absolute; top:2px; bottom:2px; width:2px; background:var(--accent); left:var(--cur); }
+  .cone .pin { position:absolute; font-family:"IBM Plex Mono"; font-size:10px; color:var(--ink-soft); transform:translateX(-50%); top:42px; white-space:nowrap; }
+  .cone .pin.top{ top:-2px;}
+  .mc-stats{ display:flex; gap:26px; margin-top:18px; flex-wrap:wrap; }
+  .mc-stats .s .k{ font-size:10px; text-transform:uppercase; letter-spacing:.13em; color:var(--ink-faint);}
+  .mc-stats .s .v{ font-family:"IBM Plex Mono"; font-weight:600; font-size:18px; margin-top:3px;}
+
+  /* ---------- cenários ---------- */
+  .scen { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .scen{ grid-template-columns:1fr; } }
+  .side { border:1px solid var(--line-strong); border-radius:var(--r); padding:16px; background:var(--paper); position:relative; }
+  .side.reco { border-color:var(--bull); box-shadow:0 0 0 1px var(--bull); }
+  .side .h { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; }
+  .side .h .t { font-family:"Fraunces"; font-weight:600; font-size:19px; }
+  .side.buy .h .t{ color:var(--bull);} .side.sell .h .t{ color:var(--bear);}
+  .side .er { font-family:"IBM Plex Mono"; font-weight:600; font-size:15px; }
+  .side .reco-tag { position:absolute; top:-10px; right:12px; background:var(--bull); color:var(--paper); font-size:9px; letter-spacing:.16em; text-transform:uppercase; padding:3px 8px; border-radius:99px; }
+  .prob { margin-bottom:11px; }
+  .prob .pl { display:flex; justify-content:space-between; font-size:11px; color:var(--ink-soft); margin-bottom:3px; }
+  .prob .pl .mono { color:var(--ink); }
+  .pbar { position:relative; height:7px; background:var(--paper-2); border:1px solid var(--line); border-radius:99px; overflow:hidden; }
+  .pbar .pf { position:absolute; inset:0 auto 0 0; }
+  .side.buy .pbar .pf{ background:var(--bull);} .side.sell .pbar .pf{ background:var(--bear);}
+  .pbar .pci { position:absolute; top:-2px; bottom:-2px; border-left:1px solid var(--ink-faint); border-right:1px solid var(--ink-faint); background:rgba(26,28,25,.06); }
+
+  /* ---------- backtest ---------- */
+  .bt-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:560px){ .bt-grid{ grid-template-columns:1fr;} }
+  .outcomes{ display:flex; gap:3px; margin-top:16px; height:30px; border:1px solid var(--line-strong); border-radius:3px; overflow:hidden; }
+  .outcomes .seg{ position:relative; }
+  .outcomes .seg .lab{ position:absolute; inset:0; display:grid; place-items:center; font-family:"IBM Plex Mono"; font-size:10px; color:var(--paper);}
+  .seg.tp{ background:var(--bull);} .seg.be{ background:var(--neutral);} .seg.sl{ background:var(--bear);} .seg.exp{ background:var(--line-strong);}
+
+  .note{ font-size:11.5px; color:var(--ink-faint); line-height:1.55; }
+  .note b{ color:var(--ink-soft); font-weight:600; }
+  .divider{ height:1px; background:var(--line); margin:14px 0; }
+
+  footer{ margin-top:40px; padding-top:18px; border-top:1.5px solid var(--ink); display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; font-size:11px; color:var(--ink-faint); }
+  footer .mono{ color:var(--ink-soft); }
+
+  .legend-ci { font-size:11px; color:var(--ink-faint); display:flex; align-items:center; gap:10px; margin-top:14px; }
+  .legend-ci .demo{ position:relative; width:84px; height:14px; }
+  .legend-ci .demo .r{ position:absolute; top:50%; transform:translateY(-50%); left:20%; width:50%; height:8px; background:var(--bull-soft); border:1px solid var(--bull); border-radius:2px;}
+  .legend-ci .demo .r::before,.legend-ci .demo .r::after{content:"";position:absolute;top:-4px;bottom:-4px;width:1.5px;background:var(--bull);}
+  .legend-ci .demo .r::before{left:-1px;}.legend-ci .demo .r::after{right:-1px;}
+  .legend-ci .demo .d{ position:absolute; top:50%; left:45%; width:9px;height:9px;border-radius:50%;background:var(--ink);transform:translate(-50%,-50%);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- TOPBAR -->
+  <header class="topbar rise d1">
+    <div class="brand">
+      <span class="logo">Trade<b>AI</b></span>
+      <span class="tag">Relatório de análise</span>
+    </div>
+    <div style="text-align:right">
+      <div class="asset-line">
+        <span class="sym">BTCUSDT</span>
+        <span class="tf">4 horas</span>
+      </div>
+      <div class="regime">Regime: <b>tendência</b> · ADX <span class="mono">31.2</span> · gerado 03 jun 2026, 16h00 UTC</div>
+    </div>
+  </header>
+
+  <!-- LINHA 1: VEREDITO + SELO -->
+  <div class="grid cols-2">
+    <section class="card rise d2">
+      <div class="eyebrow">Sinal final · engine v2.0.0</div>
+      <div class="verdict">
+        <span class="kicker">Recomendação</span>
+        <span class="big">Compra</span>
+        <span class="sub">Confluência consistente compradora num mercado em tendência. 4 dos 8 filtros de qualidade com ressalva — opere com o plano abaixo.</span>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric">
+          <div class="label">Força</div>
+          <div class="val mono"><span id="strengthN">0</span><small>/100</small></div>
+        </div>
+        <div class="metric">
+          <div class="label">Confluência</div>
+          <div class="val mono">7<small>/10</small></div>
+        </div>
+        <div class="metric">
+          <div class="label">Votos (20 ind.)</div>
+          <div class="val mono" style="font-size:19px; padding-top:8px;">
+            <span style="color:var(--bull)">12</span> ·
+            <span style="color:var(--neutral)">5</span> ·
+            <span style="color:var(--bear)">3</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="meter">
+        <div class="track"><div class="fill" id="strengthFill"></div></div>
+        <div class="ticks"><span>0</span><span>25</span><span>50 · mín</span><span>75</span><span>100</span></div>
+      </div>
+    </section>
+
+    <section class="card flat rise d3" style="display:flex;flex-direction:column;justify-content:space-between;gap:18px">
+      <div>
+        <div class="eyebrow">Selo de qualidade</div>
+        <div class="seal">
+          <div class="stamp">
+            <div>
+              <div class="lbl">Verde</div>
+              <div class="sm">validado</div>
+            </div>
+          </div>
+          <div class="why">
+            Robusto: profit factor <b>≥ 1,5</b> e win rate <b>≥ 50%</b> mesmo no
+            pior caso do intervalo de confiança (<b class="mono">n=142</b> trades).
+          </div>
+        </div>
+      </div>
+      <div class="note">
+        O selo só fica <b>verde</b> quando o <b>limite inferior</b> do IC supera o
+        limiar — nunca sobre amostra pequena ou ruidosa. É a régua "prova antes de prometer".
+      </div>
+    </section>
+  </div>
+
+  <!-- LINHA 2: NÍVEIS DE RISCO -->
+  <section class="card rise d4" style="margin-top:18px">
+    <div class="eyebrow">Plano operacional · níveis por ATR</div>
+    <div class="levels">
+      <div class="lvl entry"><div class="k">Entrada</div><div class="p mono">67.420</div><div class="r">agora</div></div>
+      <div class="lvl sl"><div class="k">Stop loss</div><div class="p mono">66.180</div><div class="r">−1.2 ATR</div></div>
+      <div class="lvl tp"><div class="k">Alvo 1</div><div class="p mono">69.280</div><div class="r">R 1.5</div></div>
+      <div class="lvl tp"><div class="k">Alvo 2</div><div class="p mono">71.140</div><div class="r">R 3.0</div></div>
+      <div class="lvl tp"><div class="k">Alvo 3</div><div class="p mono">73.000</div><div class="r">R 4.5</div></div>
+    </div>
+  </section>
+
+  <!-- LINHA 3: BACKTEST (com IC em tudo) + RSI -->
+  <div class="grid cols-2" style="margin-top:18px">
+    <section class="card rise d5">
+      <div class="eyebrow">Backtest público · 142 trades · jan/24–mai/26 · walk-forward</div>
+
+      <div class="ci pos" style="--min:0; --max:3.5; --lo:1.42; --hi:2.51; --v:1.89; margin-bottom:12px">
+        <div class="top"><span class="name">Profit factor</span><span class="point pos mono">1,89</span></div>
+        <div class="bar"><div class="axis"></div><div class="range"></div><div class="dot"></div></div>
+        <div class="foot"><span>IC 95% &nbsp;1,42 — 2,51</span><span>n=142 · bootstrap</span></div>
+      </div>
+
+      <div class="ci pos" style="--min:0; --max:100; --lo:48.3; --hi:64.9; --v:56.8; margin-bottom:12px">
+        <div class="top"><span class="name">Win rate</span><span class="point pos mono">56,8%</span></div>
+        <div class="bar"><div class="axis"></div><div class="range"></div><div class="dot"></div></div>
+        <div class="foot"><span>IC 95% &nbsp;48,3% — 64,9%</span><span>n=142 · Wilson</span></div>
+      </div>
+
+      <div class="ci pos" style="--min:-1; --max:1.5; --lo:0.12; --hi:0.56; --v:0.34">
+        <div class="top"><span class="name">R médio / trade</span><span class="point pos mono">+0,34</span></div>
+        <div class="bar"><div class="axis"></div><div class="range"></div><div class="dot"></div></div>
+        <div class="foot"><span>IC 95% &nbsp;+0,12 — +0,56</span><span>n=142 · t-Student</span></div>
+      </div>
+
+      <div class="outcomes" title="Distribuição de desfechos">
+        <div class="seg tp" style="flex:0 0 56.8%"><span class="lab">TP 57%</span></div>
+        <div class="seg be" style="flex:0 0 9%"><span class="lab">BE</span></div>
+        <div class="seg sl" style="flex:0 0 28%"><span class="lab">SL 28%</span></div>
+        <div class="seg exp" style="flex:0 0 6.2%"></div>
+      </div>
+      <div class="legend-ci">
+        <span class="demo"><span class="r"></span><span class="d"></span></span>
+        Cada métrica mostra ponto-estimativa (●), faixa do IC 95% e tamanho de amostra.
+      </div>
+    </section>
+
+    <section class="card rise d6">
+      <div class="eyebrow">Momentum · RSI (14)</div>
+      <div class="gauge-wrap">
+        <div class="gauge">
+          <svg width="132" height="132" viewBox="0 0 132 132">
+            <circle class="ring-bg" cx="66" cy="66" r="55"></circle>
+            <circle class="ring-fg" id="rsiRing" cx="66" cy="66" r="55"></circle>
+          </svg>
+          <div class="center"><div><div class="n mono">58,3</div><div class="t">neutro-alto</div></div></div>
+        </div>
+        <div class="gauge-legend">
+          <div class="row"><span class="sw" style="background:var(--bear)"></span> &lt; 30 · sobrevendido</div>
+          <div class="row"><span class="sw" style="background:var(--accent)"></span> 30–70 · neutro</div>
+          <div class="row"><span class="sw" style="background:var(--bull)"></span> &gt; 70 · sobrecomprado</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="note">
+        EMA 200 abaixo do preço (tendência de alta) · MACD histograma positivo ·
+        ADX 31,2 confirma tendência · OBV inclinação +8,4%.
+      </div>
+    </section>
+  </div>
+
+  <!-- LINHA 4: MONTE CARLO -->
+  <section class="card rise d7" style="margin-top:18px">
+    <div class="eyebrow">Monte Carlo · 5.000 trajetórias · 20 candles à frente</div>
+    <div class="cone">
+      <div class="scale">
+        <div class="band" style="--p10:8%; --p90r:6%"></div>
+        <div class="now" style="--cur:31%"></div>
+        <div class="median" style="--p50:46%"></div>
+        <span class="pin top" style="left:31%; color:var(--accent)">agora 67.420</span>
+        <span class="pin" style="left:8%">P10 · 64.980</span>
+        <span class="pin" style="left:46%">mediana · 67.910</span>
+        <span class="pin" style="left:94%; transform:translateX(-100%)">P90 · 71.260</span>
+      </div>
+    </div>
+    <div class="mc-stats">
+      <div class="s"><div class="k">Prob. de alta</div>
+        <div class="v" style="color:var(--bull)">58,2% <span style="font-size:11px;color:var(--ink-faint)">[55,1–61,2]</span></div></div>
+      <div class="s"><div class="k">Volatilidade anual.</div><div class="v">47,3%</div></div>
+      <div class="s"><div class="k">Drift / passo</div><div class="v">+0,06%</div></div>
+      <div class="s"><div class="k">Amostra</div><div class="v">n=5.000</div></div>
+    </div>
+  </section>
+
+  <!-- LINHA 5: CENÁRIOS -->
+  <section class="card rise d8" style="margin-top:18px">
+    <div class="eyebrow">Cenários compra × venda · probabilidade por first-passage</div>
+    <div class="scen">
+      <div class="side buy reco">
+        <span class="reco-tag">Recomendado</span>
+        <div class="h"><span class="t">Compra</span><span class="er" style="color:var(--bull)">R esperado +0,41</span></div>
+        <div class="prob"><div class="pl"><span>TP1</span><span class="mono">62% <span style="color:var(--ink-faint)">[60–64]</span></span></div>
+          <div class="pbar"><div class="pf" style="width:62%"></div><div class="pci" style="left:60%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>TP2</span><span class="mono">31% <span style="color:var(--ink-faint)">[29–33]</span></span></div>
+          <div class="pbar"><div class="pf" style="width:31%"></div><div class="pci" style="left:29%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>TP3</span><span class="mono">14% <span style="color:var(--ink-faint)">[12–16]</span></span></div>
+          <div class="pbar"><div class="pf" style="width:14%"></div><div class="pci" style="left:12%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>Stop antes do TP1</span><span class="mono">33% <span style="color:var(--ink-faint)">[31–35]</span></span></div>
+          <div class="pbar"><div class="pf" style="width:33%;background:var(--bear)"></div></div></div>
+      </div>
+      <div class="side sell">
+        <div class="h"><span class="t">Venda</span><span class="er" style="color:var(--bear)">R esperado +0,12</span></div>
+        <div class="prob"><div class="pl"><span>TP1</span><span class="mono">48% <span style="color:var(--ink-faint)">[46–50]</span></span></div>
+          <div class="pbar"><div class="pf" style="width:48%"></div><div class="pci" style="left:46%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>TP2</span><span class="mono">22% <span style="color:var(--ink-faint)">[20–24]</span></span></div>
+          <div class="pbar"><div class="pf" style="width:22%"></div><div class="pci" style="left:20%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>TP3</span><span class="mono">9% <span style="color:var(--ink-faint)">[7–11]</span></span></div>
+          <div class="pbar"><div class="pf" style="width:9%"></div><div class="pci" style="left:7%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>Stop antes do TP1</span><span class="mono">45% <span style="color:var(--ink-faint)">[43–47]</span></span></div>
+          <div class="pbar"><div class="pf" style="width:45%;background:var(--bear)"></div></div></div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:14px">
+      Probabilidades estimadas contando trajetórias simuladas que tocam cada nível
+      <b>antes</b> do stop — não por fórmula fechada. <b>Compra</b> recomendada pelo
+      maior R esperado (vantagem de <b>+0,29 R</b>).
+    </div>
+  </section>
+
+  <footer>
+    <span>Conteúdo informativo · não constitui recomendação personalizada de investimento.</span>
+    <span class="mono">engine v2.0.0-m2 · regime: trending · seed determinística</span>
+  </footer>
+</div>
+
+<script>
+  // animação do veredito: força sobe + medidor preenche
+  (function () {
+    const target = 72;
+    const fill = document.getElementById('strengthFill');
+    const num = document.getElementById('strengthN');
+    requestAnimationFrame(() => { fill.style.width = target + '%'; });
+    let cur = 0;
+    const t0 = performance.now();
+    function tick(t) {
+      const k = Math.min(1, (t - t0) / 1200);
+      const eased = 1 - Math.pow(1 - k, 3);
+      num.textContent = Math.round(eased * target);
+      if (k < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    // gauge RSI
+    const ring = document.getElementById('rsiRing');
+    const r = 55, circ = 2 * Math.PI * r;
+    ring.style.setProperty('--circ', circ);
+    const rsi = 58.3;
+    setTimeout(() => {
+      ring.style.strokeDashoffset = circ * (1 - rsi / 100);
+    }, 300);
+  })();
+</script>
+</body>
+</html>

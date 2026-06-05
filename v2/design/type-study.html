@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TradeAI — Estudo tipográfico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,400..800&family=Bricolage+Grotesque:wght@700;800&family=Saira:wght@500;600;700&family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#07090E; --bg-2:#0A0D14; --panel:#0D1119; --panel-2:#0A0E15;
+    --line:rgba(120,160,225,.08); --line-2:rgba(120,170,235,.17); --line-3:rgba(120,170,235,.3);
+    --ink:#E9EFFA; --ink-soft:#93A0B6; --ink-faint:#535F74;
+    --cyan:#54A8FF; --cyan-soft:rgba(84,168,255,.12); --glow:rgba(84,168,255,.5);
+    --amber:#FFB020; --amber-soft:rgba(255,176,32,.12);
+    --bull:#2BD49E; --bull-soft:rgba(43,212,158,.13); --bear:#FF6B8A;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ font-family:"IBM Plex Sans",system-ui,sans-serif; background:var(--bg); color:var(--ink); line-height:1.55; position:relative;
+    background-image:radial-gradient(1100px 600px at 18% -8%, rgba(84,168,255,.09), transparent 62%); }
+  .mono{ font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+  .wrap{ max-width:1120px; margin:0 auto; padding:40px 24px 90px; }
+
+  .pagehead{ border-bottom:1px solid var(--line-2); padding-bottom:20px; margin-bottom:30px; }
+  .pagehead .lbl{ font-family:"JetBrains Mono"; font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-faint); display:inline-flex; align-items:center; gap:9px; }
+  .pagehead .lbl::before{ content:""; width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px var(--glow); }
+  .pagehead h1{ font-family:"Archivo"; font-variation-settings:'wdth' 125; font-weight:800; font-size:34px; letter-spacing:.005em; margin:12px 0 6px; }
+  .pagehead p{ color:var(--ink-soft); font-size:14px; max-width:70ch; }
+
+  .row{ display:grid; grid-template-columns:1fr 270px; gap:22px; align-items:center; padding:30px 26px; border:1px solid var(--line-2); border-radius:8px;
+    background:linear-gradient(180deg,var(--panel),var(--panel-2)); margin-bottom:18px; position:relative; }
+  @media(max-width:820px){ .row{ grid-template-columns:1fr; } }
+  .row.pick{ border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan-soft), 0 26px 60px -42px var(--glow); }
+  .tagpick{ position:absolute; top:-10px; left:24px; background:var(--cyan); color:#04060c; font-family:"JetBrains Mono"; font-size:9px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; padding:4px 10px; border-radius:99px; }
+
+  .sample .kick{ font-family:"JetBrains Mono"; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:2px; }
+  .sample .verdict{ font-weight:800; font-size:72px; line-height:.9; letter-spacing:.005em; text-transform:uppercase; color:var(--bull); text-shadow:0 0 34px rgba(43,212,158,.3); }
+  .sample .headline{ font-weight:700; font-size:30px; line-height:1.05; margin-top:14px; max-width:18ch; }
+  .sample .headline em{ font-style:normal; color:var(--bull); }
+  .telem{ display:flex; gap:26px; margin-top:18px; flex-wrap:wrap; }
+  .telem .k{ font-family:"JetBrains Mono"; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); }
+  .telem .v{ font-family:"JetBrains Mono"; font-weight:700; font-size:22px; margin-top:4px; } .telem .v small{ font-size:12px; color:var(--ink-faint); font-weight:400; }
+  .seal{ display:inline-flex; align-items:center; gap:9px; margin-top:18px; font-size:10.5px; font-family:"JetBrains Mono"; color:var(--amber); border:1px solid rgba(255,176,32,.3); background:var(--amber-soft); padding:8px 13px; border-radius:99px; }
+  .seal .badge-word{ font-weight:700; font-size:16px; letter-spacing:.04em; text-transform:uppercase; }
+  .seal .led{ width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber); }
+
+  .meta{ border-left:1px solid var(--line); padding-left:22px; } @media(max-width:820px){ .meta{ border-left:none; border-top:1px solid var(--line); padding-left:0; padding-top:18px; } }
+  .meta .fn{ font-weight:700; font-size:19px; } /* herda a fonte da row */
+  .meta .tag{ font-family:"JetBrains Mono"; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--cyan); margin-top:3px; }
+  .meta .gl{ font-size:13px; line-height:1; margin:14px 0 10px; color:var(--ink-soft); letter-spacing:.01em; }
+  .meta .glyphs{ font-weight:700; font-size:26px; letter-spacing:.02em; color:var(--ink); }
+  .meta .nums{ font-family:"JetBrains Mono"; font-weight:500; font-size:15px; color:var(--ink-soft); margin-top:4px; }
+  .meta .note{ font-size:12.5px; color:var(--ink-soft); margin-top:12px; line-height:1.5; } .meta .note b{ color:var(--ink); font-weight:600; }
+
+  /* fontes por linha */
+  .f-archivo .verdict,.f-archivo .headline,.f-archivo .seal .badge-word,.f-archivo .fn,.f-archivo .glyphs{ font-family:"Archivo"; font-variation-settings:'wdth' 125; }
+  .f-saira .verdict,.f-saira .headline,.f-saira .seal .badge-word,.f-saira .fn,.f-saira .glyphs{ font-family:"Saira"; }
+  .f-bricolage .verdict,.f-bricolage .headline,.f-bricolage .seal .badge-word,.f-bricolage .fn,.f-bricolage .glyphs{ font-family:"Bricolage Grotesque"; }
+  .f-chakra .verdict,.f-chakra .headline,.f-chakra .seal .badge-word,.f-chakra .fn,.f-chakra .glyphs{ font-family:"Chakra Petch"; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="pagehead">
+    <span class="lbl">Estudo tipográfico · face de display</span>
+    <h1>Qual fonte carrega tecnologia + autoridade?</h1>
+    <p>Mesmo cluster-assinatura (veredito · headline · telemetria · selo) em 4 faces. Mono (JetBrains) e prosa (IBM Plex Sans) fixos — só a display muda. Compare o peso institucional do "COMPRA" e a leitura da headline.</p>
+  </div>
+
+  <!-- ARCHIVO EXPANDED -->
+  <div class="row f-archivo pick">
+    <span class="tagpick">Recomendada</span>
+    <div class="sample">
+      <div class="kick">Recomendação</div>
+      <div class="verdict">Compra</div>
+      <div class="headline">A IA que <em>prova</em> antes de prometer.</div>
+      <div class="telem">
+        <div><div class="k">Força</div><div class="v">72<small>/100</small></div></div>
+        <div><div class="k">Confluência</div><div class="v">7<small>/10</small></div></div>
+        <div><div class="k">Backtest</div><div class="v">n=142</div></div>
+      </div>
+      <div class="seal"><span class="led"></span><span class="badge-word">Validado</span></div>
+    </div>
+    <div class="meta">
+      <div class="fn">Archivo Expanded</div>
+      <div class="tag">grotesca industrial · expandida</div>
+      <div class="gl">ABCDEFG abcdefg</div>
+      <div class="glyphs">Aa Gg Rr 1234</div>
+      <div class="nums mono">0123456789 · % +−</div>
+      <div class="note"><b>Autoridade institucional.</b> A largura expandida dá peso de sinalização/placa — comanda sem gritar. Precisa e séria. Minha aposta.</div>
+    </div>
+  </div>
+
+  <!-- SAIRA -->
+  <div class="row f-saira">
+    <div class="sample">
+      <div class="kick">Recomendação</div>
+      <div class="verdict">Compra</div>
+      <div class="headline">A IA que <em>prova</em> antes de prometer.</div>
+      <div class="telem">
+        <div><div class="k">Força</div><div class="v">72<small>/100</small></div></div>
+        <div><div class="k">Confluência</div><div class="v">7<small>/10</small></div></div>
+        <div><div class="k">Backtest</div><div class="v">n=142</div></div>
+      </div>
+      <div class="seal"><span class="led"></span><span class="badge-word">Validado</span></div>
+    </div>
+    <div class="meta">
+      <div class="fn">Saira</div>
+      <div class="tag">squarish · aeroespacial</div>
+      <div class="gl">ABCDEFG abcdefg</div>
+      <div class="glyphs">Aa Gg Rr 1234</div>
+      <div class="nums mono">0123456789 · % +−</div>
+      <div class="note"><b>Instrumento de precisão.</b> Terminais quadrados, vibe NASA/telemetria. A mais "ferramenta técnica" — séria, não gamer como a Chakra.</div>
+    </div>
+  </div>
+
+  <!-- BRICOLAGE -->
+  <div class="row f-bricolage">
+    <div class="sample">
+      <div class="kick">Recomendação</div>
+      <div class="verdict">Compra</div>
+      <div class="headline">A IA que <em>prova</em> antes de prometer.</div>
+      <div class="telem">
+        <div><div class="k">Força</div><div class="v">72<small>/100</small></div></div>
+        <div><div class="k">Confluência</div><div class="v">7<small>/10</small></div></div>
+        <div><div class="k">Backtest</div><div class="v">n=142</div></div>
+      </div>
+      <div class="seal"><span class="led"></span><span class="badge-word">Validado</span></div>
+    </div>
+    <div class="meta">
+      <div class="fn">Bricolage Grotesque</div>
+      <div class="tag">grotesca premium · caráter</div>
+      <div class="gl">ABCDEFG abcdefg</div>
+      <div class="glyphs">Aa Gg Rr 1234</div>
+      <div class="nums mono">0123456789 · % +−</div>
+      <div class="note"><b>Premium-moderna.</b> Mais caráter e calor, vibe produto-de-design. Distinta — risco de ler "startup criativa" em vez de "instituição".</div>
+    </div>
+  </div>
+
+  <!-- CHAKRA (atual) -->
+  <div class="row f-chakra">
+    <div class="sample">
+      <div class="kick">Recomendação</div>
+      <div class="verdict">Compra</div>
+      <div class="headline">A IA que <em>prova</em> antes de prometer.</div>
+      <div class="telem">
+        <div><div class="k">Força</div><div class="v">72<small>/100</small></div></div>
+        <div><div class="k">Confluência</div><div class="v">7<small>/10</small></div></div>
+        <div><div class="k">Backtest</div><div class="v">n=142</div></div>
+      </div>
+      <div class="seal"><span class="led"></span><span class="badge-word">Validado</span></div>
+    </div>
+    <div class="meta">
+      <div class="fn">Chakra Petch</div>
+      <div class="tag">atual · referência</div>
+      <div class="gl">ABCDEFG abcdefg</div>
+      <div class="glyphs">Aa Gg Rr 1234</div>
+      <div class="nums mono">0123456789 · % +−</div>
+      <div class="note"><b>A atual.</b> Tech/HUD, mas os cortes nos terminais puxam pro <b>gamer/sci-fi</b> — é o que rebaixa a autoridade. É o que estamos trocando.</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

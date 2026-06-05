@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TradeAI — Planos e assinatura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62.5..125,400..800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#07090E; --bg-2:#0A0D14; --panel:#0D1119; --panel-2:#0A0E15;
+    --line:rgba(120,160,225,.08); --line-2:rgba(120,170,235,.17); --line-3:rgba(120,170,235,.3);
+    --ink:#E9EFFA; --ink-soft:#93A0B6; --ink-faint:#535F74;
+    --cyan:#54A8FF; --cyan-soft:rgba(84,168,255,.12); --glow:rgba(84,168,255,.5);
+    --amber:#FFB020; --amber-soft:rgba(255,176,32,.12); --bull:#2BD49E; --bull-soft:rgba(43,212,158,.13);
+    --r:6px;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ font-family:"IBM Plex Sans",system-ui,sans-serif; background:var(--bg); color:var(--ink); line-height:1.55; min-height:100vh;
+    background-image:radial-gradient(1100px 620px at 50% -10%, rgba(84,168,255,.10), transparent 60%); background-attachment:fixed; }
+  ::selection{ background:var(--cyan); color:#04060c; } a{ color:inherit; text-decoration:none; }
+  .mono{ font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 24px; }
+
+  .appbar{ position:sticky; top:0; z-index:50; background:rgba(7,9,14,.84); backdrop-filter:blur(10px); border-bottom:1px solid var(--line-2); }
+  .appbar .row{ display:flex; align-items:center; gap:30px; height:60px; }
+  .brand{ display:flex; align-items:center; gap:10px; } .brand svg{ filter:drop-shadow(0 0 7px var(--glow)); }
+  .brand .name{ font-family:"Archivo"; font-variation-settings:'wdth' 125; font-weight:700; font-size:18px; letter-spacing:.04em; text-transform:uppercase; } .brand .name b{ color:var(--cyan); }
+  .nav{ display:flex; gap:6px; } .nav a{ font-size:13.5px; color:var(--ink-soft); padding:8px 13px; border-radius:7px; } .nav a:hover{ color:var(--ink); background:var(--cyan-soft); }
+  @media(max-width:760px){ .nav{ display:none; } }
+  .ab-right{ margin-left:auto; display:flex; align-items:center; gap:12px; }
+  .chip{ font-family:"JetBrains Mono"; font-size:11.5px; padding:7px 12px; border-radius:99px; border:1px solid var(--line-2); color:var(--ink-soft); } .chip .am{ color:var(--amber); } .chip.plan{ color:var(--ink-soft); }
+  .avatar{ width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#1b2a3f,#0f1722); border:1px solid var(--line-2); display:grid; place-items:center; font-family:"Archivo"; font-weight:700; font-size:13px; color:var(--cyan); }
+
+  .head{ text-align:center; padding:42px 0 8px; }
+  .label{ font-family:"JetBrains Mono"; font-size:10px; text-transform:uppercase; letter-spacing:.22em; color:var(--ink-faint); display:inline-flex; align-items:center; gap:9px; } .label::before{ content:""; width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px var(--glow); }
+  .head h1{ font-family:"Archivo"; font-variation-settings:'wdth' 125; font-weight:800; font-size:clamp(30px,4vw,42px); margin:14px 0 10px; }
+  .head p{ color:var(--ink-soft); font-size:15px; }
+  .head .cur{ font-family:"JetBrains Mono"; font-size:12px; color:var(--ink-faint); margin-top:10px; } .head .cur b{ color:var(--ink); }
+
+  /* toggle cobrança */
+  .toggle{ display:inline-flex; align-items:center; gap:4px; margin:24px auto 0; padding:5px; border:1px solid var(--line-2); border-radius:99px; background:var(--bg-2); }
+  .toggle button{ font-family:"JetBrains Mono"; font-size:12px; color:var(--ink-soft); background:none; border:none; padding:9px 18px; border-radius:99px; cursor:pointer; }
+  .toggle button.on{ background:var(--cyan); color:#04060c; font-weight:700; }
+  .toggle .save{ color:var(--bull); font-size:10px; margin-left:3px; }
+
+  .plans{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:start; margin-top:34px; }
+  @media(max-width:860px){ .plans{ grid-template-columns:1fr; max-width:460px; margin:34px auto 0; } }
+  .plan{ border:1px solid var(--line-2); border-radius:12px; padding:28px; background:linear-gradient(180deg,var(--panel),var(--panel-2)); position:relative; }
+  .plan.pro{ border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan-soft), 0 34px 80px -46px var(--glow); }
+  .plan.current{ border-color:var(--line-3); }
+  .tagp{ position:absolute; top:-11px; left:28px; background:var(--cyan); color:#04060c; font-family:"JetBrains Mono"; font-size:9px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; padding:4px 10px; border-radius:99px; }
+  .tagc{ position:absolute; top:-11px; left:28px; background:var(--bg-2); border:1px solid var(--line-3); color:var(--ink-soft); font-family:"JetBrains Mono"; font-size:9px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; padding:4px 10px; border-radius:99px; }
+  .pn{ font-family:"Archivo"; font-variation-settings:'wdth' 125; font-weight:800; font-size:18px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); } .plan.pro .pn{ color:var(--cyan); }
+  .pp{ font-family:"JetBrains Mono"; font-weight:700; font-size:38px; margin:16px 0 2px; } .pp small{ font-size:13px; color:var(--ink-faint); font-weight:400; }
+  .pd{ font-size:13px; color:var(--ink-soft); min-height:40px; }
+  .plan ul{ list-style:none; margin:20px 0 24px; display:flex; flex-direction:column; gap:11px; }
+  .plan li{ font-size:13px; color:var(--ink-soft); display:flex; gap:9px; } .plan li .c{ color:var(--bull); font-family:"JetBrains Mono"; flex:none; } .plan li.off{ color:var(--ink-faint); } .plan li.off .c{ color:var(--ink-faint); }
+  .pbtn{ width:100%; text-align:center; font-family:"JetBrains Mono"; font-size:13px; font-weight:700; padding:13px; border-radius:8px; border:1px solid var(--line-2); color:var(--ink); cursor:pointer; transition:.18s; background:transparent; }
+  .pbtn:hover{ border-color:var(--line-3); }
+  .pbtn.primary{ background:var(--cyan); color:#04060c; border-color:var(--cyan); } .pbtn.primary:hover{ box-shadow:0 8px 26px -8px var(--glow); }
+  .pbtn.ghost{ color:var(--ink-faint); cursor:default; }
+
+  .assurance{ display:flex; justify-content:center; gap:26px; flex-wrap:wrap; margin:34px 0 70px; font-family:"JetBrains Mono"; font-size:11.5px; color:var(--ink-faint); }
+  .assurance span{ display:flex; align-items:center; gap:8px; } .assurance .c{ color:var(--bull); }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="wrap row">
+    <div class="brand"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="2" y="2" width="24" height="24" rx="6" stroke="#54A8FF" stroke-width="1.5"/><path d="M6 19 L11 12 L15 16 L22 7" stroke="#54A8FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22" cy="7" r="2" fill="#2BD49E"/></svg><span class="name">Trade<b>AI</b></span></div>
+    <nav class="nav"><a href="#">Dashboard</a><a href="#">Análise</a><a href="#">Histórico</a><a href="#">Alertas</a></nav>
+    <div class="ab-right"><span class="chip"><b class="am">3</b> créditos</span><span class="chip plan">Free</span><span class="avatar">JH</span></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="head">
+    <span class="label">Planos e assinatura</span>
+    <h1>Escolha quanto rigor você quer.</h1>
+    <p>Sem fidelidade. Cancele quando quiser. Faça upgrade quando o motor já tiver provado o valor.</p>
+    <div class="cur">Plano atual: <b>Free</b> · 3 análises vitalícias · 3 restantes</div>
+    <div class="toggle"><button>Mensal</button><button class="on">Anual <span class="save">−20%</span></button></div>
+  </div>
+
+  <div class="plans">
+    <!-- FREE (atual) -->
+    <div class="plan current">
+      <span class="tagc">Plano atual</span>
+      <div class="pn">Free</div>
+      <div class="pp mono">R$0<small>/sempre</small></div>
+      <div class="pd">Para conhecer o motor e o padrão de honestidade.</div>
+      <ul>
+        <li><span class="c">✓</span> 3 análises completas vitalícias</li>
+        <li><span class="c">✓</span> Dashboard de preços ao vivo</li>
+        <li><span class="c">✓</span> Selo de qualidade em toda análise</li>
+        <li class="off"><span class="c">✕</span> Alertas no Telegram</li>
+        <li class="off"><span class="c">✕</span> Histórico completo</li>
+      </ul>
+      <button class="pbtn ghost">Seu plano</button>
+    </div>
+
+    <!-- PRO -->
+    <div class="plan pro">
+      <span class="tagp">Recomendado</span>
+      <div class="pn">Pro</div>
+      <div class="pp mono">R$77<small>/mês · anual</small></div>
+      <div class="pd">Para quem opera com frequência e quer o motor completo.</div>
+      <ul>
+        <li><span class="c">✓</span> Análises <b style="color:var(--ink)">ilimitadas</b> · 143 ativos</li>
+        <li><span class="c">✓</span> 15 camadas + Monte Carlo + backtest</li>
+        <li><span class="c">✓</span> Alertas no Telegram</li>
+        <li><span class="c">✓</span> Histórico completo + exportação</li>
+        <li><span class="c">✓</span> Modo Simples × Avançado</li>
+      </ul>
+      <button class="pbtn primary">Fazer upgrade →</button>
+    </div>
+
+    <!-- PRO+ -->
+    <div class="plan">
+      <div class="pn">Pro+</div>
+      <div class="pp mono">R$157<small>/mês · anual</small></div>
+      <div class="pd">Para o trader avançado e profissional.</div>
+      <ul>
+        <li><span class="c">✓</span> Tudo do PRO</li>
+        <li><span class="c">✓</span> Backtest segmentado por regime</li>
+        <li><span class="c">✓</span> Alertas multi-ativo prioritários</li>
+        <li><span class="c">✓</span> API de análise (em breve)</li>
+        <li><span class="c">✓</span> Suporte dedicado</li>
+      </ul>
+      <button class="pbtn">Assinar o PRO+</button>
+    </div>
+  </div>
+
+  <div class="assurance">
+    <span><span class="c">✓</span> Cancele a qualquer momento</span>
+    <span><span class="c">✓</span> Pagamento seguro</span>
+    <span><span class="c">✓</span> Algoritmos auditáveis</span>
+    <span><span class="c">✓</span> Sem recomendação personalizada · conteúdo informativo</span>
+  </div>
+</div>
+</body>
+</html>

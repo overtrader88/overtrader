@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TradeAI · OBSIDIAN — BTCUSDT 4H</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     TradeAI — "OBSIDIAN"
+     Motor computacional avançado / readout HUD aeroespacial.
+     Obsidiana profunda + azul-elétrico frio. Grade de coordenadas,
+     retículas, traços de sinal. Tecnologia = engine de ponta.
+     ============================================================ */
+  :root{
+    --bg:        #06080E;
+    --bg-2:      #090C15;
+    --panel:     #0C1019;
+    --panel-2:   #0A0D15;
+    --line:      rgba(120,160,225,.09);
+    --line-2:    rgba(120,170,235,.20);
+    --ink:       #E9F0FB;
+    --ink-soft:  #92A0B8;
+    --ink-faint: #515E76;
+    --cyan:      #54A8FF;
+    --cyan-2:    #2C6FE0;
+    --cyan-soft: rgba(84,168,255,.12);
+    --glow:      rgba(84,168,255,.55);
+    --bull:      #2BD49E;
+    --bull-soft: rgba(43,212,158,.14);
+    --bear:      #FF6B8A;
+    --bear-soft: rgba(255,107,138,.14);
+    --r:         5px;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+  ::selection{ background:var(--cyan); color:#04060c; }
+
+  body{
+    font-family:"Sora", system-ui, sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.55;
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+    background-image:
+      radial-gradient(900px 520px at 18% -6%, rgba(84,168,255,.10), transparent 62%),
+      radial-gradient(820px 600px at 96% 8%, rgba(43,212,158,.06), transparent 60%),
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: auto, auto, 52px 52px, 52px 52px;
+  }
+  /* crosshair de fundo */
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:
+      linear-gradient(90deg, transparent calc(50% - .5px), var(--line-2) 50%, transparent calc(50% + .5px)),
+      linear-gradient(0deg, transparent calc(50% - .5px), var(--line-2) 50%, transparent calc(50% + .5px));
+    opacity:.25;
+  }
+
+  .mono{ font-family:"JetBrains Mono", monospace; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+  .tech{ font-family:"Chakra Petch", sans-serif; }
+
+  .wrap{ max-width:1220px; margin:0 auto; padding:26px 24px 96px; position:relative; z-index:1; }
+
+  @keyframes rise{ from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:none;} }
+  .rise{ opacity:0; animation:rise .6s cubic-bezier(.2,.7,.2,1) forwards; }
+  .d1{animation-delay:.03s}.d2{animation-delay:.1s}.d3{animation-delay:.17s}.d4{animation-delay:.24s}
+  .d5{animation-delay:.31s}.d6{animation-delay:.38s}.d7{animation-delay:.45s}
+
+  /* ---------- nav ---------- */
+  .nav{ display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:28px; }
+  .brand{ display:flex; align-items:center; gap:13px; }
+  .brand .mark{ width:36px; height:36px; position:relative; flex:none; }
+  .brand .mark svg{ display:block; filter:drop-shadow(0 0 7px var(--glow)); }
+  .brand .name{ font-family:"Chakra Petch"; font-weight:700; font-size:20px; letter-spacing:.06em; text-transform:uppercase; }
+  .brand .name b{ color:var(--cyan); }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; font-family:"JetBrains Mono"; font-size:11px; }
+  .chip{ padding:6px 11px; border:1px solid var(--line-2); border-radius:99px; color:var(--ink-soft); background:var(--panel); }
+  .chip b{ color:var(--ink); font-weight:500; }
+  .chip.live{ color:var(--bull); border-color:rgba(43,212,158,.4); }
+  .chip.live .d{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--bull); margin-right:6px; box-shadow:0 0 8px var(--bull); animation:pulse 2s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .assetline{ display:flex; align-items:baseline; gap:16px; margin-bottom:22px; flex-wrap:wrap; }
+  .assetline .sym{ font-family:"Chakra Petch"; font-weight:700; font-size:34px; letter-spacing:.02em; }
+  .assetline .tf{ font-family:"JetBrains Mono"; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--cyan); border:1px solid var(--line-2); padding:4px 11px; border-radius:99px; }
+  .assetline .meta{ font-family:"JetBrains Mono"; font-size:12px; color:var(--ink-soft); margin-left:auto; }
+  .assetline .meta b{ color:var(--cyan); }
+
+  /* ---------- panel HUD ---------- */
+  .grid{ display:grid; gap:16px; }
+  .c-2{ grid-template-columns:1.42fr 1fr; }
+  .c-2b{ grid-template-columns:1fr 1fr; }
+  @media(max-width:900px){ .c-2,.c-2b{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid var(--line-2);
+    border-radius:var(--r);
+    padding:22px 24px;
+    position:relative;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 18px 40px -28px rgba(0,0,0,.9);
+  }
+  /* brackets de canto HUD */
+  .panel > .cn{ position:absolute; width:12px; height:12px; pointer-events:none; }
+  .panel > .cn.tl{ top:-1px; left:-1px; border-top:1.5px solid var(--cyan); border-left:1.5px solid var(--cyan); border-top-left-radius:var(--r); }
+  .panel > .cn.tr{ top:-1px; right:-1px; border-top:1.5px solid var(--cyan); border-right:1.5px solid var(--cyan); border-top-right-radius:var(--r); }
+  .panel > .cn.bl{ bottom:-1px; left:-1px; border-bottom:1.5px solid var(--cyan); border-left:1.5px solid var(--cyan); border-bottom-left-radius:var(--r); }
+  .panel > .cn.br{ bottom:-1px; right:-1px; border-bottom:1.5px solid var(--cyan); border-right:1.5px solid var(--cyan); border-bottom-right-radius:var(--r); }
+
+  .label{ font-family:"JetBrains Mono"; font-size:10px; text-transform:uppercase; letter-spacing:.22em; color:var(--ink-faint); display:flex; align-items:center; gap:9px; margin-bottom:16px; }
+  .label::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--cyan); box-shadow:0 0 9px var(--glow); flex:none; }
+  .label .tail{ flex:1; height:1px; background:linear-gradient(90deg, var(--line-2), transparent); }
+
+  /* ---------- veredito ---------- */
+  .hero{ display:grid; grid-template-columns:1fr auto; gap:30px; align-items:center; }
+  @media(max-width:680px){ .hero{ grid-template-columns:1fr; } }
+  .verdict .kick{ font-family:"JetBrains Mono"; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-soft); }
+  .verdict .big{
+    font-family:"Chakra Petch"; font-weight:700; font-size:clamp(56px,9vw,104px);
+    line-height:.92; letter-spacing:.01em; text-transform:uppercase; color:var(--bull);
+    text-shadow:0 0 40px rgba(43,212,158,.4); margin:2px 0 2px;
+  }
+  .verdict .sub{ font-size:14px; color:var(--ink-soft); max-width:46ch; }
+
+  /* gauge radial luminoso */
+  .gauge{ position:relative; width:184px; height:184px; flex:none; }
+  .gauge svg{ transform:rotate(-90deg); overflow:visible; }
+  .gauge .bg{ fill:none; stroke:rgba(120,160,225,.12); stroke-width:9; }
+  .gauge .fg{ fill:none; stroke:url(#gg); stroke-width:9; stroke-linecap:round;
+    stroke-dasharray:var(--c); stroke-dashoffset:var(--c); transition:stroke-dashoffset 1.5s cubic-bezier(.2,.7,.2,1);
+    filter:drop-shadow(0 0 8px var(--glow)); }
+  .gauge .ctr{ position:absolute; inset:0; display:grid; place-items:center; text-align:center; }
+  .gauge .ctr .n{ font-family:"JetBrains Mono"; font-weight:700; font-size:46px; line-height:1; }
+  .gauge .ctr .n small{ font-size:15px; color:var(--ink-faint); }
+  .gauge .ctr .t{ font-family:"JetBrains Mono"; font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan); margin-top:5px; }
+
+  .telem{ display:flex; gap:30px; margin-top:24px; flex-wrap:wrap; }
+  .telem .cell .k{ font-family:"JetBrains Mono"; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); }
+  .telem .cell .v{ font-family:"JetBrains Mono"; font-weight:700; font-size:24px; margin-top:5px; }
+  .telem .cell .v .b{ color:var(--bull); } .telem .cell .v .n{ color:var(--ink-soft); } .telem .cell .v .s{ color:var(--bear); }
+  .telem .cell .v small{ font-size:13px; color:var(--ink-faint); font-weight:400; }
+
+  /* ---------- selo ---------- */
+  .seal .row1{ display:flex; align-items:center; gap:13px; margin-bottom:16px; }
+  .seal .led{ width:14px; height:14px; border-radius:50%; background:var(--bull); box-shadow:0 0 0 4px var(--bull-soft), 0 0 18px var(--bull); }
+  .seal .lbl{ font-family:"Chakra Petch"; font-weight:700; font-size:24px; letter-spacing:.05em; text-transform:uppercase; color:var(--bull); }
+  .seal .lbl small{ display:block; font-family:"JetBrains Mono"; font-size:9.5px; letter-spacing:.14em; color:var(--ink-faint); font-weight:400; }
+  .chk{ display:flex; align-items:center; gap:10px; font-family:"JetBrains Mono"; font-size:11.5px; color:var(--ink-soft); padding:8px 0; border-bottom:1px solid var(--line); }
+  .chk:last-of-type{ border-bottom:none; }
+  .chk .i{ color:var(--bull); } .chk b{ color:var(--ink); font-weight:500; } .chk .v{ margin-left:auto; color:var(--ink-faint); }
+  .seal-note{ font-size:11px; color:var(--ink-faint); line-height:1.55; margin-top:12px; }
+  .seal-note b{ color:var(--ink-soft); font-weight:600; }
+
+  /* ---------- níveis ---------- */
+  .levels{ display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+  @media(max-width:620px){ .levels{ grid-template-columns:repeat(2,1fr); } }
+  .lv{ padding:15px 14px; border:1px solid var(--line-2); border-radius:var(--r); background:var(--bg-2); position:relative; overflow:hidden; }
+  .lv::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:2px; }
+  .lv .k{ font-family:"JetBrains Mono"; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-faint); }
+  .lv .p{ font-family:"JetBrains Mono"; font-weight:700; font-size:20px; margin-top:7px; }
+  .lv .r{ font-family:"JetBrains Mono"; font-size:10.5px; color:var(--ink-faint); margin-top:4px; }
+  .lv.entry::after{ background:var(--cyan); box-shadow:0 0 12px var(--glow); } .lv.entry .p{ color:var(--ink); }
+  .lv.sl::after{ background:var(--bear); } .lv.sl .p{ color:var(--bear); }
+  .lv.tp::after{ background:var(--bull); } .lv.tp .p{ color:var(--bull); }
+
+  /* ---------- CI ---------- */
+  .ci{ --min:0;--max:100;--lo:0;--hi:100;--v:50; padding:14px 0; border-bottom:1px solid var(--line); }
+  .ci:last-child{ border-bottom:none; padding-bottom:2px; }
+  .ci .top{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:13px; }
+  .ci .nm{ font-family:"JetBrains Mono"; font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--ink-soft); }
+  .ci .pt{ font-family:"JetBrains Mono"; font-weight:700; font-size:22px; }
+  .ci.pos .pt{ color:var(--bull); } .ci.neg .pt{ color:var(--bear); }
+  .ci .scale{ position:relative; height:26px; }
+  .ci .axis{ position:absolute; left:0; right:0; top:50%; height:1px; background:var(--line-2); }
+  .ci .band{ position:absolute; top:50%; transform:translateY(-50%); height:8px; border-radius:99px;
+    background:var(--bull-soft); border:1px solid var(--bull); box-shadow:0 0 14px var(--bull-soft);
+    left:calc((var(--lo) - var(--min))/(var(--max) - var(--min))*100%);
+    width:calc((var(--hi) - var(--lo))/(var(--max) - var(--min))*100%); }
+  .ci.neg .band{ background:var(--bear-soft); border-color:var(--bear); }
+  .ci .ret{ position:absolute; top:50%; width:13px; height:13px; transform:translate(-50%,-50%);
+    left:calc((var(--v) - var(--min))/(var(--max) - var(--min))*100%); }
+  .ci .ret::before,.ci .ret::after{ content:""; position:absolute; background:var(--ink); }
+  .ci .ret::before{ left:50%; top:0; bottom:0; width:1.5px; transform:translateX(-50%); }
+  .ci .ret::after{ top:50%; left:0; right:0; height:1.5px; transform:translateY(-50%); }
+  .ci .dot{ position:absolute; top:50%; left:calc((var(--v) - var(--min))/(var(--max) - var(--min))*100%); width:7px; height:7px; border-radius:50%; background:var(--cyan); transform:translate(-50%,-50%); box-shadow:0 0 10px var(--glow); z-index:2; }
+  .ci .foot{ display:flex; justify-content:space-between; font-family:"JetBrains Mono"; font-size:10px; color:var(--ink-faint); margin-top:9px; }
+  .ci .foot b{ color:var(--ink-soft); font-weight:500; }
+
+  .outcomes{ display:flex; gap:3px; margin-top:18px; height:30px; }
+  .outcomes .seg{ border-radius:3px; display:grid; place-items:center; font-family:"JetBrains Mono"; font-size:10px; font-weight:700; color:#05070d; }
+  .outcomes .seg.tp{ background:var(--bull); } .outcomes .seg.be{ background:var(--ink-faint); }
+  .outcomes .seg.sl{ background:var(--bear); } .outcomes .seg.exp{ background:var(--line-2); color:var(--ink-faint); }
+
+  /* ---------- RSI radial pequeno ---------- */
+  .rsi-wrap{ display:flex; align-items:center; gap:24px; }
+  .rsi-g{ position:relative; width:128px; height:128px; flex:none; }
+  .rsi-g svg{ transform:rotate(-90deg); overflow:visible; }
+  .rsi-g .bg{ fill:none; stroke:rgba(120,160,225,.12); stroke-width:10; }
+  .rsi-g .fg{ fill:none; stroke:var(--cyan); stroke-width:10; stroke-linecap:round; stroke-dasharray:var(--c); stroke-dashoffset:var(--c); transition:stroke-dashoffset 1.4s cubic-bezier(.2,.7,.2,1); filter:drop-shadow(0 0 7px var(--glow)); }
+  .rsi-g .ctr{ position:absolute; inset:0; display:grid; place-items:center; text-align:center; }
+  .rsi-g .ctr .n{ font-family:"JetBrains Mono"; font-weight:700; font-size:28px; } .rsi-g .ctr .t{ font-family:"JetBrains Mono"; font-size:8.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-faint); }
+  .confirm{ display:flex; flex-direction:column; gap:9px; }
+  .confirm .row{ display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--ink-soft); }
+  .confirm .row .s{ color:var(--bull); font-family:"JetBrains Mono"; }
+  .confirm .row b{ color:var(--ink); font-weight:500; }
+
+  /* ---------- cone ---------- */
+  .cone{ position:relative; height:92px; margin-top:6px; border:1px solid var(--line); border-radius:var(--r);
+    background:repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), var(--line) calc(10% - 1px) 10%); }
+  .cone .band{ position:absolute; top:24px; height:44px; border-radius:4px;
+    background:linear-gradient(90deg, rgba(255,107,138,.16), rgba(84,168,255,.16), rgba(43,212,158,.22));
+    border:1px solid var(--line-2); left:var(--p10); right:var(--p90r); box-shadow:0 0 26px rgba(84,168,255,.12); }
+  .cone .med{ position:absolute; top:8px; bottom:8px; width:2px; background:var(--ink); left:var(--p50); }
+  .cone .now{ position:absolute; top:4px; bottom:4px; width:2px; background:var(--cyan); left:var(--cur); box-shadow:0 0 12px var(--glow); }
+  .cone .pin{ position:absolute; font-family:"JetBrains Mono"; font-size:10px; color:var(--ink-soft); transform:translateX(-50%); white-space:nowrap; }
+  .cone .pin.t{ top:4px; } .cone .pin.b{ bottom:4px; }
+  .mc-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:18px; }
+  @media(max-width:560px){ .mc-stats{ grid-template-columns:repeat(2,1fr); } }
+  .mc-stats .s .k{ font-family:"JetBrains Mono"; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-faint); }
+  .mc-stats .s .v{ font-family:"JetBrains Mono"; font-weight:700; font-size:18px; margin-top:5px; }
+  .mc-stats .s .v em{ font-style:normal; font-size:10px; color:var(--ink-faint); }
+
+  /* ---------- cenários ---------- */
+  .scen{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media(max-width:560px){ .scen{ grid-template-columns:1fr; } }
+  .side{ border:1px solid var(--line-2); border-radius:var(--r); padding:17px; background:var(--bg-2); position:relative; }
+  .side.reco{ border-color:var(--bull); box-shadow:0 0 0 1px var(--bull-soft), 0 0 30px -8px var(--bull-soft); }
+  .side .h{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px; }
+  .side .h .t{ font-family:"Chakra Petch"; font-weight:700; font-size:20px; text-transform:uppercase; letter-spacing:.03em; }
+  .side.buy .h .t{ color:var(--bull); } .side.sell .h .t{ color:var(--bear); }
+  .side .er{ font-family:"JetBrains Mono"; font-weight:700; font-size:13px; }
+  .side.buy .er{ color:var(--bull); } .side.sell .er{ color:var(--bear); }
+  .tag-reco{ position:absolute; top:-9px; right:13px; background:var(--bull); color:#04060c; font-family:"JetBrains Mono"; font-size:9px; letter-spacing:.13em; text-transform:uppercase; font-weight:700; padding:3px 9px; border-radius:99px; }
+  .prob{ margin-bottom:11px; }
+  .prob .pl{ display:flex; justify-content:space-between; font-family:"JetBrains Mono"; font-size:11px; color:var(--ink-soft); margin-bottom:4px; }
+  .prob .pl .ci-in{ color:var(--ink-faint); }
+  .pbar{ position:relative; height:6px; background:var(--panel); border:1px solid var(--line); border-radius:99px; overflow:hidden; }
+  .pbar .pf{ position:absolute; inset:0 auto 0 0; } .side.buy .pbar .pf{ background:var(--bull); box-shadow:0 0 10px var(--bull-soft); } .side.sell .pbar .pf{ background:var(--bear); }
+  .pbar .rng{ position:absolute; top:-2px; bottom:-2px; border-left:1px solid var(--ink-soft); border-right:1px solid var(--ink-soft); background:rgba(255,255,255,.05); }
+
+  .note{ font-size:12.5px; color:var(--ink-faint); line-height:1.6; margin-top:15px; }
+  .note b{ color:var(--ink-soft); font-weight:600; }
+
+  footer{ margin-top:38px; padding-top:18px; border-top:1px solid var(--line-2); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font-family:"JetBrains Mono"; font-size:10.5px; color:var(--ink-faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- NAV -->
+  <nav class="nav rise d1">
+    <div class="brand">
+      <div class="mark">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+          <rect x="2" y="2" width="32" height="32" rx="7" stroke="#54A8FF" stroke-width="1.5"/>
+          <path d="M7 23 L14 16 L19 20 L29 9" stroke="#54A8FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="29" cy="9" r="2.4" fill="#2BD49E"/>
+        </svg>
+      </div>
+      <div class="name">Trade<b>AI</b></div>
+    </div>
+    <div class="chips">
+      <span class="chip live"><span class="d"></span>LIVE</span>
+      <span class="chip">ENGINE <b>v2.0.0-m2</b></span>
+      <span class="chip">SEED <b>0x9f3a</b></span>
+    </div>
+  </nav>
+
+  <!-- ASSET LINE -->
+  <div class="assetline rise d1">
+    <span class="sym tech">BTCUSDT</span>
+    <span class="tf">4 horas</span>
+    <span class="meta">Regime <b>TENDÊNCIA</b> · ADX 31.2 · gerado 03 jun 2026 · 16:00 UTC</span>
+  </div>
+
+  <!-- HERO: VEREDITO + GAUGE -->
+  <section class="panel rise d2">
+    <span class="cn tl"></span><span class="cn tr"></span><span class="cn bl"></span><span class="cn br"></span>
+    <div class="label">SINAL FINAL · 20 INDICADORES <span class="tail"></span></div>
+    <div class="hero">
+      <div class="verdict">
+        <div class="kick">Recomendação</div>
+        <div class="big">COMPRA</div>
+        <div class="sub">Confluência compradora consistente em mercado de tendência. 4 dos 8 gates de qualidade com ressalva — execute com o plano operacional abaixo.</div>
+        <div class="telem">
+          <div class="cell"><div class="k">Confluência</div><div class="v">7<small>/10</small></div></div>
+          <div class="cell"><div class="k">Votos B·N·S</div><div class="v"><span class="b">12</span><span class="n">·5·</span><span class="s">3</span></div></div>
+          <div class="cell"><div class="k">R:R (TP1)</div><div class="v">1.5</div></div>
+        </div>
+      </div>
+      <div class="gauge">
+        <svg width="184" height="184" viewBox="0 0 184 184">
+          <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#2BD49E"/><stop offset="1" stop-color="#54A8FF"/>
+          </linearGradient></defs>
+          <circle class="bg" cx="92" cy="92" r="78"/>
+          <circle class="fg" id="gFg" cx="92" cy="92" r="78"/>
+        </svg>
+        <div class="ctr"><div><div class="n mono"><span id="gN">0</span><small>/100</small></div><div class="t">Força do sinal</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SELO + NÍVEIS -->
+  <div class="grid c-2" style="margin-top:16px">
+    <section class="panel rise d3">
+      <span class="cn tl"></span><span class="cn tr"></span><span class="cn bl"></span><span class="cn br"></span>
+      <div class="label">PLANO OPERACIONAL · NÍVEIS POR ATR <span class="tail"></span></div>
+      <div class="levels">
+        <div class="lv entry"><div class="k">Entrada</div><div class="p">67.420</div><div class="r">agora</div></div>
+        <div class="lv sl"><div class="k">Stop</div><div class="p">66.180</div><div class="r">−1.2 ATR</div></div>
+        <div class="lv tp"><div class="k">Alvo 1</div><div class="p">69.280</div><div class="r">R 1.5</div></div>
+        <div class="lv tp"><div class="k">Alvo 2</div><div class="p">71.140</div><div class="r">R 3.0</div></div>
+        <div class="lv tp"><div class="k">Alvo 3</div><div class="p">73.000</div><div class="r">R 4.5</div></div>
+      </div>
+      <div class="note" style="margin-top:18px">Stop e alvos derivados de múltiplos de ATR e estrutura — não de números redondos. Realize parcial no TP1 e mova o stop para o break-even.</div>
+    </section>
+
+    <section class="panel rise d3">
+      <span class="cn tl"></span><span class="cn tr"></span><span class="cn bl"></span><span class="cn br"></span>
+      <div class="label">SELO DE QUALIDADE <span class="tail"></span></div>
+      <div class="seal">
+        <div class="row1"><span class="led"></span><span class="lbl">VALIDADO<small>SELO VERDE · BACKTEST n=142</small></span></div>
+        <div class="chk"><span class="i">▸</span> PF lower-CI <b>1.42</b> <span class="v">≥ 1.50 ⚠</span></div>
+        <div class="chk"><span class="i">▸</span> Win rate lower-CI <b>48.3%</b> <span class="v">≈ 50% ⚠</span></div>
+        <div class="chk"><span class="i">▸</span> Amostra <b>n=142</b> <span class="v">≥ 100 ✓</span></div>
+        <div class="chk"><span class="i">▸</span> Out-of-sample <b>robusto</b> <span class="v">✓</span></div>
+        <div class="seal-note">Verde só quando o <b>limite inferior do IC</b> supera o limiar — nunca sobre amostra pequena. "Prova antes de prometer", medido.</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- BACKTEST + RSI -->
+  <div class="grid c-2 rise d4" style="margin-top:16px">
+    <section class="panel">
+      <span class="cn tl"></span><span class="cn tr"></span><span class="cn bl"></span><span class="cn br"></span>
+      <div class="label">BACKTEST PÚBLICO · 142 TRADES · JAN/24–MAI/26 · WALK-FORWARD <span class="tail"></span></div>
+
+      <div class="ci pos" style="--min:0;--max:3.5;--lo:1.42;--hi:2.51;--v:1.89">
+        <div class="top"><span class="nm">Profit factor</span><span class="pt">1.89</span></div>
+        <div class="scale"><div class="axis"></div><div class="band"></div><div class="ret"></div><div class="dot"></div></div>
+        <div class="foot"><span>IC 95% <b>1.42 — 2.51</b></span><span>n=142 · bootstrap</span></div>
+      </div>
+      <div class="ci pos" style="--min:0;--max:100;--lo:48.3;--hi:64.9;--v:56.8">
+        <div class="top"><span class="nm">Win rate</span><span class="pt">56.8%</span></div>
+        <div class="scale"><div class="axis"></div><div class="band"></div><div class="ret"></div><div class="dot"></div></div>
+        <div class="foot"><span>IC 95% <b>48.3% — 64.9%</b></span><span>n=142 · Wilson</span></div>
+      </div>
+      <div class="ci pos" style="--min:-1;--max:1.5;--lo:0.12;--hi:0.56;--v:0.34">
+        <div class="top"><span class="nm">R médio / trade</span><span class="pt">+0.34</span></div>
+        <div class="scale"><div class="axis"></div><div class="band"></div><div class="ret"></div><div class="dot"></div></div>
+        <div class="foot"><span>IC 95% <b>+0.12 — +0.56</b></span><span>n=142 · t-Student</span></div>
+      </div>
+
+      <div class="outcomes">
+        <div class="seg tp" style="flex:0 0 56.8%">TP 57%</div>
+        <div class="seg be" style="flex:0 0 9%">BE</div>
+        <div class="seg sl" style="flex:0 0 28%">SL 28%</div>
+        <div class="seg exp" style="flex:0 0 6.2%">EXP</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <span class="cn tl"></span><span class="cn tr"></span><span class="cn bl"></span><span class="cn br"></span>
+      <div class="label">MOMENTUM · RSI(14) <span class="tail"></span></div>
+      <div class="rsi-wrap">
+        <div class="rsi-g">
+          <svg width="128" height="128" viewBox="0 0 128 128">
+            <circle class="bg" cx="64" cy="64" r="54"/>
+            <circle class="fg" id="rsiFg" cx="64" cy="64" r="54"/>
+          </svg>
+          <div class="ctr"><div><div class="n mono">58.3</div><div class="t">neutro-alto</div></div></div>
+        </div>
+        <div class="confirm">
+          <div class="row"><span class="s">▸</span> EMA200 <b>abaixo do preço</b></div>
+          <div class="row"><span class="s">▸</span> MACD histograma <b>positivo</b></div>
+          <div class="row"><span class="s">▸</span> ADX <b>31.2</b> · tendência</div>
+          <div class="row"><span class="s">▸</span> OBV inclinação <b>+8.4%</b></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- MONTE CARLO -->
+  <section class="panel rise d5" style="margin-top:16px">
+    <span class="cn tl"></span><span class="cn tr"></span><span class="cn bl"></span><span class="cn br"></span>
+    <div class="label">MONTE CARLO · 5.000 TRAJETÓRIAS · 20 CANDLES À FRENTE <span class="tail"></span></div>
+    <div class="cone">
+      <span class="pin t" style="left:31%; color:var(--cyan)">AGORA 67.420</span>
+      <div class="band" style="--p10:8%; --p90r:6%"></div>
+      <div class="now" style="--cur:31%"></div>
+      <div class="med" style="--p50:46%"></div>
+      <span class="pin b" style="left:8%">P10 · 64.980</span>
+      <span class="pin b" style="left:46%">MEDIANA · 67.910</span>
+      <span class="pin b" style="left:92%">P90 · 71.260</span>
+    </div>
+    <div class="mc-stats">
+      <div class="s"><div class="k">Prob. de alta</div><div class="v" style="color:var(--bull)">58.2% <em>[55.1–61.2]</em></div></div>
+      <div class="s"><div class="k">Vol. anualizada</div><div class="v">47.3%</div></div>
+      <div class="s"><div class="k">Drift / passo</div><div class="v">+0.06%</div></div>
+      <div class="s"><div class="k">Amostra</div><div class="v">n=5.000</div></div>
+    </div>
+  </section>
+
+  <!-- CENÁRIOS -->
+  <section class="panel rise d6" style="margin-top:16px">
+    <span class="cn tl"></span><span class="cn tr"></span><span class="cn bl"></span><span class="cn br"></span>
+    <div class="label">CENÁRIOS COMPRA × VENDA · PROBABILIDADE POR FIRST-PASSAGE <span class="tail"></span></div>
+    <div class="scen">
+      <div class="side buy reco">
+        <span class="tag-reco">Recomendado</span>
+        <div class="h"><span class="t">Compra</span><span class="er">R esperado +0.41</span></div>
+        <div class="prob"><div class="pl"><span>TP1</span><span>62% <span class="ci-in">[60–64]</span></span></div><div class="pbar"><div class="pf" style="width:62%"></div><div class="rng" style="left:60%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>TP2</span><span>31% <span class="ci-in">[29–33]</span></span></div><div class="pbar"><div class="pf" style="width:31%"></div><div class="rng" style="left:29%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>TP3</span><span>14% <span class="ci-in">[12–16]</span></span></div><div class="pbar"><div class="pf" style="width:14%"></div><div class="rng" style="left:12%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>Stop antes do TP1</span><span>33% <span class="ci-in">[31–35]</span></span></div><div class="pbar"><div class="pf" style="width:33%;background:var(--bear)"></div></div></div>
+      </div>
+      <div class="side sell">
+        <div class="h"><span class="t">Venda</span><span class="er">R esperado +0.12</span></div>
+        <div class="prob"><div class="pl"><span>TP1</span><span>48% <span class="ci-in">[46–50]</span></span></div><div class="pbar"><div class="pf" style="width:48%"></div><div class="rng" style="left:46%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>TP2</span><span>22% <span class="ci-in">[20–24]</span></span></div><div class="pbar"><div class="pf" style="width:22%"></div><div class="rng" style="left:20%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>TP3</span><span>9% <span class="ci-in">[7–11]</span></span></div><div class="pbar"><div class="pf" style="width:9%"></div><div class="rng" style="left:7%;width:4%"></div></div></div>
+        <div class="prob"><div class="pl"><span>Stop antes do TP1</span><span>45% <span class="ci-in">[43–47]</span></span></div><div class="pbar"><div class="pf" style="width:45%;background:var(--bear)"></div></div></div>
+      </div>
+    </div>
+    <div class="note">Probabilidades estimadas contando trajetórias simuladas que tocam cada nível <b>antes</b> do stop — não por fórmula fechada. <b>Compra</b> recomendada pelo maior R esperado (vantagem de <b>+0.29 R</b>).</div>
+  </section>
+
+  <footer>
+    <span>CONTEÚDO INFORMATIVO · NÃO CONSTITUI RECOMENDAÇÃO PERSONALIZADA DE INVESTIMENTO</span>
+    <span>ENGINE v2.0.0-m2 · REGIME: TRENDING · SEED 0x9f3a</span>
+  </footer>
+</div>
+
+<script>
+  (function(){
+    var R=78, C=2*Math.PI*R, fg=document.getElementById('gFg');
+    fg.style.setProperty('--c', C);
+    var R2=54, C2=2*Math.PI*R2, rsi=document.getElementById('rsiFg');
+    rsi.style.setProperty('--c', C2);
+    var target=72, num=document.getElementById('gN');
+    setTimeout(function(){
+      fg.style.strokeDashoffset = C*(1-target/100);
+      rsi.style.strokeDashoffset = C2*(1-58.3/100);
+    }, 240);
+    var t0=performance.now();
+    (function tick(t){ var k=Math.min(1,(t-t0)/1400); var e=1-Math.pow(1-k,3);
+      num.textContent=Math.round(e*target); if(k<1) requestAnimationFrame(tick); })(t0);
+  })();
+</script>
+</body>
+</html>

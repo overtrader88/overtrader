@@ -1,0 +1,13 @@
+<svg width="400" height="80" viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icon -->
+  <rect x="0" y="8" width="64" height="64" rx="12" fill="#185FA5"/>
+  <polyline points="10,54 22,36 32,44 46,22" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <line x1="46" y1="22" x2="54" y2="22" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="46" y1="22" x2="46" y2="30" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="32" cy="62" r="4" fill="white" opacity="0.35"/>
+  <!-- Wordmark -->
+  <text x="80" y="52" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="34" font-weight="800" fill="#FAFAFA" letter-spacing="-0.5">Overtrader</text>
+  <!-- IA badge -->
+  <rect x="325" y="30" width="36" height="22" rx="5" fill="rgba(55,138,221,0.2)" stroke="rgba(55,138,221,0.4)" stroke-width="1"/>
+  <text x="343" y="46" font-family="'Courier New', monospace" font-size="12" font-weight="600" fill="#378ADD" text-anchor="middle" letter-spacing="0.5">IA</text>
+</svg>

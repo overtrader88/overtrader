@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/jobs/check-alerts",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/jobs/cleanup-cache",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}

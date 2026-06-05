@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TradeAI — A IA que prova antes de prometer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62.5..125,400..800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* TradeAI — LANDING · mesma linguagem do sistema (híbrido dark) */
+  :root{
+    --bg:#07090E; --bg-2:#0A0D14; --panel:#0D1119; --panel-2:#0A0E15;
+    --line:rgba(120,160,225,.08); --line-2:rgba(120,170,235,.17); --line-3:rgba(120,170,235,.3);
+    --ink:#E9EFFA; --ink-soft:#93A0B6; --ink-faint:#535F74;
+    --cyan:#54A8FF; --cyan-soft:rgba(84,168,255,.12); --glow:rgba(84,168,255,.5);
+    --amber:#FFB020; --amber-soft:rgba(255,176,32,.12);
+    --bull:#2BD49E; --bull-soft:rgba(43,212,158,.13); --bear:#FF6B8A; --bear-soft:rgba(255,107,138,.13);
+    --r:6px;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; scroll-behavior:smooth; }
+  ::selection{ background:var(--cyan); color:#04060c; }
+  body{ font-family:"IBM Plex Sans",system-ui,sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; overflow-x:hidden; position:relative;
+    background-image:
+      radial-gradient(1200px 660px at 22% -10%, rgba(84,168,255,.11), transparent 62%),
+      radial-gradient(960px 680px at 92% 2%, rgba(43,212,158,.055), transparent 60%);
+    background-attachment:fixed; }
+  body::after{ content:""; position:fixed; inset:0; pointer-events:none; z-index:9999; background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px); opacity:.6; mix-blend-mode:overlay; }
+  .mono{ font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+  .tech{ font-family:"Archivo",sans-serif; }
+  a{ color:inherit; text-decoration:none; }
+  .wrap{ max-width:1200px; margin:0 auto; padding:0 24px; position:relative; z-index:1; }
+
+  @keyframes rise{ from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:none;} }
+  .rise{ opacity:0; animation:rise .65s cubic-bezier(.2,.7,.2,1) forwards; }
+  .d1{animation-delay:.04s}.d2{animation-delay:.12s}.d3{animation-delay:.2s}.d4{animation-delay:.28s}.d5{animation-delay:.36s}
+
+  .label{ font-family:"JetBrains Mono"; font-size:10px; text-transform:uppercase; letter-spacing:.22em; color:var(--ink-faint); display:inline-flex; align-items:center; gap:9px; }
+  .label::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--cyan); box-shadow:0 0 9px var(--glow); }
+
+  /* ---------- nav ---------- */
+  nav.top{ position:sticky; top:0; z-index:50; background:rgba(7,9,14,.82); backdrop-filter:blur(10px); border-bottom:1px solid var(--line-2); }
+  nav.top .row{ display:flex; align-items:center; justify-content:space-between; height:62px; }
+  .brand{ display:flex; align-items:center; gap:11px; }
+  .brand svg{ filter:drop-shadow(0 0 7px var(--glow)); display:block; }
+  .brand .name{ font-family:"Archivo"; font-weight:700; font-size:19px; letter-spacing:.05em; text-transform:uppercase; } .brand .name b{ color:var(--cyan); }
+  .navlinks{ display:flex; gap:28px; font-size:13.5px; color:var(--ink-soft); }
+  .navlinks a:hover{ color:var(--ink); }
+  @media(max-width:760px){ .navlinks{ display:none; } }
+  .nav-cta{ display:flex; align-items:center; gap:14px; }
+  .btn{ font-family:"JetBrains Mono"; font-size:12.5px; font-weight:500; letter-spacing:.02em; padding:10px 18px; border-radius:99px; border:1px solid var(--line-2); color:var(--ink); transition:.18s; cursor:pointer; }
+  .btn:hover{ border-color:var(--line-3); }
+  .btn.primary{ background:var(--cyan); color:#04060c; border-color:var(--cyan); font-weight:700; box-shadow:0 0 0 0 var(--glow); }
+  .btn.primary:hover{ box-shadow:0 6px 24px -6px var(--glow); }
+  .btn.ghost{ border-color:transparent; color:var(--ink-soft); } .btn.ghost:hover{ color:var(--ink); }
+
+  /* ---------- hero ---------- */
+  .hero{ display:grid; grid-template-columns:1.15fr .85fr; gap:48px; align-items:center; padding:84px 0 64px; }
+  @media(max-width:920px){ .hero{ grid-template-columns:1fr; gap:40px; padding:56px 0 40px; } }
+  .hero h1{ font-family:"Archivo"; font-weight:700; font-size:clamp(40px,6vw,68px); line-height:1.02; letter-spacing:.005em; margin:20px 0 18px; }
+  .hero h1 .g{ color:var(--bull); text-shadow:0 0 40px rgba(43,212,158,.3); }
+  .hero p.lead{ font-size:17px; color:var(--ink-soft); max-width:48ch; }
+  .hero .ctas{ display:flex; gap:14px; margin-top:30px; flex-wrap:wrap; }
+  .btn.lg{ padding:14px 26px; font-size:13.5px; }
+  .trust{ display:flex; align-items:center; gap:10px; margin-top:22px; font-family:"JetBrains Mono"; font-size:11.5px; color:var(--ink-faint); }
+  .trust b{ color:var(--ink-soft); font-weight:500; }
+  .trust .am{ color:var(--amber); }
+
+  /* instrument card (prova visual) */
+  .inst{ background:linear-gradient(180deg,var(--panel),var(--panel-2)); border:1px solid var(--line-2); border-radius:10px; padding:18px; position:relative; box-shadow:0 30px 70px -40px #000, inset 0 1px 0 rgba(255,255,255,.03); }
+  .inst .cn{ position:absolute; width:13px; height:13px; } .inst .tl{ top:-1px;left:-1px;border-top:1.5px solid var(--cyan);border-left:1.5px solid var(--cyan);border-top-left-radius:10px; } .inst .br{ bottom:-1px;right:-1px;border-bottom:1.5px solid var(--cyan);border-right:1.5px solid var(--cyan);border-bottom-right-radius:10px; }
+  .inst .bar{ display:flex; align-items:center; gap:10px; font-family:"JetBrains Mono"; font-size:10.5px; color:var(--ink-soft); border-bottom:1px solid var(--line); padding-bottom:12px; margin-bottom:14px; }
+  .inst .bar .dot{ width:6px;height:6px;border-radius:50%;background:var(--bull);box-shadow:0 0 8px var(--bull);animation:pulse 2s infinite; } @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .inst .bar b{ color:var(--ink); } .inst .bar .r{ margin-left:auto; color:var(--cyan); }
+  .inst .sig{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:16px; }
+  .inst .sig .v{ font-family:"Archivo"; font-weight:700; font-size:40px; line-height:1; text-transform:uppercase; color:var(--bull); text-shadow:0 0 26px rgba(43,212,158,.3); }
+  .inst .sig .v small{ display:block; font-family:"JetBrains Mono"; font-size:9.5px; letter-spacing:.16em; color:var(--ink-faint); font-weight:400; -webkit-text-fill-color:var(--ink-faint); text-shadow:none; }
+  .inst .seal{ display:flex; align-items:center; gap:8px; font-family:"JetBrains Mono"; font-size:10.5px; color:var(--amber); border:1px solid rgba(255,176,32,.3); background:var(--amber-soft); padding:7px 11px; border-radius:99px; }
+  .inst .seal .led{ width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber); }
+  /* mini confidence badge */
+  .cib{ --min:0;--max:3.5;--lo:1.42;--hi:2.51;--v:1.89; background:var(--bg-2); border:1px solid var(--line); border-radius:6px; padding:13px 14px; }
+  .cib .t{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:11px; }
+  .cib .t .nm{ font-family:"JetBrains Mono"; font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--ink-soft); }
+  .cib .t .pt{ font-family:"JetBrains Mono"; font-weight:700; font-size:18px; color:var(--bull); }
+  .cib .sc{ position:relative; height:22px; }
+  .cib .ax{ position:absolute; left:0;right:0;top:50%;height:1px;background:var(--line-2); }
+  .cib .bd{ position:absolute; top:50%; transform:translateY(-50%); height:7px; border-radius:2px; background:var(--bull-soft); border:1px solid var(--bull); box-shadow:0 0 12px var(--bull-soft);
+    left:calc((var(--lo)-var(--min))/(var(--max)-var(--min))*100%); width:calc((var(--hi)-var(--lo))/(var(--max)-var(--min))*100%); }
+  .cib .bd::before,.cib .bd::after{ content:"";position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--bull); } .cib .bd::before{left:-1px} .cib .bd::after{right:-1px}
+  .cib .rt{ position:absolute; top:50%; width:12px;height:12px; transform:translate(-50%,-50%); left:calc((var(--v)-var(--min))/(var(--max)-var(--min))*100%); }
+  .cib .rt::before,.cib .rt::after{ content:"";position:absolute;background:var(--ink); } .cib .rt::before{left:50%;top:0;bottom:0;width:1.5px;transform:translateX(-50%)} .cib .rt::after{top:50%;left:0;right:0;height:1.5px;transform:translateY(-50%)}
+  .cib .ft{ display:flex; justify-content:space-between; font-family:"JetBrains Mono"; font-size:9.5px; color:var(--ink-faint); margin-top:8px; } .cib .ft b{ color:var(--ink-soft); font-weight:500; }
+  .inst .cap{ font-size:11px; color:var(--ink-faint); margin-top:12px; line-height:1.5; }
+
+  /* ---------- stat strip ---------- */
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line-2); border:1px solid var(--line-2); border-radius:var(--r); overflow:hidden; margin-bottom:8px; }
+  @media(max-width:680px){ .stats{ grid-template-columns:repeat(2,1fr); } }
+  .stats .s{ background:var(--panel-2); padding:20px 22px; }
+  .stats .s .n{ font-family:"JetBrains Mono"; font-weight:700; font-size:30px; } .stats .s .n .u{ color:var(--cyan); }
+  .stats .s .k{ font-size:12px; color:var(--ink-soft); margin-top:4px; }
+
+  /* ---------- section ---------- */
+  section.blk{ padding:72px 0; }
+  .head{ text-align:center; max-width:60ch; margin:0 auto 44px; }
+  .head h2{ font-family:"Archivo"; font-weight:700; font-size:clamp(28px,4vw,40px); letter-spacing:.01em; margin:14px 0 12px; }
+  .head p{ color:var(--ink-soft); font-size:15.5px; }
+
+  /* fosso (vs caixa-preta) */
+  .compare{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media(max-width:760px){ .compare{ grid-template-columns:1fr; } }
+  .col{ border:1px solid var(--line-2); border-radius:10px; padding:24px; background:linear-gradient(180deg,var(--panel),var(--panel-2)); }
+  .col.them{ opacity:.8; }
+  .col h3{ font-family:"Archivo"; font-weight:600; font-size:15px; letter-spacing:.04em; text-transform:uppercase; margin-bottom:18px; display:flex; align-items:center; gap:10px; }
+  .col.us h3{ color:var(--ink); } .col.us h3 .badge{ font-family:"JetBrains Mono"; font-size:9px; color:var(--amber); border:1px solid rgba(255,176,32,.35); background:var(--amber-soft); padding:3px 8px; border-radius:99px; letter-spacing:.12em; }
+  .col.them h3{ color:var(--ink-faint); }
+  .cmp{ display:flex; align-items:flex-start; gap:11px; padding:11px 0; border-top:1px solid var(--line); font-size:13.5px; color:var(--ink-soft); }
+  .cmp .i{ font-family:"JetBrains Mono"; flex:none; margin-top:1px; } .col.us .cmp .i{ color:var(--bull); } .col.them .cmp .i{ color:var(--bear); }
+  .cmp b{ color:var(--ink); font-weight:500; }
+
+  /* features grid */
+  .feat{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media(max-width:860px){ .feat{ grid-template-columns:1fr 1fr; } } @media(max-width:560px){ .feat{ grid-template-columns:1fr; } }
+  .fcard{ border:1px solid var(--line-2); border-radius:10px; padding:22px; background:linear-gradient(180deg,var(--panel),var(--panel-2)); transition:.2s; }
+  .fcard:hover{ border-color:var(--line-3); transform:translateY(-2px); }
+  .fcard .ic{ width:40px;height:40px;border:1px solid var(--line-2); border-radius:9px; display:grid; place-items:center; color:var(--cyan); margin-bottom:16px; background:var(--cyan-soft); }
+  .fcard h4{ font-family:"Archivo"; font-weight:600; font-size:16px; margin-bottom:8px; }
+  .fcard p{ font-size:13.5px; color:var(--ink-soft); }
+
+  /* steps */
+  .steps{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; counter-reset:s; }
+  @media(max-width:760px){ .steps{ grid-template-columns:1fr 1fr; } }
+  .step{ border:1px solid var(--line); border-radius:10px; padding:22px; background:var(--bg-2); position:relative; }
+  .step::before{ counter-increment:s; content:"0" counter(s); font-family:"JetBrains Mono"; font-weight:700; font-size:13px; color:var(--cyan); }
+  .step h4{ font-family:"Archivo"; font-weight:600; font-size:15px; margin:12px 0 7px; }
+  .step p{ font-size:13px; color:var(--ink-soft); }
+
+  /* pricing */
+  .plans{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:start; }
+  @media(max-width:820px){ .plans{ grid-template-columns:1fr; max-width:440px; margin:0 auto; } }
+  .plan{ border:1px solid var(--line-2); border-radius:12px; padding:26px; background:linear-gradient(180deg,var(--panel),var(--panel-2)); position:relative; }
+  .plan.pro{ border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan-soft), 0 30px 70px -44px var(--glow); }
+  .plan .tagp{ position:absolute; top:-11px; left:24px; background:var(--cyan); color:#04060c; font-family:"JetBrains Mono"; font-size:9px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; padding:4px 10px; border-radius:99px; }
+  .plan .pn{ font-family:"Archivo"; font-weight:700; font-size:15px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+  .plan.pro .pn{ color:var(--cyan); }
+  .plan .pp{ font-family:"JetBrains Mono"; font-weight:700; font-size:36px; margin:14px 0 2px; } .plan .pp small{ font-size:13px; color:var(--ink-faint); font-weight:400; }
+  .plan .pd{ font-size:13px; color:var(--ink-soft); min-height:38px; }
+  .plan ul{ list-style:none; margin:18px 0 22px; display:flex; flex-direction:column; gap:10px; }
+  .plan li{ font-size:13px; color:var(--ink-soft); display:flex; gap:9px; } .plan li .c{ color:var(--bull); font-family:"JetBrains Mono"; flex:none; }
+  .plan .btn{ width:100%; text-align:center; }
+
+  /* faq */
+  .faq{ max-width:780px; margin:0 auto; }
+  .qa{ border-bottom:1px solid var(--line); padding:20px 0; }
+  .qa .q{ font-family:"Archivo"; font-weight:600; font-size:16px; display:flex; justify-content:space-between; gap:14px; cursor:pointer; }
+  .qa .q .pl{ color:var(--cyan); font-family:"JetBrains Mono"; }
+  .qa .a{ font-size:14px; color:var(--ink-soft); margin-top:10px; max-width:64ch; }
+
+  /* cta final */
+  .final{ text-align:center; border:1px solid var(--line-2); border-radius:14px; padding:56px 24px; background:radial-gradient(700px 300px at 50% 0%, rgba(84,168,255,.1), transparent 70%), linear-gradient(180deg,var(--panel),var(--panel-2)); position:relative; overflow:hidden; }
+  .final h2{ font-family:"Archivo"; font-weight:700; font-size:clamp(28px,4vw,42px); margin-bottom:14px; }
+  .final p{ color:var(--ink-soft); max-width:50ch; margin:0 auto 28px; }
+
+  /* Archivo — largura EXPANDIDA (wdth 125) só nos momentos de impacto; títulos menores ficam normais */
+  .brand .name, .hero h1, .inst .sig .v, .head h2, .final h2{ font-variation-settings:'wdth' 125; }
+  .hero h1{ font-weight:800; }
+
+  footer.ft{ border-top:1px solid var(--line-2); margin-top:40px; padding:40px 0 60px; }
+  footer.ft .row{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:24px; }
+  footer.ft .col2{ font-size:13px; color:var(--ink-soft); display:flex; flex-direction:column; gap:9px; }
+  footer.ft .col2 .h{ font-family:"JetBrains Mono"; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px; }
+  footer.ft .legal{ margin-top:30px; padding-top:20px; border-top:1px solid var(--line); font-family:"JetBrains Mono"; font-size:10.5px; color:var(--ink-faint); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="top">
+  <div class="wrap row">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><rect x="2" y="2" width="26" height="26" rx="6" stroke="#54A8FF" stroke-width="1.5"/><path d="M6 20 L12 13 L16 17 L24 7" stroke="#54A8FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="7" r="2.2" fill="#2BD49E"/></svg>
+      <span class="name">Trade<b>AI</b></span>
+    </div>
+    <div class="navlinks">
+      <a href="#fosso">O fosso</a><a href="#recursos">Recursos</a><a href="#como">Como funciona</a><a href="#precos">Preços</a><a href="#faq">FAQ</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn ghost" href="#">Entrar</a>
+      <a class="btn primary" href="#">Criar conta grátis</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="wrap">
+  <section class="hero">
+    <div>
+      <span class="label rise d1">Análise de trading com IA · auditável</span>
+      <h1 class="rise d2">A IA que <span class="g">prova</span><br>antes de prometer.</h1>
+      <p class="lead rise d2">Toda métrica vem com amostra, intervalo de confiança e período. Backtest público, walk-forward, algoritmos abertos. Onde o concorrente afirma, nós medimos — e dizemos quando <b style="color:var(--ink)">não</b> operar.</p>
+      <div class="ctas rise d3">
+        <a class="btn primary lg" href="#">Analisar um ativo grátis</a>
+        <a class="btn lg" href="#fosso">Ver o diferencial</a>
+      </div>
+      <div class="trust rise d3"><span class="am">●</span> <b>3 análises completas vitalícias</b> · sem cartão · sem expiração</div>
+    </div>
+
+    <!-- instrumento (prova visual) -->
+    <div class="inst rise d4">
+      <span class="cn tl"></span><span class="cn br"></span>
+      <div class="bar"><span class="dot"></span><b>BTCUSDT</b> · 4H<span class="r">ENGINE v2.0.0</span></div>
+      <div class="sig">
+        <div class="v">Compra<small>FORÇA 72/100 · CONFLUÊNCIA 7/10</small></div>
+        <div class="seal"><span class="led"></span>VALIDADO</div>
+      </div>
+      <div class="cib">
+        <div class="t"><span class="nm">Profit factor · backtest</span><span class="pt">1.89</span></div>
+        <div class="sc"><div class="ax"></div><div class="bd"></div><div class="rt"></div></div>
+        <div class="ft"><span>IC 95% <b>1.42 — 2.51</b></span><span>n=142 · bootstrap</span></div>
+      </div>
+      <div class="cap">Cada número carrega <b style="color:var(--ink-soft)">n + IC + período</b>. O selo só fica âmbar quando o pior caso do intervalo supera o limiar.</div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <div class="stats rise d5">
+    <div class="s"><div class="n mono">143<span class="u"> ativos</span></div><div class="k">Cripto, ações, forex, índices, commodities</div></div>
+    <div class="s"><div class="n mono">5<span class="u"> mercados</span></div><div class="k">Cobertura multi-classe num só motor</div></div>
+    <div class="s"><div class="n mono">15<span class="u"> camadas</span></div><div class="k">Por sinal — técnica, SMC, Monte Carlo, notícias</div></div>
+    <div class="s"><div class="n mono">100%<span class="u"> aberto</span></div><div class="k">Algoritmos auditáveis em código</div></div>
+  </div>
+</div>
+
+<!-- FOSSO -->
+<div class="wrap">
+  <section class="blk" id="fosso">
+    <div class="head">
+      <span class="label">O fosso · transparência vs caixa-preta</span>
+      <h2>O concorrente afirma. Nós mostramos a conta.</h2>
+      <p>A maioria das “IAs de trading” entrega um número bonito e pede fé. O nosso diferencial é estatístico: honestidade em cada métrica.</p>
+    </div>
+    <div class="compare">
+      <div class="col us">
+        <h3>TradeAI <span class="badge">PROVA</span></h3>
+        <div class="cmp"><span class="i">✓</span><span><b>Backtest público</b> em toda análise — walk-forward, train/test, sem lookahead.</span></div>
+        <div class="cmp"><span class="i">✓</span><span><b>IC + amostra + período</b> em cada número. Sem amostra, sem selo verde.</span></div>
+        <div class="cmp"><span class="i">✓</span><span><b>Algoritmos abertos</b> — SMC, harmônicos, WEGD legíveis em código.</span></div>
+        <div class="cmp"><span class="i">✓</span><span><b>7 níveis de sinal</b> + probabilidade por Monte Carlo (first-passage).</span></div>
+        <div class="cmp"><span class="i">✓</span><span><b>Selo de qualidade</b> que avisa quando <b>não</b> operar.</span></div>
+        <div class="cmp"><span class="i">✓</span><span><b>Trial vitalício</b> sem cartão.</span></div>
+      </div>
+      <div class="col them">
+        <h3>IA caixa-preta</h3>
+        <div class="cmp"><span class="i">✕</span><span>Sem backtest público — “acurácia 99%” sem contexto nem amostra.</span></div>
+        <div class="cmp"><span class="i">✕</span><span>Número cru, sem incerteza. Win rate 100% sobre 3 trades.</span></div>
+        <div class="cmp"><span class="i">✕</span><span>Caixa-preta — você não vê como a conclusão foi gerada.</span></div>
+        <div class="cmp"><span class="i">✕</span><span>3 níveis (compra/venda/neutro) e probabilidade por fórmula frágil.</span></div>
+        <div class="cmp"><span class="i">✕</span><span>Sempre confiante — nunca diz “fique de fora”.</span></div>
+        <div class="cmp"><span class="i">✕</span><span>Trial pago, com cartão.</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- RECURSOS -->
+<div class="wrap">
+  <section class="blk" id="recursos">
+    <div class="head"><span class="label">Recursos</span><h2>Um motor. Quinze camadas. Zero achismo.</h2></div>
+    <div class="feat">
+      <div class="fcard"><div class="ic">▤</div><h4>15 camadas por sinal</h4><p>Técnica (20 indicadores), SMC, multi-timeframe, harmônicos, WEGD e notícias — agregadas com pesos versionados.</p></div>
+      <div class="fcard"><div class="ic">∿</div><h4>Monte Carlo honesto</h4><p>Probabilidade de tocar cada alvo por simulação first-passage — não fórmula fechada. Estimativa + intervalo.</p></div>
+      <div class="fcard"><div class="ic">▦</div><h4>Backtest walk-forward</h4><p>≥12 meses, train/test, sem lookahead. Profit factor, win rate e R médio, cada um com IC e amostra.</p></div>
+      <div class="fcard"><div class="ic">◷</div><h4>Dashboard 5 mercados</h4><p>Preços ao vivo de cripto, ações, forex, índices e commodities num só painel — com Fear & Greed.</p></div>
+      <div class="fcard"><div class="ic">◈</div><h4>Alertas no Telegram</h4><p>Pareie sua conta e receba os sinais validados direto no Telegram, com o selo de qualidade junto.</p></div>
+      <div class="fcard"><div class="ic">✶</div><h4>IA narrativa real</h4><p>Resumo em português gerado por LLM sobre as 15 camadas — explica o porquê, não só o quê.</p></div>
+    </div>
+  </section>
+</div>
+
+<!-- COMO FUNCIONA -->
+<div class="wrap">
+  <section class="blk" id="como">
+    <div class="head"><span class="label">Como funciona</span><h2>Do ativo ao plano operacional em segundos.</h2></div>
+    <div class="steps">
+      <div class="step"><h4>Escolha o ativo</h4><p>143 ativos em 5 mercados, no timeframe que você opera.</p></div>
+      <div class="step"><h4>O motor calcula</h4><p>15 camadas, Monte Carlo e backtest rodam de forma determinística.</p></div>
+      <div class="step"><h4>Leia o veredito</h4><p>Sinal, força, níveis por ATR e o selo de qualidade — com a conta à mostra.</p></div>
+      <div class="step"><h4>Execute (ou não)</h4><p>Plano operacional claro. E o aviso honesto quando a amostra não sustenta.</p></div>
+    </div>
+  </section>
+</div>
+
+<!-- PREÇOS -->
+<div class="wrap">
+  <section class="blk" id="precos">
+    <div class="head"><span class="label">Preços</span><h2>Comece de graça. Para sempre.</h2><p>Sem cartão para testar. Faça upgrade quando o motor já tiver provado o valor pra você.</p></div>
+    <div class="plans">
+      <div class="plan">
+        <div class="pn">Free</div>
+        <div class="pp mono">R$0<small>/sempre</small></div>
+        <div class="pd">Para conhecer o motor e o padrão de honestidade.</div>
+        <ul>
+          <li><span class="c">✓</span> 3 análises completas vitalícias</li>
+          <li><span class="c">✓</span> Dashboard de preços ao vivo</li>
+          <li><span class="c">✓</span> Selo de qualidade em toda análise</li>
+        </ul>
+        <a class="btn" href="#">Criar conta grátis</a>
+      </div>
+      <div class="plan pro">
+        <span class="tagp">Mais popular</span>
+        <div class="pn">PRO</div>
+        <div class="pp mono">R$97<small>/mês</small></div>
+        <div class="pd">Para quem opera com frequência e quer o motor completo.</div>
+        <ul>
+          <li><span class="c">✓</span> Análises ilimitadas · 143 ativos</li>
+          <li><span class="c">✓</span> 15 camadas + Monte Carlo + backtest</li>
+          <li><span class="c">✓</span> Alertas no Telegram</li>
+          <li><span class="c">✓</span> Histórico completo</li>
+        </ul>
+        <a class="btn primary" href="#">Assinar o PRO</a>
+      </div>
+      <div class="plan">
+        <div class="pn">PRO+</div>
+        <div class="pp mono">R$197<small>/mês</small></div>
+        <div class="pd">Para o trader avançado e profissional.</div>
+        <ul>
+          <li><span class="c">✓</span> Tudo do PRO</li>
+          <li><span class="c">✓</span> Backtest segmentado por regime</li>
+          <li><span class="c">✓</span> Alertas multi-ativo prioritários</li>
+          <li><span class="c">✓</span> Suporte dedicado</li>
+        </ul>
+        <a class="btn" href="#">Assinar o PRO+</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- FAQ -->
+<div class="wrap">
+  <section class="blk" id="faq">
+    <div class="head"><span class="label">Dúvidas</span><h2>Tire suas dúvidas.</h2></div>
+    <div class="faq">
+      <div class="qa"><div class="q">Isso é recomendação de investimento? <span class="pl">+</span></div><div class="a">Não. É conteúdo informativo e educativo. O TradeAI não constitui recomendação personalizada — decisões de investimento são sempre suas.</div></div>
+      <div class="qa"><div class="q">O que significa “prova antes de prometer”? <span class="pl">+</span></div><div class="a">Todo número exibido carrega o tamanho de amostra (n), o intervalo de confiança e o período. Se a amostra é insuficiente, o produto diz isso em vez de mostrar um número bonito.</div></div>
+      <div class="qa"><div class="q">Como o selo de qualidade decide a cor? <span class="pl">+</span></div><div class="a">O selo só fica verde quando o limite inferior do intervalo de confiança supera o limiar — nunca sobre amostra pequena ou ruidosa.</div></div>
+      <div class="qa"><div class="q">Preciso de cartão para testar? <span class="pl">+</span></div><div class="a">Não. São 3 análises completas vitalícias, sem cartão e sem expiração.</div></div>
+    </div>
+  </section>
+</div>
+
+<!-- CTA FINAL -->
+<div class="wrap">
+  <section class="final">
+    <span class="label" style="justify-content:center">Pronto para começar</span>
+    <h2 style="margin-top:14px">Pare de operar no escuro.</h2>
+    <p>Rode sua primeira análise auditável agora — de graça, sem cartão. Veja a conta antes de confiar nela.</p>
+    <a class="btn primary lg" href="#">Analisar um ativo grátis</a>
+  </section>
+</div>
+
+<!-- FOOTER -->
+<footer class="ft">
+  <div class="wrap">
+    <div class="row">
+      <div class="brand"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><rect x="2" y="2" width="26" height="26" rx="6" stroke="#54A8FF" stroke-width="1.5"/><path d="M6 20 L12 13 L16 17 L24 7" stroke="#54A8FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="7" r="2.2" fill="#2BD49E"/></svg><span class="name">Trade<b>AI</b></span></div>
+      <div class="col2"><span class="h">Produto</span><a href="#recursos">Recursos</a><a href="#precos">Preços</a><a href="#como">Como funciona</a></div>
+      <div class="col2"><span class="h">Empresa</span><a href="#">Sobre</a><a href="#">Roadmap público</a><a href="#faq">FAQ</a></div>
+      <div class="col2"><span class="h">Legal</span><a href="#">Termos de uso</a><a href="#">Política de privacidade</a></div>
+    </div>
+    <div class="legal">
+      <span>© 2026 TRADEAI · CONTEÚDO INFORMATIVO · NÃO CONSTITUI RECOMENDAÇÃO PERSONALIZADA DE INVESTIMENTO</span>
+      <span>FEITO COM RIGOR ESTATÍSTICO</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

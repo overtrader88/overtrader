@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-v1",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "-p", "3000"],
+      "port": 3000
+    },
+    {
+      "name": "web-v2",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "v2", "--filter", "@tradeai/web", "run", "dev", "--port", "3001"],
+      "port": 3001
+    },
+    {
+      "name": "design-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "v2/design", "-l", "4321"],
+      "port": 4321
+    }
+  ]
+}

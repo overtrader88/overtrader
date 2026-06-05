@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TradeAI — Histórico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62.5..125,400..800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#07090E; --bg-2:#0A0D14; --panel:#0D1119; --panel-2:#0A0E15;
+    --line:rgba(120,160,225,.08); --line-2:rgba(120,170,235,.17); --line-3:rgba(120,170,235,.3);
+    --ink:#E9EFFA; --ink-soft:#93A0B6; --ink-faint:#535F74;
+    --cyan:#54A8FF; --cyan-soft:rgba(84,168,255,.12); --glow:rgba(84,168,255,.5);
+    --amber:#FFB020; --amber-soft:rgba(255,176,32,.12); --bull:#2BD49E; --bull-soft:rgba(43,212,158,.13); --bear:#FF6B8A; --bear-soft:rgba(255,107,138,.13);
+    --r:6px;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ font-family:"IBM Plex Sans",system-ui,sans-serif; background:var(--bg); color:var(--ink); line-height:1.55; min-height:100vh;
+    background-image:radial-gradient(1100px 600px at 14% -10%, rgba(84,168,255,.10), transparent 62%); background-attachment:fixed; }
+  ::selection{ background:var(--cyan); color:#04060c; } a{ color:inherit; text-decoration:none; }
+  .mono{ font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+  .wrap{ max-width:1240px; margin:0 auto; padding:0 24px; }
+
+  .appbar{ position:sticky; top:0; z-index:50; background:rgba(7,9,14,.84); backdrop-filter:blur(10px); border-bottom:1px solid var(--line-2); }
+  .appbar .row{ display:flex; align-items:center; gap:30px; height:60px; }
+  .brand{ display:flex; align-items:center; gap:10px; } .brand svg{ filter:drop-shadow(0 0 7px var(--glow)); }
+  .brand .name{ font-family:"Archivo"; font-variation-settings:'wdth' 125; font-weight:700; font-size:18px; letter-spacing:.04em; text-transform:uppercase; } .brand .name b{ color:var(--cyan); }
+  .nav{ display:flex; gap:6px; } .nav a{ font-size:13.5px; color:var(--ink-soft); padding:8px 13px; border-radius:7px; } .nav a:hover{ color:var(--ink); background:var(--cyan-soft); } .nav a.on{ color:var(--ink); background:var(--cyan-soft); box-shadow:inset 0 0 0 1px var(--line-2); }
+  @media(max-width:760px){ .nav{ display:none; } }
+  .ab-right{ margin-left:auto; display:flex; align-items:center; gap:12px; }
+  .chip{ font-family:"JetBrains Mono"; font-size:11.5px; padding:7px 12px; border-radius:99px; border:1px solid var(--line-2); color:var(--ink-soft); } .chip .am{ color:var(--amber); } .chip.plan{ color:var(--cyan); border-color:rgba(84,168,255,.35); background:var(--cyan-soft); }
+  .avatar{ width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#1b2a3f,#0f1722); border:1px solid var(--line-2); display:grid; place-items:center; font-family:"Archivo"; font-weight:700; font-size:13px; color:var(--cyan); }
+
+  .head{ display:flex; align-items:flex-end; justify-content:space-between; gap:18px; flex-wrap:wrap; padding:34px 0 20px; }
+  .head h1{ font-family:"Archivo"; font-variation-settings:'wdth' 125; font-weight:800; font-size:32px; }
+  .head .meta{ font-family:"JetBrains Mono"; font-size:12px; color:var(--ink-faint); margin-top:6px; } .head .meta b{ color:var(--ink-soft); }
+
+  /* toolbar de filtros */
+  .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:14px 16px; border:1px solid var(--line-2); border-radius:var(--r); background:linear-gradient(180deg,var(--panel),var(--panel-2)); margin-bottom:14px; }
+  .search{ flex:1; min-width:180px; display:flex; align-items:center; gap:9px; background:var(--bg-2); border:1px solid var(--line-2); border-radius:8px; padding:9px 12px; }
+  .search input{ background:none; border:none; color:var(--ink); font-family:"IBM Plex Sans"; font-size:13.5px; width:100%; } .search input:focus{ outline:none; } .search input::placeholder{ color:var(--ink-faint); }
+  .search svg{ flex:none; opacity:.6; }
+  .sel{ font-family:"JetBrains Mono"; font-size:12px; color:var(--ink-soft); background:var(--bg-2); border:1px solid var(--line-2); border-radius:8px; padding:9px 13px; display:flex; align-items:center; gap:8px; cursor:pointer; }
+  .sel b{ color:var(--ink); } .sel .ar{ color:var(--ink-faint); }
+  .sel.act{ border-color:var(--cyan); color:var(--cyan); } .sel.act b{ color:var(--cyan); }
+
+  /* tabela */
+  .tbl{ border:1px solid var(--line-2); border-radius:var(--r); overflow:hidden; background:linear-gradient(180deg,var(--panel),var(--panel-2)); }
+  .thead, .trow{ display:grid; grid-template-columns:108px 1.3fr 64px 130px 78px 60px 70px 86px 60px; align-items:center; gap:12px; padding:13px 18px; }
+  @media(max-width:900px){ .thead, .trow{ grid-template-columns:96px 1.2fr 96px 70px 60px; } .col-rr,.col-pf,.col-tf,.col-act{ display:none; } }
+  .thead{ font-family:"JetBrains Mono"; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-faint); border-bottom:1px solid var(--line-2); background:var(--panel-2); }
+  .trow{ border-bottom:1px solid var(--line); transition:.14s; } .trow:last-child{ border-bottom:none; } .trow:hover{ background:var(--cyan-soft); }
+  .dt{ font-family:"JetBrains Mono"; font-size:11.5px; color:var(--ink-soft); }
+  .asset{ display:flex; align-items:center; gap:9px; } .asset .s{ font-family:"Archivo"; font-weight:700; font-size:14.5px; } .asset .cls{ font-family:"JetBrains Mono"; font-size:9px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.1em; }
+  .tf{ font-family:"JetBrains Mono"; font-size:11px; color:var(--ink-soft); }
+  .sig{ font-family:"JetBrains Mono"; font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:5px 9px; border-radius:5px; display:inline-block; }
+  .sig.buy{ color:var(--bull); background:var(--bull-soft); } .sig.sell{ color:var(--bear); background:var(--bear-soft); } .sig.neu{ color:var(--ink-soft); background:rgba(120,160,225,.08); }
+  .force{ font-family:"JetBrains Mono"; font-weight:700; font-size:14px; }
+  .seal-cell{ display:flex; align-items:center; gap:7px; font-family:"JetBrains Mono"; font-size:10px; color:var(--ink-faint); }
+  .qd{ width:10px; height:10px; border-radius:50%; flex:none; } .qd.g{ background:var(--bull); box-shadow:0 0 7px var(--bull-soft); } .qd.a{ background:var(--amber); box-shadow:0 0 7px var(--amber-soft); } .qd.gray{ background:var(--ink-faint); }
+  .num{ font-family:"JetBrains Mono"; font-size:12.5px; color:var(--ink-soft); } .num b{ color:var(--ink); }
+  .see{ font-family:"JetBrains Mono"; font-size:11px; color:var(--cyan); text-align:right; }
+
+  .pager{ display:flex; align-items:center; justify-content:space-between; margin-top:16px; flex-wrap:wrap; gap:12px; }
+  .pager .info{ font-family:"JetBrains Mono"; font-size:11.5px; color:var(--ink-faint); }
+  .pager .pages{ display:flex; gap:6px; }
+  .pg{ font-family:"JetBrains Mono"; font-size:12px; min-width:34px; height:34px; display:grid; place-items:center; border:1px solid var(--line-2); border-radius:7px; color:var(--ink-soft); cursor:pointer; } .pg:hover{ border-color:var(--line-3); color:var(--ink); }
+  .pg.on{ background:var(--cyan); color:#04060c; border-color:var(--cyan); font-weight:700; }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="wrap row">
+    <div class="brand"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="2" y="2" width="24" height="24" rx="6" stroke="#54A8FF" stroke-width="1.5"/><path d="M6 19 L11 12 L15 16 L22 7" stroke="#54A8FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22" cy="7" r="2" fill="#2BD49E"/></svg><span class="name">Trade<b>AI</b></span></div>
+    <nav class="nav"><a href="#">Dashboard</a><a href="#">Análise</a><a class="on" href="#">Histórico</a><a href="#">Alertas</a></nav>
+    <div class="ab-right"><span class="chip"><b class="am">12</b> créditos</span><span class="chip plan">PRO</span><span class="avatar">JH</span></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="head">
+    <div><h1>Histórico de análises</h1><div class="meta"><b>248</b> análises · de jan/2026 a hoje</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="#93A0B6" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#93A0B6" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <input placeholder="Buscar ativo (ex.: BTCUSDT, PETR4)…" />
+    </div>
+    <span class="sel">Mercado <b>Todos</b> <span class="ar">▾</span></span>
+    <span class="sel act">Sinal <b>Compra</b> <span class="ar">▾</span></span>
+    <span class="sel">Selo <b>Todos</b> <span class="ar">▾</span></span>
+    <span class="sel">Período <b>90 dias</b> <span class="ar">▾</span></span>
+  </div>
+
+  <div class="tbl">
+    <div class="thead">
+      <span>Data</span><span>Ativo</span><span class="col-tf">TF</span><span>Sinal</span><span>Força</span><span>Selo</span><span class="col-rr">R:R</span><span class="col-pf">PF backtest</span><span class="col-act"></span>
+    </div>
+    <div class="trow">
+      <span class="dt">03/06 16:02</span>
+      <span class="asset"><span class="s">BTCUSDT</span><span class="cls">Cripto</span></span>
+      <span class="tf col-tf">4H</span>
+      <span><span class="sig buy">Compra</span></span>
+      <span class="force" style="color:var(--bull)">72</span>
+      <span class="seal-cell"><span class="qd g"></span>verde</span>
+      <span class="num col-rr"><b>1.5</b></span>
+      <span class="num col-pf">1.89 <span style="color:var(--ink-faint)">±.5</span></span>
+      <span class="see col-act">ver →</span>
+    </div>
+    <div class="trow">
+      <span class="dt">03/06 11:18</span>
+      <span class="asset"><span class="s">ETHUSDT</span><span class="cls">Cripto</span></span>
+      <span class="tf col-tf">4H</span>
+      <span><span class="sig buy">Compra forte</span></span>
+      <span class="force" style="color:var(--bull)">81</span>
+      <span class="seal-cell"><span class="qd g"></span>verde</span>
+      <span class="num col-rr"><b>2.1</b></span>
+      <span class="num col-pf">2.34 <span style="color:var(--ink-faint)">±.6</span></span>
+      <span class="see col-act">ver →</span>
+    </div>
+    <div class="trow">
+      <span class="dt">03/06 09:40</span>
+      <span class="asset"><span class="s">PETR4</span><span class="cls">Ações BR</span></span>
+      <span class="tf col-tf">1D</span>
+      <span><span class="sig buy">Compra fraca</span></span>
+      <span class="force">58</span>
+      <span class="seal-cell"><span class="qd a"></span>âmbar</span>
+      <span class="num col-rr"><b>1.2</b></span>
+      <span class="num col-pf">1.41 <span style="color:var(--ink-faint)">±.4</span></span>
+      <span class="see col-act">ver →</span>
+    </div>
+    <div class="trow">
+      <span class="dt">02/06 17:55</span>
+      <span class="asset"><span class="s">EUR/USD</span><span class="cls">Forex</span></span>
+      <span class="tf col-tf">1H</span>
+      <span><span class="sig neu">Neutro</span></span>
+      <span class="force" style="color:var(--ink-faint)">44</span>
+      <span class="seal-cell"><span class="qd gray"></span>amostra</span>
+      <span class="num col-rr"><b>—</b></span>
+      <span class="num col-pf" style="color:var(--ink-faint)">n&lt;100</span>
+      <span class="see col-act">ver →</span>
+    </div>
+    <div class="trow">
+      <span class="dt">02/06 14:10</span>
+      <span class="asset"><span class="s">IBOV</span><span class="cls">Índices</span></span>
+      <span class="tf col-tf">1D</span>
+      <span><span class="sig buy">Compra</span></span>
+      <span class="force" style="color:var(--bull)">68</span>
+      <span class="seal-cell"><span class="qd g"></span>verde</span>
+      <span class="num col-rr"><b>1.8</b></span>
+      <span class="num col-pf">2.02 <span style="color:var(--ink-faint)">±.5</span></span>
+      <span class="see col-act">ver →</span>
+    </div>
+    <div class="trow">
+      <span class="dt">02/06 10:02</span>
+      <span class="asset"><span class="s">VALE3</span><span class="cls">Ações BR</span></span>
+      <span class="tf col-tf">1D</span>
+      <span><span class="sig sell">Venda fraca</span></span>
+      <span class="force">53</span>
+      <span class="seal-cell"><span class="qd a"></span>âmbar</span>
+      <span class="num col-rr"><b>1.1</b></span>
+      <span class="num col-pf">1.33 <span style="color:var(--ink-faint)">±.4</span></span>
+      <span class="see col-act">ver →</span>
+    </div>
+    <div class="trow">
+      <span class="dt">01/06 19:33</span>
+      <span class="asset"><span class="s">XAUUSD</span><span class="cls">Commodities</span></span>
+      <span class="tf col-tf">4H</span>
+      <span><span class="sig sell">Venda</span></span>
+      <span class="force" style="color:var(--bear)">66</span>
+      <span class="seal-cell"><span class="qd g"></span>verde</span>
+      <span class="num col-rr"><b>1.6</b></span>
+      <span class="num col-pf">1.77 <span style="color:var(--ink-faint)">±.5</span></span>
+      <span class="see col-act">ver →</span>
+    </div>
+  </div>
+
+  <div class="pager">
+    <div class="info">Mostrando 1–7 de 248</div>
+    <div class="pages"><span class="pg">‹</span><span class="pg on">1</span><span class="pg">2</span><span class="pg">3</span><span class="pg">…</span><span class="pg">36</span><span class="pg">›</span></div>
+  </div>
+
+  <div style="height:60px"></div>
+</div>
+</body>
+</html>
