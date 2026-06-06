@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
+import { NotifyButton } from "./admin-notify-button";
 
 // ---- Tipos compartilhados com a page (server) ----
 export interface AuditRow {
@@ -261,7 +262,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
           <div className="tbl" style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
               <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
-                <th style={TH}>Usuário</th><th style={TH}>Plano</th><th style={TH}>Motivo</th><th style={TH}>Últ. análise</th><th style={TH}>Análises</th>
+                <th style={TH}>Usuário</th><th style={TH}>Plano</th><th style={TH}>Motivo</th><th style={TH}>Últ. análise</th><th style={TH}>Análises</th><th style={TH}>Ação</th>
               </tr></thead>
               <tbody>
                 {risk.map(({ u, reason, urgent }) => (
@@ -271,6 +272,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
                     <td style={{ ...TD, color: urgent ? "var(--bear,#dc2626)" : undefined, fontWeight: urgent ? 600 : 400 }}>{reason}</td>
                     <td style={TD} className="note">{u.lastAnalysisAt ? dmy(u.lastAnalysisAt) : "—"}</td>
                     <td style={{ ...TD, fontVariantNumeric: "tabular-nums" }}>{u.analysisCount}</td>
+                    <td style={TD}><NotifyButton userId={u.id} kind="reactivate" /></td>
                   </tr>
                 ))}
               </tbody>
@@ -293,7 +295,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
           <div className="tbl" style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
               <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
-                <th style={TH}>Usuário</th><th style={TH}>Plano</th><th style={TH}>Vence em</th><th style={TH}>Faltam</th>
+                <th style={TH}>Usuário</th><th style={TH}>Plano</th><th style={TH}>Vence em</th><th style={TH}>Faltam</th><th style={TH}>Ação</th>
               </tr></thead>
               <tbody>
                 {expiring.map(({ u, endMs }) => {
@@ -304,6 +306,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
                       <td style={TD}>{planLbl(u.plan)}</td>
                       <td style={TD} className="note">{dmy(new Date(endMs).toISOString())}</td>
                       <td style={{ ...TD, fontWeight: 700, color: urgent ? "var(--bear,#dc2626)" : undefined }}>{days < 0 ? "vencido" : days === 0 ? "hoje" : `${days} dia${days > 1 ? "s" : ""}`}</td>
+                      <td style={TD}><NotifyButton userId={u.id} kind="expiring" /></td>
                     </tr>
                   );
                 })}

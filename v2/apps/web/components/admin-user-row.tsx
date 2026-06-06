@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AdminUserDetail } from "./admin-user-detail";
 
 export interface AdminUser {
   id: string;
@@ -46,6 +47,8 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
   const [courtesy, setCourtesy] = useState(user.periodEnd ? user.periodEnd.slice(0, 10) : "");
   const [pcSaving, setPcSaving] = useState(false);
   const [pcMsg, setPcMsg] = useState<string | null>(null);
+
+  const [detail, setDetail] = useState(false);
 
   async function save(newPlan: string) {
     setPlan(newPlan);
@@ -127,8 +130,12 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
   return (
     <tr style={{ borderBottom: "1px solid var(--border-faint,#e4e8ef)" }}>
       <td style={{ padding: "8px 10px" }}>
-        <div style={{ fontWeight: 600 }}>{user.email}</div>
+        <button type="button" onClick={() => setDetail(true)} title="Ver perfil completo"
+          style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "inherit", font: "inherit", textAlign: "left" }}>
+          <span style={{ fontWeight: 600, textDecoration: "underline dotted", textUnderlineOffset: 3 }}>{user.email}</span>
+        </button>
         {user.fullName ? <div className="note" style={{ fontSize: "0.75rem" }}>{user.fullName}</div> : null}
+        {detail ? <AdminUserDetail userId={user.id} onClose={() => setDetail(false)} /> : null}
       </td>
       <td style={{ padding: "8px 10px" }}>
         {user.hublaCode ? (
