@@ -32,8 +32,8 @@ export default function HomePage() {
             <a href="#faq">FAQ</a>
           </div>
           <div className="nav-cta">
-            <a className="btn ghost" href="#">Entrar</a>
-            <a className="btn primary" href="#">Criar conta grátis</a>
+            <a className="btn ghost" href="/login">Entrar</a>
+            <a className="btn primary" href="/login?mode=signup">Criar conta grátis</a>
           </div>
         </div>
       </nav>
@@ -68,7 +68,7 @@ export default function HomePage() {
               quando <b style={{ color: "var(--ink)" }}>não</b> operar.
             </p>
             <div className="ctas rise d3">
-              <a className="btn primary lg" href="#">Analisar um ativo grátis</a>
+              <a className="btn primary lg" href="/analise">Analisar um ativo grátis</a>
               <a className="btn lg" href="#fosso">Ver o diferencial</a>
             </div>
             <div className="trust rise d3">
@@ -224,7 +224,7 @@ export default function HomePage() {
                 <li><span className="c">✓</span> Dashboard de preços ao vivo</li>
                 <li><span className="c">✓</span> Selo de qualidade em toda análise</li>
               </ul>
-              <a className="btn" href="#">Criar conta grátis</a>
+              <a className="btn" href="/login?mode=signup">Criar conta grátis</a>
             </div>
             <div className="plan pro">
               <span className="tagp">Mais popular</span>
@@ -238,7 +238,7 @@ export default function HomePage() {
                 <li><span className="c">✓</span> Alertas no Telegram</li>
                 <li><span className="c">✓</span> Histórico completo</li>
               </ul>
-              <a className="btn primary" href="#">Assinar o PRO</a>
+              <a className="btn primary" href="/planos">Assinar o PRO</a>
             </div>
             <div className="plan">
               <div className="pn">PRO+</div>
@@ -251,7 +251,7 @@ export default function HomePage() {
                 <li><span className="c">✓</span> Alertas multi-ativo prioritários</li>
                 <li><span className="c">✓</span> Suporte dedicado</li>
               </ul>
-              <a className="btn" href="#">Assinar o PRO+</a>
+              <a className="btn" href="/planos">Assinar o PRO+</a>
             </div>
           </div>
         </section>
@@ -276,7 +276,7 @@ export default function HomePage() {
           <span className="label" style={{ justifyContent: "center" }}>Pronto para começar</span>
           <h2 style={{ marginTop: 14 }}>Pare de operar no escuro.</h2>
           <p>Rode sua primeira análise auditável agora — de graça, sem cartão. Veja a conta antes de confiar nela.</p>
-          <a className="btn primary lg" href="#">Analisar um ativo grátis</a>
+          <a className="btn primary lg" href="/analise">Analisar um ativo grátis</a>
         </section>
       </div>
 

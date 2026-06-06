@@ -184,7 +184,9 @@
       "Bash(curl -s -X POST http://localhost:3001/api/fundamental -H \"content-type: application/json\" -d '{\"symbol\":\"EURUSD\",\"assetType\":\"forex\",\"timeframe\":\"1d\"}')",
       "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\); const r=JSON.parse\\(d\\).result; if\\(!r\\){console.log\\('null'\\); process.exit\\(0\\);} console.log\\('kind:', r.kind\\); console.log\\('company:', r.companyName\\); console.log\\('sector:', r.sector\\); console.log\\('price: $' + r.price\\); console.log\\('marketCap:', r.marketCapUsd ? \\(r.marketCapUsd/1e12\\).toFixed\\(2\\)+'T' : null\\); console.log\\('P/L TTM:', r.peRatioTTM?.toFixed\\(1\\)\\); console.log\\('Marg.Líq:', r.netMarginTTM ? \\(r.netMarginTTM*100\\).toFixed\\(1\\)+'%' : null\\); console.log\\('ROE TTM:', r.roeTTM ? \\(r.roeTTM*100\\).toFixed\\(1\\)+'%' : null\\); console.log\\('Receita:', r.revenueLatest ? \\(r.revenueLatest/1e9\\).toFixed\\(1\\)+'B' : null\\); console.log\\('Cresc.YoY:', r.revenueGrowthYoY ? \\(r.revenueGrowthYoY*100\\).toFixed\\(1\\)+'%' : null\\);\")",
       "Bash(pnpm vitest *)",
-      "Bash(xargs grep -l \"env\")"
+      "Bash(xargs grep -l \"env\")",
+      "Bash(curl -s -o /dev/null -w 'emit-signals \\(old secret\\):   HTTP %{http_code}\\\\n' --max-time 20 https://overtrader.com.br/api/cron/emit-signals?secret=264f97beca32addfe4e9b15d33965d4687dfbe6b7f8a3311dd46136ffa19fff1)",
+      "Bash(curl -s -o /dev/null -w 'resolve-signals \\(old secret\\): HTTP %{http_code}\\\\n' --max-time 20 https://overtrader.com.br/api/cron/resolve-signals?secret=264f97beca32addfe4e9b15d33965d4687dfbe6b7f8a3311dd46136ffa19fff1)"
     ]
   }
 }

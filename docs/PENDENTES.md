@@ -1,7 +1,17 @@
 # Pendências de ativação / validação
 
 > Itens que estão **prontos no código** mas faltam **passos externos** (deploy, credenciais,
-> validação ao vivo) para entrar em produção. Atualizado em 05/06/2026.
+> validação ao vivo) para entrar em produção. Atualizado em 06/06/2026.
+
+## 🟢 PRODUÇÃO NO AR (06/06)
+- ✅ Deploy na **Vercel** (monorepo: Root `v2/apps/web`, `outputFileTracingRoot` = raiz do repo na Vercel via `process.env.VERCEL`).
+- ✅ Domínio **overtrader.com.br** com SSL (registro A `@ → 216.198.79.1` na Locaweb; e-mail/MX/DKIM intactos).
+- ✅ Supabase Auth **Site URL** → produção (corrigir redirect URLs se faltar).
+- ✅ Webhook Telegram registrado em `https://overtrader.com.br/api/telegram/webhook`; `/start` responde.
+- ✅ Webhook Hubla com as 4 regras apontando pro domínio final.
+- ✅ **Rotação de keys (crítica):** Supabase (migrado p/ `sb_publishable`/`sb_secret`, legadas desativadas), OpenAI, Resend, Telegram — todas trocadas e verificadas ao vivo.
+- [ ] **Rotação restante:** Hubla webhook secret · GitHub token · FMP/TwelveData/NewsData/WorldNews · CRON_SECRET · TELEGRAM_WEBHOOK_SECRET (ver `docs/ROTACAO-KEYS.md`).
+- [ ] **Plano Vercel:** Hobby limita cron a 1×/dia — confirmar se precisa do Pro p/ os crons `emit-signals`(4h)/`check-watchlist`(1h)/`resolve-signals`.
 
 ## 🟡 Telegram (C5 + C2) — validar ao vivo
 

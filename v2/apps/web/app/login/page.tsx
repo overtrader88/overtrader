@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; mode?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, mode } = await searchParams;
 
   return (
     <div className="auth-page">
@@ -39,7 +39,7 @@ export default async function LoginPage({
         </div>
 
         {/* DIREITA — formulário (client) */}
-        <LoginForm next={next ?? "/dashboard"} />
+        <LoginForm next={next ?? "/dashboard"} initialMode={mode === "signup" ? "signup" : "signin"} />
       </div>
     </div>
   );

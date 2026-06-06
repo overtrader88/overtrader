@@ -7,9 +7,9 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 type Mode = "signin" | "signup";
 
 /** Formulário de acesso (email + senha) com cadastro e Google (OAuth). */
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({ next, initialMode = "signin" }: { next: string; initialMode?: Mode }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
