@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "pnpm --filter @tradeai/web build",
+  "installCommand": "pnpm install",
+  "outputDirectory": "apps/web/.next",
+  "crons": [
+    { "path": "/api/cron/check-watchlist", "schedule": "0 * * * *" },
+    { "path": "/api/cron/emit-signals",    "schedule": "0 */4 * * *" },
+    { "path": "/api/cron/resolve-signals", "schedule": "30 * * * *" }
+  ]
+}
