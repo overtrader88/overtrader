@@ -50,6 +50,7 @@ const serverSchema = z.object({
 
   // HUBLA (opcional até configurar pagamentos)
   HUBLA_WEBHOOK_SECRET: z.string().optional(),
+  HUBLA_URL_SECRET: z.string().optional(), // 2ª camada: segredo nosso na URL (?k=)
   HUBLA_PRODUCT_PRO_MONTHLY: z.string().optional(),
   HUBLA_PRODUCT_PRO_ANNUAL: z.string().optional(),
   HUBLA_PRODUCT_PRO_PLUS_MONTHLY: z.string().optional(),

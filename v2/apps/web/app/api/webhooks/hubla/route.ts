@@ -2,10 +2,15 @@
  * Webhook de pagamento da Hubla (Fase F3). Verifica a assinatura, normaliza o
  * evento e aplica no banco (promove/rebaixa plano, idempotente).
  *
- * Segurança: lê o CORPO CRU (req.text) — não re-serializa — para validar o HMAC
- * byte-a-byte. Protegido por HUBLA_WEBHOOK_SECRET (não por rate-limit por IP).
- * Responde 200 em tudo que foi tratado/ignorado (senão a Hubla re-tenta); 401
- * só quando a assinatura falha; 503 se o webhook não está configurado.
+ * Segurança em DUAS camadas:
+ *  1. HUBLA_WEBHOOK_SECRET — token que a Hubla envia (NÃO rotacionável no painel).
+ *  2. HUBLA_URL_SECRET — segredo que NÓS controlamos, exigido como `?k=` na URL do
+ *     webhook. Como o token da Hubla não pode ser trocado, essa 2ª camada (que
+ *     nunca vazou) garante que só requests com o nosso segredo na URL passem.
+ *     Opcional: se HUBLA_URL_SECRET não estiver setado, a checagem é pulada.
+ * Lê o CORPO CRU (req.text) — não re-serializa — para validar o token byte-a-byte.
+ * Responde 200 no que foi tratado/ignorado (senão a Hubla re-tenta); 401 quando
+ * a auth falha; 503 se não configurado.
  */
 import { NextResponse } from "next/server";
 import { getProvider, applyBillingEvent } from "@/lib/billing";
@@ -17,6 +22,15 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request): Promise<NextResponse> {
   const secret = process.env.HUBLA_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ error: "Webhook não configurado." }, { status: 503 });
+
+  // Camada 2 — segredo nosso na URL (`?k=...`). Independente do token da Hubla.
+  const urlSecret = process.env.HUBLA_URL_SECRET;
+  if (urlSecret) {
+    const k = new URL(req.url).searchParams.get("k") ?? "";
+    if (k !== urlSecret) {
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
+  }
 
   const provider = getProvider("hubla");
   if (!provider) return NextResponse.json({ error: "Provedor desconhecido." }, { status: 500 });
