@@ -92,7 +92,6 @@ export function LiveTrading() {
   useEffect(() => {
     setLoading(true); setDto(null); setNarration(null); lastKeyRef.current = null;
     void runAnalysis();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, assetType, timeframe]);
 
   // Loop ao vivo.
