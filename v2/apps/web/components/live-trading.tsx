@@ -8,6 +8,7 @@ import { toNarrativeFacts } from "@/lib/analysis/narrative-facts";
 import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narration";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
+import { TechnicalSummary } from "@/components/technical-summary";
 
 type VoiceMode = "off" | "browser" | "premium";
 const TFS: Timeframe[] = ["15m", "1h", "4h", "1d"];
@@ -38,6 +39,7 @@ export function LiveTrading() {
   const [dto, setDto] = useState<FullAnalysis | null>(null);
   const [narration, setNarration] = useState<LiveNarration | null>(null);
   const [live, setLive] = useState(true);
+  const [showInd, setShowInd] = useState(true);
   const [voice, setVoice] = useState<VoiceMode>("browser");
   const [speaking, setSpeaking] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
@@ -209,6 +211,7 @@ export function LiveTrading() {
         <div className="lt-actions">
           <span className={`lt-live ${live ? "on" : ""}`}><span className="dot" />{live ? "AO VIVO" : "PAUSADO"}</span>
           <button type="button" className="lt-btn" onClick={() => setLive((v) => !v)}>{live ? "⏸" : "▶"}</button>
+          <button type="button" className={`lt-btn wide${showInd ? " on" : ""}`} onClick={() => setShowInd((v) => !v)} title="Médias e Bollinger no gráfico">📈 Indicadores</button>
           <select value={voice} onChange={(e) => setVoice(e.target.value as VoiceMode)} className="lt-select sm" title="Voz">
             <option value="off">🔇 Sem voz</option>
             <option value="browser">🔊 Voz grátis</option>
@@ -230,7 +233,15 @@ export function LiveTrading() {
             <span className="tf">{timeframe.toUpperCase()}</span>
             <span className="src">{updatedAt ? `atualizado ${new Date(updatedAt).toLocaleTimeString("pt-BR")}` : "carregando…"}</span>
           </div>
-          <LiveChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={lines} onPrice={setTicker} />
+          {showInd ? (
+            <div className="lt-legend">
+              <span><i style={{ background: "#54a8ff" }} />EMA 20</span>
+              <span><i style={{ background: "#ffb020" }} />EMA 50</span>
+              <span><i style={{ background: "#9aa7bd" }} />EMA 200</span>
+              <span><i style={{ background: "rgba(84,168,255,.5)" }} />Bollinger 20/2σ</span>
+            </div>
+          ) : null}
+          <LiveChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={lines} onPrice={setTicker} showIndicators={showInd} />
           {/* PLANO OPERACIONAL */}
           {side !== "neutral" && risk ? (
             <div className="lt-plan">
@@ -291,6 +302,14 @@ export function LiveTrading() {
           ) : null}
         </aside>
       </div>
+
+      {/* RESUMO TÉCNICO — os 20 indicadores do motor, grounded */}
+      {dto ? (
+        <section className="lt-tech">
+          <div className="lt-tech-h">Resumo Técnico · {dto.analysis.indicators.length} indicadores · {timeframe.toUpperCase()}</div>
+          <TechnicalSummary indicators={dto.analysis.indicators} votes={dto.analysis.signal.votes} />
+        </section>
+      ) : null}
     </div>
   );
 }
