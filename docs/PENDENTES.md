@@ -65,6 +65,7 @@ Para ativar:
 - [ ] ⚠️ **Corrigir a URL das 4 regras na Hubla:** hoje apontam pro domínio raiz (`overtrade.com.br`) — trocar para `https://<APP-PUBLICO>/api/webhooks/hubla` após o deploy. **Conferir o domínio** (overtrade vs overtrade**r**).
 - [ ] (Opcional) Criar regras de **"Assinatura cancelada/inativa"** além de reembolso, pra revogar acesso em cancelamento/expiração (não só reembolso).
 - [ ] ⚠️ **Confirmar caminhos do payload** (e-mail, productId, eventId) pela aba **Histórico** após o 1º evento real — a extração é defensiva mas pode precisar de ajuste fino.
+- [ ] **Admin — link clicável do código de compra (fazer nos testes de venda):** o `/admin` já mostra o `subscriptions.hubla_event_id` ao lado do usuário (texto monoespaçado, clique copia). Quando rodarmos os **testes de venda reais**, confirmar (a) qual id o webhook está de fato gravando — `event.id`/`invoiceId`/`subscriptionId` — e (b) a URL do painel da Hubla que abre a ficha da compra/transação por esse id; então trocar o texto por um **link direto** pra Hubla (rastreio em 1 clique). Depende do item acima (confirmar caminhos do payload).
 - [ ] **Rotacionar o token** da Hubla antes do público (apareceu no chat de dev) — painel → Autenticação → gerar novo + atualizar `.env.local`/Vercel.
 - [ ] Decisão tributária: começar **CPF**, migrar p/ CNPJ quando o faturamento crescer (não afeta código).
 
