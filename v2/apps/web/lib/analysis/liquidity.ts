@@ -1,7 +1,7 @@
 /**
- * Níveis de liquidação (liquidez) mais PRÓXIMOS do preço atual — acima e abaixo.
- * São os alvos prováveis de "caça de stops": acima = buy stops, abaixo = sell stops.
- * PURO. Usa o preço atual do Monte Carlo (ou a entrada do plano como fallback).
+ * Níveis-alvo mais PRÓXIMOS acima e abaixo do preço atual. Prioriza zonas de
+ * liquidez (stop clusters); se faltar de um lado, usa estrutura (swing) ou Value
+ * Area (VAL/VAH) como nível daquele lado — assim sempre há cima E baixo. PURO.
  */
 import type { FullAnalysis } from "./full";
 
@@ -9,28 +9,44 @@ export interface NearestLiquidity {
   price: number;
   above: number | null;
   below: number | null;
-  /** Distância % até cada nível (assinada). */
   abovePct: number | null;
   belowPct: number | null;
+  aboveLabel: string;
+  belowLabel: string;
 }
 
-export function nearestLiquidity(dto: FullAnalysis): NearestLiquidity | null {
-  const zones = dto.smc?.liquidityZones ?? [];
-  const price = dto.montecarlo?.currentPrice ?? dto.analysis?.risk?.entry;
-  if (!price || !Number.isFinite(price) || zones.length === 0) return null;
+interface Cand { level: number; label: string; }
 
-  let above: number | null = null;
-  let below: number | null = null;
-  for (const z of zones) {
-    if (!Number.isFinite(z.level)) continue;
-    if (z.level > price) above = above == null ? z.level : Math.min(above, z.level);
-    else if (z.level < price) below = below == null ? z.level : Math.max(below, z.level);
+export function nearestLiquidity(dto: FullAnalysis): NearestLiquidity | null {
+  const price = dto.montecarlo?.currentPrice ?? dto.analysis?.risk?.entry;
+  if (!price || !Number.isFinite(price)) return null;
+
+  const cands: Cand[] = [];
+  for (const z of dto.smc?.liquidityZones ?? []) {
+    if (Number.isFinite(z.level)) cands.push({ level: z.level, label: "Liquidez" });
   }
+  if (dto.smc?.lastSwingHigh) cands.push({ level: dto.smc.lastSwingHigh.price, label: "Swing" });
+  if (dto.smc?.lastSwingLow) cands.push({ level: dto.smc.lastSwingLow.price, label: "Swing" });
+  if (dto.volumeProfile) {
+    cands.push({ level: dto.volumeProfile.vah, label: "VAH" });
+    cands.push({ level: dto.volumeProfile.val, label: "VAL" });
+  }
+  if (cands.length === 0) return null;
+
+  // Nearest above = menor nível > preço; preferindo "Liquidez" em empate de proximidade.
+  let aboveC: Cand | null = null, belowC: Cand | null = null;
+  for (const c of cands) {
+    if (c.level > price) { if (!aboveC || c.level < aboveC.level) aboveC = c; }
+    else if (c.level < price) { if (!belowC || c.level > belowC.level) belowC = c; }
+  }
+
   return {
     price,
-    above,
-    below,
-    abovePct: above != null ? ((above - price) / price) * 100 : null,
-    belowPct: below != null ? ((below - price) / price) * 100 : null,
+    above: aboveC?.level ?? null,
+    below: belowC?.level ?? null,
+    abovePct: aboveC ? ((aboveC.level - price) / price) * 100 : null,
+    belowPct: belowC ? ((belowC.level - price) / price) * 100 : null,
+    aboveLabel: aboveC?.label ?? "—",
+    belowLabel: belowC?.label ?? "—",
   };
 }

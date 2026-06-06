@@ -55,8 +55,8 @@ export function EnginePipeline({ dto }: { dto: FullAnalysis }) {
   if (dto.volumeProfile) confs.push({ label: "Volume Profile", value: `POC ${fp(dto.volumeProfile.poc)}`, tone: "neu", sub: `VA ${fp(dto.volumeProfile.val)}–${fp(dto.volumeProfile.vah)}` });
   if (dto.wyckoffEvents && dto.wyckoffEvents.length) { const last = dto.wyckoffEvents[dto.wyckoffEvents.length - 1]!; confs.push({ label: "Wyckoff (eventos)", value: `${last.type}`, tone: last.side, sub: `${dto.wyckoffEvents.length} no período` }); }
   const nl = nearestLiquidity(dto);
-  if (nl && nl.above != null) confs.push({ label: "Liquidação acima", value: fp(nl.above), tone: "bear", sub: `${nl.abovePct! >= 0 ? "+" : ""}${nl.abovePct!.toFixed(1)}% · buy stops` });
-  if (nl && nl.below != null) confs.push({ label: "Liquidação abaixo", value: fp(nl.below), tone: "bull", sub: `${nl.belowPct!.toFixed(1)}% · sell stops` });
+  if (nl && nl.above != null) confs.push({ label: "Alvo acima", value: fp(nl.above), tone: "bear", sub: `${nl.abovePct! >= 0 ? "+" : ""}${nl.abovePct!.toFixed(1)}% · ${nl.aboveLabel}` });
+  if (nl && nl.below != null) confs.push({ label: "Alvo abaixo", value: fp(nl.below), tone: "bull", sub: `${nl.belowPct!.toFixed(1)}% · ${nl.belowLabel}` });
 
   const passed = gates.filter((g) => g.passed).length;
 

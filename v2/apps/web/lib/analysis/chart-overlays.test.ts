@@ -51,8 +51,8 @@ describe("buildPriceLines", () => {
       }),
     );
     const titles = lines.map((l) => l.title);
-    expect(titles.some((t) => t.includes("Liquidez ↑"))).toBe(true);
-    expect(titles.some((t) => t.includes("Liquidez ↓"))).toBe(true);
+    expect(titles.some((t) => t.startsWith("↑ "))).toBe(true); // nível mais próximo acima
+    expect(titles.some((t) => t.startsWith("↓ "))).toBe(true); // nível mais próximo abaixo
     expect(titles.some((t) => t.startsWith("PRZ"))).toBe(true);
     expect(titles).toContain("POC");
     // OB/FVG/VAH/VAL não são mais linhas (viram caixas)

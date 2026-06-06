@@ -37,8 +37,8 @@ export function buildPriceLines(dto: FullAnalysis): ChartLine[] {
   const nl = nearestLiquidity(dto);
   if (nl) {
     const fmtPct = (p: number) => `${p >= 0 ? "+" : ""}${p.toFixed(1)}%`;
-    if (nl.above != null) lines.push({ price: nl.above, color: C.bear, title: `Liquidez ↑ ${fmtPct(nl.abovePct!)}`, dashed: false });
-    if (nl.below != null) lines.push({ price: nl.below, color: C.bull, title: `Liquidez ↓ ${fmtPct(nl.belowPct!)}`, dashed: false });
+    if (nl.above != null) lines.push({ price: nl.above, color: C.bear, title: `↑ ${nl.aboveLabel} ${fmtPct(nl.abovePct!)}`, dashed: false });
+    if (nl.below != null) lines.push({ price: nl.below, color: C.bull, title: `↓ ${nl.belowLabel} ${fmtPct(nl.belowPct!)}`, dashed: false });
   }
   // (OB e FVG são CAIXAS preenchidas — buildChartZones — não linhas.)
 

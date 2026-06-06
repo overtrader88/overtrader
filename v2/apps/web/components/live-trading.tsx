@@ -12,6 +12,7 @@ import { computeLiveTrade } from "@/lib/analysis/live-trade";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
 import { TradingViewChart } from "@/components/tradingview-chart";
+import { ChartLegend } from "@/components/chart-legend";
 import { TechnicalSummary } from "@/components/technical-summary";
 import { EnginePipeline } from "@/components/engine-pipeline";
 
@@ -263,15 +264,8 @@ export function LiveTrading() {
             <TradingViewChart symbol={symbol} assetType={assetType} timeframe={timeframe} />
           ) : (
             <>
-              {showInd ? (
-                <div className="lt-legend">
-                  <span><i style={{ background: "#54a8ff" }} />EMA 20</span>
-                  <span><i style={{ background: "#ffb020" }} />EMA 50</span>
-                  <span><i style={{ background: "#9aa7bd" }} />EMA 200</span>
-                  <span><i style={{ background: "rgba(84,168,255,.5)" }} />Bollinger 20/2σ</span>
-                </div>
-              ) : null}
               <LiveChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={lines} onPrice={setTicker} showIndicators={showInd} markers={dto?.wyckoffEvents ?? []} zones={zones} volumeProfile={dto?.volumeProfile ?? null} />
+              <ChartLegend />
             </>
           )}
           {/* PLANO OPERACIONAL */}

@@ -1309,3 +1309,14 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .lt-status.open { color: var(--cyan); background: var(--cyan-soft); }
 .lt-status.ok { color: var(--bull); background: var(--bull-soft); }
 .lt-status.no { color: var(--bear); background: var(--bear-soft); }
+
+/* Legenda de cores do gráfico */
+.cl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 18px; margin-top: 12px; padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; }
+.cl-gt { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--cyan); margin-bottom: 6px; }
+.cl-it { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: 11.5px; color: var(--ink-soft); }
+.cl-sw { flex: none; display: inline-block; }
+.cl-sw.line { width: 16px; height: 3px; border-radius: 2px; }
+.cl-sw.dash { width: 16px; height: 0; border-top: 2px dashed; }
+.cl-sw.box { width: 14px; height: 12px; border: 1px solid; border-radius: 3px; }
+.cl-sw.bars { font-size: 9px; letter-spacing: -1px; }
+.cl-sw.mk { font-size: 11px; }
