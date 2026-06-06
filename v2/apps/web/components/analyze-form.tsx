@@ -199,9 +199,9 @@ export function AnalyzeForm({
   const [at, setAt] = useState<AssetType>(assetType);
   const [tf, setTf] = useState<Timeframe>(timeframe);
   const [pending, setPending] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [openDD, setOpenDD] = useState<null | "ativo" | "tipo" | "tf">(null);
   const [query, setQuery] = useState("");
-  const ddRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const cleanSym = sym.trim().toUpperCase();
   const matched = CATALOG.find((a) => a.symbol === cleanSym);
@@ -216,25 +216,25 @@ export function AnalyzeForm({
     return CATALOG.filter((a) => a.symbol.toLowerCase().includes(q) || a.name.toLowerCase().includes(q)).slice(0, 80);
   }, [query, at, byClass]);
 
-  // Fecha ao clicar fora.
+  // Fecha ao clicar fora (vale pros 3 dropdowns — só um abre por vez).
   useEffect(() => {
-    if (!open) return;
+    if (!openDD) return;
     function onDocClick(e: MouseEvent) {
-      if (ddRef.current && !ddRef.current.contains(e.target as Node)) setOpen(false);
+      if (gridRef.current && !gridRef.current.contains(e.target as Node)) setOpenDD(null);
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
+  }, [openDD]);
 
+  function toggleDD(id: "ativo" | "tipo" | "tf") {
+    if (id === "ativo") setQuery("");
+    setOpenDD((v) => (v === id ? null : id));
+  }
   function pick(a: { symbol: string; assetType: AssetType }) {
     setSym(a.symbol);
     setAt(a.assetType);
-    setOpen(false);
+    setOpenDD(null);
     setQuery("");
-  }
-  function openDropdown() {
-    setQuery("");
-    setOpen((v) => !v);
   }
   function changeType(next: AssetType) {
     setAt(next);
@@ -268,25 +268,25 @@ export function AnalyzeForm({
         </Link>
       </div>
 
-      <div className="cfg-grid">
-        <div className="cfg-field" ref={ddRef}>
+      <div className="cfg-grid" ref={gridRef}>
+        <div className="cfg-field">
           <span className="cfg-label">Ativo</span>
           <button
             type="button"
-            className={`cfg-control as-button${open ? " open" : ""}`}
-            onClick={openDropdown}
+            className={`cfg-control as-button${openDD === "ativo" ? " open" : ""}`}
+            onClick={() => toggleDD("ativo")}
             aria-haspopup="listbox"
-            aria-expanded={open}
+            aria-expanded={openDD === "ativo"}
           >
             <AssetAvatar key={`${at}-${cleanSym}`} symbol={cleanSym} assetType={at} />
             <span className="cfg-main">
               <span className="cfg-value">{cleanSym || "Selecione"}</span>
               <span className="cfg-meta">{matched?.name ?? "Digite ou escolha um ativo"}</span>
             </span>
-            <span className={`cfg-chev${open ? " open" : ""}`}><ChevronIcon /></span>
+            <span className={`cfg-chev${openDD === "ativo" ? " open" : ""}`}><ChevronIcon /></span>
           </button>
 
-          {open ? (
+          {openDD === "ativo" ? (
             <div className="cfg-dd" role="listbox" aria-label="Lista de ativos">
               <div className="cfg-dd-head">
                 <input
@@ -302,9 +302,9 @@ export function AnalyzeForm({
                     if (e.key === "Enter") {
                       e.preventDefault();
                       if (results[0]) pick(results[0]);
-                      else if (query.trim()) { setSym(query.trim().toUpperCase()); setOpen(false); }
+                      else if (query.trim()) { setSym(query.trim().toUpperCase()); setOpenDD(null); }
                     } else if (e.key === "Escape") {
-                      setOpen(false);
+                      setOpenDD(null);
                     }
                   }}
                 />
@@ -339,41 +339,81 @@ export function AnalyzeForm({
           ) : null}
         </div>
 
-        <label className="cfg-field">
+        <div className="cfg-field">
           <span className="cfg-label">Tipo de Ativo</span>
-          <div className="cfg-control">
+          <button
+            type="button"
+            className={`cfg-control as-button${openDD === "tipo" ? " open" : ""}`}
+            onClick={() => toggleDD("tipo")}
+            aria-haspopup="listbox"
+            aria-expanded={openDD === "tipo"}
+          >
             <span className="cfg-avatar soft">{TYPE_ICON[at]}</span>
             <span className="cfg-main">
-              <select className="cfg-select" value={at} onChange={(e) => changeType(e.target.value as AssetType)} aria-label="Classe de ativo">
-                {TYPES.map((t) => (
-                  <option key={t.v} value={t.v}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              <span className="cfg-value">{typeMeta?.label}</span>
               <span className="cfg-meta">{typeMeta?.hint}</span>
             </span>
-            <span className="cfg-chev"><ChevronIcon /></span>
-          </div>
-        </label>
+            <span className={`cfg-chev${openDD === "tipo" ? " open" : ""}`}><ChevronIcon /></span>
+          </button>
+          {openDD === "tipo" ? (
+            <div className="cfg-dd" role="listbox" aria-label="Classe de ativo">
+              <div className="cfg-dd-list">
+                {TYPES.map((t) => (
+                  <button
+                    type="button"
+                    key={t.v}
+                    className={`cfg-dd-item${t.v === at ? " active" : ""}`}
+                    role="option"
+                    aria-selected={t.v === at}
+                    onClick={() => { changeType(t.v); setOpenDD(null); }}
+                  >
+                    <span className="cfg-avatar sm soft">{TYPE_ICON[t.v]}</span>
+                    <span className="it-sym">{t.label}</span>
+                    <span className="it-name">{t.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
 
-        <label className="cfg-field">
+        <div className="cfg-field">
           <span className="cfg-label">Timeframe</span>
-          <div className="cfg-control">
+          <button
+            type="button"
+            className={`cfg-control as-button${openDD === "tf" ? " open" : ""}`}
+            onClick={() => toggleDD("tf")}
+            aria-haspopup="listbox"
+            aria-expanded={openDD === "tf"}
+          >
             <span className="cfg-avatar soft"><ClockIcon /></span>
             <span className="cfg-main">
-              <select className="cfg-select" value={tf} onChange={(e) => setTf(e.target.value as Timeframe)} aria-label="Timeframe">
-                {TFS.map((t) => (
-                  <option key={t.v} value={t.v}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              <span className="cfg-value">{tfMeta?.label}</span>
               <span className="cfg-meta">{tfMeta ? `${tf.toUpperCase()} · ${tfMeta.hint}` : null}</span>
             </span>
-            <span className="cfg-chev"><ChevronIcon /></span>
-          </div>
-        </label>
+            <span className={`cfg-chev${openDD === "tf" ? " open" : ""}`}><ChevronIcon /></span>
+          </button>
+          {openDD === "tf" ? (
+            <div className="cfg-dd" role="listbox" aria-label="Timeframe">
+              <div className="cfg-dd-list">
+                {TFS.map((t) => (
+                  <button
+                    type="button"
+                    key={t.v}
+                    className={`cfg-dd-item${t.v === tf ? " active" : ""}`}
+                    role="option"
+                    aria-selected={t.v === tf}
+                    onClick={() => { setTf(t.v); setOpenDD(null); }}
+                  >
+                    <span className="cfg-avatar sm soft"><ClockIcon /></span>
+                    <span className="it-sym">{t.label}</span>
+                    <span className="it-name">{t.v.toUpperCase()} · {t.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <button type="submit" className="cfg-go" disabled={pending}>

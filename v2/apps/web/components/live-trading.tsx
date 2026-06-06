@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AssetType, Timeframe } from "@tradeai/shared";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { buildPriceLines } from "@/lib/analysis/chart-overlays";
+import { buildChartZones } from "@/lib/analysis/chart-zones";
 import { toNarrativeFacts } from "@/lib/analysis/narrative-facts";
 import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narration";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
@@ -175,6 +176,7 @@ export function LiveTrading() {
 
   const facts = dto ? toNarrativeFacts(dto) : null;
   const lines = dto ? buildPriceLines(dto) : [];
+  const zones = dto ? buildChartZones(dto) : [];
   const sealKey = dto?.quality?.status ?? "grey";
   const sealInfo = SEAL[sealKey] ?? SEAL.grey!;
   const sig = facts?.signal ?? "NEUTRAL";
@@ -256,7 +258,7 @@ export function LiveTrading() {
                   <span><i style={{ background: "rgba(84,168,255,.5)" }} />Bollinger 20/2σ</span>
                 </div>
               ) : null}
-              <LiveChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={lines} onPrice={setTicker} showIndicators={showInd} markers={dto?.wyckoffEvents ?? []} />
+              <LiveChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={lines} onPrice={setTicker} showIndicators={showInd} markers={dto?.wyckoffEvents ?? []} zones={zones} />
             </>
           )}
           {/* PLANO OPERACIONAL */}

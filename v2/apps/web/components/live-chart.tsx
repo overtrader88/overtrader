@@ -5,6 +5,7 @@ import type { IChartApi, ISeriesApi, IPriceLine, UTCTimestamp, LineData } from "
 import type { AssetType, Timeframe } from "@tradeai/shared";
 import type { ChartLine } from "@/lib/analysis/chart-overlays";
 import { emaSeries, bollingerSeries } from "@/lib/analysis/indicator-series";
+import { createZonePrimitive, type ChartZone } from "@/lib/charts/zone-primitive";
 
 interface Candle { time: number; open: number; high: number; low: number; close: number; }
 
@@ -22,6 +23,7 @@ export function LiveChart({
   onPrice,
   showIndicators = true,
   markers = [],
+  zones = [],
 }: {
   symbol: string;
   assetType: AssetType;
@@ -31,6 +33,7 @@ export function LiveChart({
   onPrice?: (p: { price: number; changePct: number }) => void;
   showIndicators?: boolean;
   markers?: { time: number; type: "Spring" | "UTAD"; side: "bull" | "bear" }[];
+  zones?: ChartZone[];
 }) {
   const onPriceRef = useRef(onPrice);
   onPriceRef.current = onPrice;
@@ -42,6 +45,9 @@ export function LiveChart({
   const markersApiRef = useRef<{ setMarkers: (m: unknown[]) => void } | null>(null);
   const markersDataRef = useRef(markers);
   markersDataRef.current = markers;
+  const zonePrimRef = useRef<ReturnType<typeof createZonePrimitive> | null>(null);
+  const zonesDataRef = useRef(zones);
+  zonesDataRef.current = zones;
   const lastClosesRef = useRef<number[]>([]);
   const lastTimesRef = useRef<number[]>([]);
   const setIndRef = useRef<() => void>(() => {});
@@ -108,6 +114,14 @@ export function LiveChart({
       });
       chartRef.current = chart;
       seriesRef.current = series;
+
+      // Zonas preenchidas (OB/FVG/Value Area) — atrás dos candles.
+      try {
+        const zp = createZonePrimitive();
+        (series as unknown as { attachPrimitive: (p: unknown) => void }).attachPrimitive(zp.primitive);
+        zonePrimRef.current = zp;
+        zp.setZones(zonesDataRef.current);
+      } catch { /* sem suporte a primitive — ignora */ }
 
       // Marcadores Wyckoff (Spring/UTAD) nos candles.
       try {
@@ -212,7 +226,7 @@ export function LiveChart({
       if (timer) clearInterval(timer);
       if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; }
       if (chartRef.current) chartRef.current.remove();
-      chartRef.current = null; seriesRef.current = null; priceLinesRef.current = []; indRef.current = {}; markersApiRef.current = null; setIndRef.current = () => {}; lcRef.current = null;
+      chartRef.current = null; seriesRef.current = null; priceLinesRef.current = []; indRef.current = {}; markersApiRef.current = null; zonePrimRef.current = null; setIndRef.current = () => {}; lcRef.current = null;
     };
   }, [symbol, assetType, timeframe, candleRefreshMs, showIndicators]);
 
@@ -220,6 +234,8 @@ export function LiveChart({
   useEffect(() => { redrawLines(); }, [lines]);
   // Marcadores Wyckoff atualizados.
   useEffect(() => { applyMarkers(); }, [markers]);
+  // Zonas (caixas) atualizadas.
+  useEffect(() => { zonePrimRef.current?.setZones(zones); }, [zones]);
 
   return <div ref={ref} style={{ width: "100%", minHeight: 440 }} />;
 }

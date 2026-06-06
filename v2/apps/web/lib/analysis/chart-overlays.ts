@@ -43,24 +43,12 @@ export function buildPriceLines(dto: FullAnalysis): ChartLine[] {
         dashed: lz.swept,
       });
     }
-    // Order blocks ativos (até 2) — topo e base da zona, rotulados.
-    for (const o of dto.smc.orderBlocks.filter((b) => !b.mitigated).slice(0, 2)) {
-      const col = o.type === "bullish" ? C.bull : C.bear;
-      const tag = o.type === "bullish" ? "OB+" : "OB−";
-      lines.push({ price: o.zoneTop, color: col, title: `${tag} topo`, dashed: true });
-      lines.push({ price: o.zoneBottom, color: col, title: `${tag} base`, dashed: true });
-    }
-    for (const f of dto.smc.fvgs.filter((g) => g.status === "active").slice(0, 2)) {
-      lines.push({ price: (f.zoneTop + f.zoneBottom) / 2, color: C.cyan, title: "FVG", dashed: true });
-    }
+    // OB e FVG agora são CAIXAS preenchidas (buildChartZones) — não linhas.
   }
 
-  // Volume Profile: POC + Value Area (VAH/VAL).
+  // Volume Profile: POC como linha (VAH/VAL viram a caixa "Value Area").
   if (dto.volumeProfile) {
-    const vp = dto.volumeProfile;
-    lines.push({ price: vp.poc, color: C.amber, title: "POC", dashed: false });
-    lines.push({ price: vp.vah, color: "#7c8aa5", title: "VAH", dashed: true });
-    lines.push({ price: vp.val, color: "#7c8aa5", title: "VAL", dashed: true });
+    lines.push({ price: dto.volumeProfile.poc, color: C.amber, title: "POC", dashed: false });
   }
 
   // Harmônicos: PRZ do padrão mais relevante.

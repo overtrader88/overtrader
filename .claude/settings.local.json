@@ -196,7 +196,11 @@
       "Bash(netstat -ano)",
       "Bash(git --no-pager diff v2/README.md)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git --no-pager log --oneline -3)",
+      "Bash(git --no-pager diff --stat -- v2/apps/web/app/globals.css v2/apps/web/components/analyze-form.tsx)",
+      "Bash(git --no-pager log --oneline -2 -- v2/apps/web/app/globals.css)",
+      "Bash(git --no-pager diff HEAD --stat -- v2/apps/web/app/globals.css v2/apps/web/components/analyze-form.tsx)"
     ]
   }
 }
