@@ -111,33 +111,38 @@ const flagUrl = (code: string) => `https://flagcdn.com/w160/${code}.png`;
  * Qualquer falha de imagem cai no fallback de iniciais. `key` remonta ao trocar.
  */
 function AssetAvatar({ symbol, assetType, compact }: { symbol: string; assetType: AssetType; compact?: boolean }) {
-  const [failed, setFailed] = useState(false);
+  // errStep avança a cada falha de imagem → tenta a próxima fonte; esgotou → iniciais.
+  const [errStep, setErrStep] = useState(0);
   const cls = `cfg-avatar${compact ? " sm" : ""}`;
   const initials = tickerOf(symbol);
+  const nextSrc = () => setErrStep((s) => s + 1);
 
-  if (!failed) {
-    if (assetType === "crypto") {
-      const b = baseOf(symbol).toLowerCase();
-      if (b) return (
-        <span className={`${cls} logo`}>
-          <img src={`https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${b}.svg`} alt="" loading="lazy" onError={() => setFailed(true)} />
-        </span>
-      );
-    }
-    if (assetType === "stocks") {
+  if (assetType === "forex") {
+    const b = CCY_FLAG[symbol.slice(0, 3).toUpperCase()];
+    const q = CCY_FLAG[symbol.slice(3, 6).toUpperCase()];
+    if (b && q) return (
+      <span className={`${cls} flags`}>
+        <img className="fx-b" src={flagUrl(b)} alt="" loading="lazy" />
+        <img className="fx-q" src={flagUrl(q)} alt="" loading="lazy" />
+      </span>
+    );
+  } else {
+    const base = baseOf(symbol).toLowerCase();
+    // Cripto: ícone oficial (jsDelivr, estável) → cryptofonts (cobre as moedas novas) → iniciais.
+    // Ações: logo da empresa (FMP) → iniciais.
+    const sources =
+      assetType === "crypto"
+        ? [
+            `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${base}.svg`,
+            `https://cryptofonts.com/img/icons/${base}.svg`,
+          ]
+        : assetType === "stocks"
+          ? [stockLogo(symbol)]
+          : [];
+    if (base && errStep < sources.length) {
       return (
-        <span className={`${cls} logo brand`}>
-          <img src={stockLogo(symbol)} alt="" loading="lazy" onError={() => setFailed(true)} />
-        </span>
-      );
-    }
-    if (assetType === "forex") {
-      const b = CCY_FLAG[symbol.slice(0, 3).toUpperCase()];
-      const q = CCY_FLAG[symbol.slice(3, 6).toUpperCase()];
-      if (b && q) return (
-        <span className={`${cls} flags`}>
-          <img className="fx-b" src={flagUrl(b)} alt="" loading="lazy" />
-          <img className="fx-q" src={flagUrl(q)} alt="" loading="lazy" />
+        <span className={`${cls} logo${assetType === "stocks" ? " brand" : ""}`}>
+          <img key={errStep} src={sources[errStep]} alt="" loading="lazy" onError={nextSrc} />
         </span>
       );
     }

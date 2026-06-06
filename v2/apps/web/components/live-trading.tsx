@@ -7,6 +7,7 @@ import { buildPriceLines } from "@/lib/analysis/chart-overlays";
 import { buildChartZones } from "@/lib/analysis/chart-zones";
 import { toNarrativeFacts } from "@/lib/analysis/narrative-facts";
 import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narration";
+import { computeSetupScore } from "@/lib/analysis/setup-score";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
 import { TradingViewChart } from "@/components/tradingview-chart";
@@ -177,6 +178,8 @@ export function LiveTrading() {
   const facts = dto ? toNarrativeFacts(dto) : null;
   const lines = dto ? buildPriceLines(dto) : [];
   const zones = dto ? buildChartZones(dto) : [];
+  const setup = dto ? computeSetupScore(dto) : null;
+  const setupColor = setup ? (setup.tone === "bull" ? "var(--bull)" : setup.tone === "bear" ? "var(--bear)" : "var(--ink-soft)") : "var(--ink-soft)";
   const sealKey = dto?.quality?.status ?? "grey";
   const sealInfo = SEAL[sealKey] ?? SEAL.grey!;
   const sig = facts?.signal ?? "NEUTRAL";
@@ -301,6 +304,26 @@ export function LiveTrading() {
                 <div className="lt-meter-l"><span>Força do sinal</span><b>{facts.strengthPct}%</b></div>
                 <div className="lt-meter-bar"><i style={{ width: `${facts.strengthPct}%`, background: sideColor }} /></div>
               </div>
+
+              {setup ? (
+                <div className="lt-setup">
+                  <div className="lt-setup-top"><span>Confiança do setup</span><b style={{ color: setupColor }}>{setup.score}%</b></div>
+                  <div className="lt-meter-bar"><i style={{ width: `${setup.score}%`, background: setupColor }} /></div>
+                  <div className="lt-setup-lbl" style={{ color: setupColor }}>{setup.label}</div>
+                  <div className="lt-setup-cols">
+                    <div>
+                      <span className="lt-setup-k ok">A favor ({setup.agree.length})</span>
+                      {setup.agree.map((x, i) => <span key={i} className="lt-setup-it ok">✓ {x}</span>)}
+                      {setup.agree.length === 0 ? <span className="lt-setup-it dim">—</span> : null}
+                    </div>
+                    <div>
+                      <span className="lt-setup-k no">Contra ({setup.against.length})</span>
+                      {setup.against.map((x, i) => <span key={i} className="lt-setup-it no">✕ {x}</span>)}
+                      {setup.against.length === 0 ? <span className="lt-setup-it dim">—</span> : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="lt-chips">
                 {facts.backtest ? <>
