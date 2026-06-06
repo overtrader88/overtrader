@@ -21,6 +21,7 @@ export function LiveChart({
   candleRefreshMs = 12000,
   onPrice,
   showIndicators = true,
+  markers = [],
 }: {
   symbol: string;
   assetType: AssetType;
@@ -29,6 +30,7 @@ export function LiveChart({
   candleRefreshMs?: number;
   onPrice?: (p: { price: number; changePct: number }) => void;
   showIndicators?: boolean;
+  markers?: { time: number; type: "Spring" | "UTAD"; side: "bull" | "bear" }[];
 }) {
   const onPriceRef = useRef(onPrice);
   onPriceRef.current = onPrice;
@@ -37,12 +39,29 @@ export function LiveChart({
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const indRef = useRef<Record<string, ISeriesApi<"Line">>>({});
+  const markersApiRef = useRef<{ setMarkers: (m: unknown[]) => void } | null>(null);
+  const markersDataRef = useRef(markers);
+  markersDataRef.current = markers;
   const lastClosesRef = useRef<number[]>([]);
   const lastTimesRef = useRef<number[]>([]);
   const setIndRef = useRef<() => void>(() => {});
   const lcRef = useRef<typeof import("lightweight-charts") | null>(null);
   const linesRef = useRef<ChartLine[]>(lines);
   linesRef.current = lines;
+
+  function applyMarkers() {
+    const api = markersApiRef.current;
+    if (!api) return;
+    const ms = markersDataRef.current.map((m) => ({
+      time: Math.floor(m.time / 1000) as UTCTimestamp,
+      position: m.side === "bull" ? "belowBar" : "aboveBar",
+      color: m.side === "bull" ? "#2bd49e" : "#ff6b8a",
+      shape: m.side === "bull" ? "arrowUp" : "arrowDown",
+      text: m.type,
+      size: 1,
+    }));
+    api.setMarkers(ms);
+  }
 
   function redrawLines() {
     const lc = lcRef.current;
@@ -89,6 +108,12 @@ export function LiveChart({
       });
       chartRef.current = chart;
       seriesRef.current = series;
+
+      // Marcadores Wyckoff (Spring/UTAD) nos candles.
+      try {
+        markersApiRef.current = lc.createSeriesMarkers(series, []) as unknown as { setMarkers: (m: unknown[]) => void };
+        applyMarkers();
+      } catch { /* versão sem markers — ignora */ }
 
       // Médias + Bollinger (overlay no preço) — só se ligado.
       if (showIndicators) {
@@ -187,12 +212,14 @@ export function LiveChart({
       if (timer) clearInterval(timer);
       if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; }
       if (chartRef.current) chartRef.current.remove();
-      chartRef.current = null; seriesRef.current = null; priceLinesRef.current = []; indRef.current = {}; setIndRef.current = () => {}; lcRef.current = null;
+      chartRef.current = null; seriesRef.current = null; priceLinesRef.current = []; indRef.current = {}; markersApiRef.current = null; setIndRef.current = () => {}; lcRef.current = null;
     };
   }, [symbol, assetType, timeframe, candleRefreshMs, showIndicators]);
 
   // Quando a análise muda (novas linhas), redesenha sem reconstruir o chart.
   useEffect(() => { redrawLines(); }, [lines]);
+  // Marcadores Wyckoff atualizados.
+  useEffect(() => { applyMarkers(); }, [markers]);
 
   return <div ref={ref} style={{ width: "100%", minHeight: 440 }} />;
 }

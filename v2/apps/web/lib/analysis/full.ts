@@ -14,6 +14,8 @@ import {
 } from "@tradeai/engine";
 import type { Candle } from "@tradeai/shared";
 import { toBacktestView, equityFromTrades, type BacktestView } from "./backtest-view";
+import { computeVolumeProfile, type VolumeProfile } from "./volume-profile";
+import { detectWyckoffEvents, type WyckoffEvent } from "./wyckoff-events";
 
 export type { BacktestView };
 
@@ -41,6 +43,10 @@ export interface FullAnalysis {
   quality?: QualityBanner;
   /** R acumulado por trade do backtest (curva de capital). */
   equityCurve?: number[];
+  /** Perfil de volume (POC/VAH/VAL) — observado, não probabilístico. */
+  volumeProfile?: VolumeProfile;
+  /** Eventos Wyckoff (Spring/UTAD) detectados por varredura+reclaim. */
+  wyckoffEvents?: WyckoffEvent[];
 }
 
 export interface RunFullOptions {
@@ -104,6 +110,8 @@ export function runFullAnalysis(input: AnalysisInput, options: RunFullOptions): 
   const bt = runBacktest(input, {});
   const quality = computeQualityBanner(bt);
   const backtest = toBacktestView(bt);
+  const volumeProfile = computeVolumeProfile(candles) ?? undefined;
+  const wyckoffEvents = detectWyckoffEvents(candles);
 
-  return { generatedAt, type, period, analysis, montecarlo, scenarios, smc, harmonics, wegd, seasonality, sessions, multiTimeframe, backtest, quality, equityCurve: equityFromTrades(bt.trades) };
+  return { generatedAt, type, period, analysis, montecarlo, scenarios, smc, harmonics, wegd, seasonality, sessions, multiTimeframe, backtest, quality, equityCurve: equityFromTrades(bt.trades), volumeProfile, wyckoffEvents };
 }

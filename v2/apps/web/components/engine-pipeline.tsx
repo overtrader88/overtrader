@@ -50,6 +50,9 @@ export function EnginePipeline({ dto }: { dto: FullAnalysis }) {
   if (wy) { const w = WYCKOFF_PT[wy.phase] ?? WYCKOFF_PT.transition!; confs.push({ label: "Wyckoff", value: w.label, tone: w.tone, sub: `${Math.round(wy.confidence * 100)}% conf.` }); }
   if (mc) { const up = mc.winRateUp.value * 100; confs.push({ label: "Monte Carlo", value: `${up.toFixed(0)}% ↑`, tone: up >= 55 ? "bull" : up <= 45 ? "bear" : "neu", sub: `${mc.simulations.toLocaleString("pt-BR")} sims` }); }
   if (dto.harmonics && dto.harmonics.patterns.length) confs.push({ label: "Harmônicos", value: dto.harmonics.patterns[0]!.name, tone: "neu", sub: `${dto.harmonics.patterns.length} padrão(ões)` });
+  const fp = (n: number) => (n >= 1000 ? n.toLocaleString("pt-BR", { maximumFractionDigits: 0 }) : n.toFixed(2));
+  if (dto.volumeProfile) confs.push({ label: "Volume Profile", value: `POC ${fp(dto.volumeProfile.poc)}`, tone: "neu", sub: `VA ${fp(dto.volumeProfile.val)}–${fp(dto.volumeProfile.vah)}` });
+  if (dto.wyckoffEvents && dto.wyckoffEvents.length) { const last = dto.wyckoffEvents[dto.wyckoffEvents.length - 1]!; confs.push({ label: "Wyckoff (eventos)", value: `${last.type}`, tone: last.side, sub: `${dto.wyckoffEvents.length} no período` }); }
 
   const passed = gates.filter((g) => g.passed).length;
 

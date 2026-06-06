@@ -193,7 +193,10 @@
       "Bash(git --no-pager diff --stat v2/apps/web/app/api/admin/set-credits/route.ts)",
       "Bash(git --no-pager log --oneline -3 -- v2/apps/web/app/api/admin/set-credits/route.ts)",
       "Bash(git --no-pager log --oneline origin/main..HEAD)",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(git --no-pager diff v2/README.md)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

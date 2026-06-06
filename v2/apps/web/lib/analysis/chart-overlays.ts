@@ -55,6 +55,14 @@ export function buildPriceLines(dto: FullAnalysis): ChartLine[] {
     }
   }
 
+  // Volume Profile: POC + Value Area (VAH/VAL).
+  if (dto.volumeProfile) {
+    const vp = dto.volumeProfile;
+    lines.push({ price: vp.poc, color: C.amber, title: "POC", dashed: false });
+    lines.push({ price: vp.vah, color: "#7c8aa5", title: "VAH", dashed: true });
+    lines.push({ price: vp.val, color: "#7c8aa5", title: "VAL", dashed: true });
+  }
+
   // Harmônicos: PRZ do padrão mais relevante.
   if (dto.harmonics && dto.harmonics.patterns.length > 0) {
     const p = dto.harmonics.patterns[0]!;
