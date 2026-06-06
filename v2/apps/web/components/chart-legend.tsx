@@ -5,7 +5,7 @@
  * linha/caixa/marcador representa. Só faz sentido no modo Overtrader (o
  * TradingView tem a própria legenda).
  */
-type Kind = "line" | "dash" | "box" | "up" | "down" | "bars";
+type Kind = "line" | "dash" | "box" | "up" | "down" | "bars" | "sq" | "ci";
 
 interface Item { label: string; color: string; kind: Kind; }
 
@@ -53,6 +53,10 @@ const GROUPS: { title: string; items: Item[] }[] = [
     items: [
       { label: "Spring (↑ varreu mínima)", color: "#2bd49e", kind: "up" },
       { label: "UTAD (↓ varreu máxima)", color: "#ff6b8a", kind: "down" },
+      { label: "SOS · força (□ rompeu resist.)", color: "#2bd49e", kind: "sq" },
+      { label: "SOW · fraqueza (□ perdeu sup.)", color: "#ff6b8a", kind: "sq" },
+      { label: "AR · repique / ST · reteste (○)", color: "#9aa7bd", kind: "ci" },
+      { label: "LPS (↑ último suporte)", color: "#2bd49e", kind: "up" },
     ],
   },
 ];
@@ -63,6 +67,8 @@ function Swatch({ color, kind }: { color: string; kind: Kind }) {
   if (kind === "bars") return <span className="cl-sw bars" style={{ color }}>▮▮▭</span>;
   if (kind === "up") return <span className="cl-sw mk" style={{ color }}>▲</span>;
   if (kind === "down") return <span className="cl-sw mk" style={{ color }}>▼</span>;
+  if (kind === "sq") return <span className="cl-sw mk" style={{ color }}>■</span>;
+  if (kind === "ci") return <span className="cl-sw mk" style={{ color }}>●</span>;
   return <span className="cl-sw line" style={{ background: color }} />;
 }
 

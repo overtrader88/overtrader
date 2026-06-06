@@ -9,6 +9,7 @@ import { toNarrativeFacts } from "@/lib/analysis/narrative-facts";
 import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narration";
 import { computeSetupScore } from "@/lib/analysis/setup-score";
 import { computeLiveTrade } from "@/lib/analysis/live-trade";
+import { stepPaperTrading, paperStats, livePnl, EMPTY_PAPER_STATE, type PaperState } from "@/lib/analysis/paper-trading";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
 import { TradingViewChart } from "@/components/tradingview-chart";
@@ -55,6 +56,19 @@ export function LiveTrading() {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [ticker, setTicker] = useState<{ price: number; changePct: number } | null>(null);
   const [typed, setTyped] = useState("");
+
+  // Paper-trading com histórico — persistido por navegador (localStorage).
+  const PAPER_KEY = "ovt.paper.v1";
+  const [paper, setPaper] = useState<PaperState>(EMPTY_PAPER_STATE);
+  const paperLoaded = useRef(false);
+  useEffect(() => {
+    if (paperLoaded.current || typeof window === "undefined") return;
+    paperLoaded.current = true;
+    try {
+      const raw = window.localStorage.getItem(PAPER_KEY);
+      if (raw) setPaper(JSON.parse(raw) as PaperState);
+    } catch { /* ignora histórico corrompido */ }
+  }, []);
 
   const busyRef = useRef(false);
   const lastKeyRef = useRef<string | null>(null);
@@ -182,6 +196,31 @@ export function LiveTrading() {
   const zones = dto ? buildChartZones(dto) : [];
   const setup = dto ? computeSetupScore(dto) : null;
   const trade = dto ? computeLiveTrade(dto, ticker?.price ?? null) : null;
+
+  // Avança o paper-trading a cada tick/setup e persiste no localStorage.
+  const livePrice = ticker?.price ?? dto?.montecarlo?.currentPrice ?? null;
+  useEffect(() => {
+    if (!paperLoaded.current || !dto || livePrice == null || !Number.isFinite(livePrice)) return;
+    setPaper((prev) => {
+      const next = stepPaperTrading(prev, {
+        setup: trade ? { side: trade.side, entry: trade.entry, stop: trade.stop, tp1: trade.tp1 } : null,
+        price: livePrice, now: Date.now(), symbol, timeframe,
+      });
+      if (next !== prev && typeof window !== "undefined") {
+        try { window.localStorage.setItem(PAPER_KEY, JSON.stringify(next)); } catch { /* quota */ }
+      }
+      return next;
+    });
+    // depende do preço ao vivo e da assinatura do setup
+  }, [livePrice, trade?.side, trade?.entry, trade?.stop, trade?.tp1, symbol, timeframe, dto]);
+
+  const pStats = paperStats(paper.history);
+  const recentPaper = [...paper.history].reverse().slice(0, 8);
+  const clearPaper = () => {
+    setPaper(EMPTY_PAPER_STATE);
+    if (typeof window !== "undefined") { try { window.localStorage.removeItem(PAPER_KEY); } catch { /* */ } }
+  };
+
   const setupColor = setup ? (setup.tone === "bull" ? "var(--bull)" : setup.tone === "bear" ? "var(--bear)" : "var(--ink-soft)") : "var(--ink-soft)";
   const sealKey = dto?.quality?.status ?? "grey";
   const sealInfo = SEAL[sealKey] ?? SEAL.grey!;
@@ -387,6 +426,55 @@ export function LiveTrading() {
             <p className="note" style={{ padding: "8px 2px" }}>Sem operação — viés neutro. A IA aguarda definição.</p>
           )}
           <p className="note" style={{ fontSize: "0.72rem", marginTop: 6 }}>Simulação do setup vigente (atualiza com o preço ao vivo). Não é ordem real nem recomendação de investimento.</p>
+        </section>
+      ) : null}
+
+      {/* HISTÓRICO — PAPER TRADING (persistido neste navegador) */}
+      {dto ? (
+        <section className="lt-trades lt-paper">
+          <div className="lt-trades-h">
+            Histórico <span>· paper trading</span>
+            {paper.history.length > 0 ? <button type="button" className="lt-paper-clear" onClick={clearPaper}>limpar</button> : null}
+          </div>
+          <div className="lt-paper-stats">
+            <div className="lt-pstat"><span>Fechados</span><b>{pStats.closed}</b></div>
+            <div className="lt-pstat"><span>Acertos</span><b className={pStats.winRate >= 50 ? "bull" : ""}>{pStats.closed ? `${pStats.winRate.toFixed(0)}%` : "—"}</b></div>
+            <div className="lt-pstat"><span>G / P</span><b>{pStats.wins} / {pStats.losses}</b></div>
+            <div className="lt-pstat"><span>R total</span><b className={pStats.totalR >= 0 ? "bull" : "bear"}>{pStats.totalR >= 0 ? "+" : ""}{pStats.totalR.toFixed(2)}R</b></div>
+            <div className="lt-pstat"><span>R médio</span><b className={pStats.avgR >= 0 ? "bull" : "bear"}>{pStats.avgR >= 0 ? "+" : ""}{pStats.avgR.toFixed(2)}R</b></div>
+          </div>
+          {paper.open ? (() => { const lp = livePnl(paper.open!, livePrice ?? paper.open!.entry); return (
+            <div className="lt-paper-open">
+              <span className={`lt-side ${paper.open.side}`}>{paper.open.side === "buy" ? "COMPRA" : "VENDA"}</span>
+              <span className="lt-po-sym"><b>{paper.open.symbol}</b> {paper.open.timeframe.toUpperCase()}</span>
+              <span>entrada {fmtPrice(paper.open.entry)}</span>
+              <span className={lp.pnlPct >= 0 ? "bull" : "bear"}>{lp.pnlPct >= 0 ? "+" : ""}{lp.pnlPct.toFixed(2)}% · {lp.r >= 0 ? "+" : ""}{lp.r.toFixed(2)}R</span>
+              <span className="lt-status open">aberta</span>
+            </div>
+          ); })() : null}
+          {recentPaper.length > 0 ? (
+            <div className="lt-trades-tbl">
+              <table>
+                <thead><tr><th>Ativo</th><th>Lado</th><th>Entrada</th><th>Saída</th><th>P&L</th><th>R</th><th>Resultado</th></tr></thead>
+                <tbody>
+                  {recentPaper.map((t) => (
+                    <tr key={t.id}>
+                      <td><b>{t.symbol}</b> {t.timeframe.toUpperCase()}</td>
+                      <td><span className={`lt-side ${t.side}`}>{t.side === "buy" ? "COMPRA" : "VENDA"}</span></td>
+                      <td>{fmtPrice(t.entry)}</td>
+                      <td>{fmtPrice(t.exit ?? NaN)}</td>
+                      <td className={(t.pnlPct ?? 0) >= 0 ? "bull" : "bear"}>{(t.pnlPct ?? 0) >= 0 ? "+" : ""}{(t.pnlPct ?? 0).toFixed(2)}%</td>
+                      <td className={(t.r ?? 0) >= 0 ? "bull" : "bear"}>{(t.r ?? 0) >= 0 ? "+" : ""}{(t.r ?? 0).toFixed(2)}R</td>
+                      <td><span className={`lt-status ${t.status === "stop" ? "no" : t.status === "tp1" ? "ok" : "open"}`}>{t.status === "tp1" ? "Alvo 1" : t.status === "stop" ? "Stop" : "Cancelada"}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="note" style={{ padding: "8px 2px" }}>Nenhum trade fechado ainda. Deixe o modo ao vivo rodando — a IA abre e fecha operações de papel conforme os setups e os alvos/stops vão batendo.</p>
+          )}
+          <p className="note" style={{ fontSize: "0.72rem", marginTop: 6 }}>Histórico salvo só neste navegador. Paper trading (simulado) — não é ordem real nem recomendação de investimento.</p>
         </section>
       ) : null}
     </div>

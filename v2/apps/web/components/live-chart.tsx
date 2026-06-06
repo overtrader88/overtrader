@@ -34,7 +34,7 @@ export function LiveChart({
   candleRefreshMs?: number;
   onPrice?: (p: { price: number; changePct: number }) => void;
   showIndicators?: boolean;
-  markers?: { time: number; type: "Spring" | "UTAD"; side: "bull" | "bear" }[];
+  markers?: { time: number; type: "Spring" | "UTAD" | "SOS" | "SOW" | "AR" | "ST" | "LPS"; side: "bull" | "bear" }[];
   zones?: ChartZone[];
   volumeProfile?: VolumeProfileData | null;
 }) {
@@ -64,13 +64,19 @@ export function LiveChart({
   function applyMarkers() {
     const api = markersApiRef.current;
     if (!api) return;
+    // forma por categoria do evento: rompimento=square, reação/teste=circle, varredura/suporte=arrow
+    const shapeFor = (t: string, side: string) => {
+      if (t === "SOS" || t === "SOW") return "square";
+      if (t === "AR" || t === "ST") return "circle";
+      return side === "bull" ? "arrowUp" : "arrowDown";
+    };
     const ms = markersDataRef.current.map((m) => ({
       time: Math.floor(m.time / 1000) as UTCTimestamp,
       position: m.side === "bull" ? "belowBar" : "aboveBar",
       color: m.side === "bull" ? "#2bd49e" : "#ff6b8a",
-      shape: m.side === "bull" ? "arrowUp" : "arrowDown",
+      shape: shapeFor(m.type, m.side),
       text: m.type,
-      size: 1,
+      size: m.type === "SOS" || m.type === "SOW" ? 2 : 1,
     }));
     api.setMarkers(ms);
   }

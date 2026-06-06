@@ -205,7 +205,10 @@
       "Bash(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://overtrader.com.br/ao-vivo)",
       "Bash(git commit -m 'fix\\(admin\\): corrige exception server-side em producao \\(fronteira client/server\\) *)",
       "Bash(git push *)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 25 http://localhost:3001/admin)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 25 http://localhost:3001/admin)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"=== EXIT tsc: $? ===\")",
+      "Bash(echo \"=== build exit: $? ===\")"
     ]
   }
 }
