@@ -883,6 +883,12 @@ input:focus-visible,
 .analysis-page .cfg-avatar.soft { background: var(--cyan-soft) !important; color: var(--cyan); box-shadow: none; }
 .analysis-page .cfg-avatar.logo { background: radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)); padding: 6px; box-shadow: inset 0 0 0 1px var(--line-2); overflow: hidden; }
 .analysis-page .cfg-avatar.logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* índices: bandeira única do mercado preenchendo o tile */
+.analysis-page .cfg-avatar.flag { background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line-2); padding: 0; overflow: hidden; }
+.analysis-page .cfg-avatar.flag img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* commodities: emoji do produto num tile neutro */
+.analysis-page .cfg-avatar.emoji { background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line-2); font-size: 24px; line-height: 1; }
+.analysis-page .cfg-avatar.sm.emoji { font-size: 17px; }
 .analysis-page .cfg-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .analysis-page .cfg-input,
 .analysis-page .cfg-select { width: 100%; min-width: 0; background: none; border: none; color: var(--ink); font-family: var(--font-mono); font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; padding: 0; }

@@ -101,13 +101,26 @@ const CCY_FLAG: Record<string, string> = {
   BRL: "br", MXN: "mx", ZAR: "za", SEK: "se",
 };
 const flagUrl = (code: string) => `https://flagcdn.com/w160/${code}.png`;
+// Índice → país/mercado (bandeira flagcdn).
+const INDEX_FLAG: Record<string, string> = {
+  SPX: "us", NDX: "us", DJI: "us", IXIC: "us", VIX: "us", RUT: "us",
+  FTSE: "gb", NIKKEI: "jp", HSI: "hk", STOXX50: "eu", IBOV: "br", SPTSX: "ca", ASX200: "au",
+};
+// Commodity → emoji do produto (sempre renderiza, sem rede).
+const COMMODITY_EMOJI: Record<string, string> = {
+  XAUUSD: "🥇", XAGUSD: "🥈", COPPER: "🥉", XPTUSD: "💎", XPDUSD: "⚙️",
+  WTIUSD: "🛢️", BRENTUSD: "🛢️", NATGAS: "🔥",
+  CORN: "🌽", WHEAT: "🌾", SOYBEAN: "🌱", COFFEE: "☕",
+};
 
 /**
  * Selo/logo do ativo, por classe:
- *  · cripto  → ícone oficial (cryptocurrency-icons via jsDelivr)
- *  · ações   → logo da empresa (Clearbit, por domínio)
- *  · forex   → par de bandeiras (base + cotação) via flagcdn
- *  · resto   → tile com gradiente + iniciais
+ *  · cripto       → ícone oficial (jsDelivr) → cryptofonts → iniciais
+ *  · ações        → logo da empresa (FMP) → iniciais
+ *  · forex        → par de bandeiras (base + cotação)
+ *  · índices      → bandeira do país/mercado
+ *  · commodities  → emoji do produto
+ *  · resto        → tile com gradiente + iniciais
  * Qualquer falha de imagem cai no fallback de iniciais. `key` remonta ao trocar.
  */
 function AssetAvatar({ symbol, assetType, compact }: { symbol: string; assetType: AssetType; compact?: boolean }) {
@@ -126,6 +139,16 @@ function AssetAvatar({ symbol, assetType, compact }: { symbol: string; assetType
         <img className="fx-q" src={flagUrl(q)} alt="" loading="lazy" />
       </span>
     );
+  } else if (assetType === "indices") {
+    const cc = INDEX_FLAG[symbol.toUpperCase()];
+    if (cc) return (
+      <span className={`${cls} flag`}>
+        <img src={flagUrl(cc)} alt="" loading="lazy" />
+      </span>
+    );
+  } else if (assetType === "commodities") {
+    const e = COMMODITY_EMOJI[symbol.toUpperCase()];
+    if (e) return <span className={`${cls} emoji`}>{e}</span>;
   } else {
     const base = baseOf(symbol).toLowerCase();
     // Cripto: ícone oficial (jsDelivr, estável) → cryptofonts (cobre as moedas novas) → iniciais.

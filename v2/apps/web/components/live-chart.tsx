@@ -6,6 +6,7 @@ import type { AssetType, Timeframe } from "@tradeai/shared";
 import type { ChartLine } from "@/lib/analysis/chart-overlays";
 import { emaSeries, bollingerSeries } from "@/lib/analysis/indicator-series";
 import { createZonePrimitive, type ChartZone } from "@/lib/charts/zone-primitive";
+import { createVolumeProfilePrimitive, type VolumeProfileData } from "@/lib/charts/volume-profile-primitive";
 
 interface Candle { time: number; open: number; high: number; low: number; close: number; }
 
@@ -24,6 +25,7 @@ export function LiveChart({
   showIndicators = true,
   markers = [],
   zones = [],
+  volumeProfile = null,
 }: {
   symbol: string;
   assetType: AssetType;
@@ -34,6 +36,7 @@ export function LiveChart({
   showIndicators?: boolean;
   markers?: { time: number; type: "Spring" | "UTAD"; side: "bull" | "bear" }[];
   zones?: ChartZone[];
+  volumeProfile?: VolumeProfileData | null;
 }) {
   const onPriceRef = useRef(onPrice);
   onPriceRef.current = onPrice;
@@ -48,6 +51,9 @@ export function LiveChart({
   const zonePrimRef = useRef<ReturnType<typeof createZonePrimitive> | null>(null);
   const zonesDataRef = useRef(zones);
   zonesDataRef.current = zones;
+  const vpPrimRef = useRef<ReturnType<typeof createVolumeProfilePrimitive> | null>(null);
+  const vpDataRef = useRef(volumeProfile);
+  vpDataRef.current = volumeProfile;
   const lastClosesRef = useRef<number[]>([]);
   const lastTimesRef = useRef<number[]>([]);
   const setIndRef = useRef<() => void>(() => {});
@@ -121,6 +127,10 @@ export function LiveChart({
         (series as unknown as { attachPrimitive: (p: unknown) => void }).attachPrimitive(zp.primitive);
         zonePrimRef.current = zp;
         zp.setZones(zonesDataRef.current);
+        const vp = createVolumeProfilePrimitive();
+        (series as unknown as { attachPrimitive: (p: unknown) => void }).attachPrimitive(vp.primitive);
+        vpPrimRef.current = vp;
+        vp.setData(vpDataRef.current);
       } catch { /* sem suporte a primitive — ignora */ }
 
       // Marcadores Wyckoff (Spring/UTAD) nos candles.
@@ -226,7 +236,7 @@ export function LiveChart({
       if (timer) clearInterval(timer);
       if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; }
       if (chartRef.current) chartRef.current.remove();
-      chartRef.current = null; seriesRef.current = null; priceLinesRef.current = []; indRef.current = {}; markersApiRef.current = null; zonePrimRef.current = null; setIndRef.current = () => {}; lcRef.current = null;
+      chartRef.current = null; seriesRef.current = null; priceLinesRef.current = []; indRef.current = {}; markersApiRef.current = null; zonePrimRef.current = null; vpPrimRef.current = null; setIndRef.current = () => {}; lcRef.current = null;
     };
   }, [symbol, assetType, timeframe, candleRefreshMs, showIndicators]);
 
@@ -236,6 +246,8 @@ export function LiveChart({
   useEffect(() => { applyMarkers(); }, [markers]);
   // Zonas (caixas) atualizadas.
   useEffect(() => { zonePrimRef.current?.setZones(zones); }, [zones]);
+  // Volume profile (histograma lateral) atualizado.
+  useEffect(() => { vpPrimRef.current?.setData(volumeProfile); }, [volumeProfile]);
 
   return <div ref={ref} style={{ width: "100%", minHeight: 440 }} />;
 }

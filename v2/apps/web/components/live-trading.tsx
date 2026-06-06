@@ -261,7 +261,7 @@ export function LiveTrading() {
                   <span><i style={{ background: "rgba(84,168,255,.5)" }} />Bollinger 20/2σ</span>
                 </div>
               ) : null}
-              <LiveChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={lines} onPrice={setTicker} showIndicators={showInd} markers={dto?.wyckoffEvents ?? []} zones={zones} />
+              <LiveChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={lines} onPrice={setTicker} showIndicators={showInd} markers={dto?.wyckoffEvents ?? []} zones={zones} volumeProfile={dto?.volumeProfile ?? null} />
             </>
           )}
           {/* PLANO OPERACIONAL */}
