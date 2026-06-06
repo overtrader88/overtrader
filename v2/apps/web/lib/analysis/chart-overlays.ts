@@ -42,6 +42,20 @@ export function buildPriceLines(dto: FullAnalysis): ChartLine[] {
   }
   // (OB e FVG são CAIXAS preenchidas — buildChartZones — não linhas.)
 
+  // SMC: TODAS as outras zonas de liquidez (densidade) + estrutura (swings + BOS/CHoCH).
+  if (dto.smc) {
+    for (const lz of dto.smc.liquidityZones ?? []) {
+      if (nl && (lz.level === nl.above || lz.level === nl.below)) continue; // já destacadas acima
+      const above = lz.type === "buy_stops_above";
+      lines.push({ price: lz.level, color: above ? "rgba(255,107,138,0.55)" : "rgba(43,212,158,0.55)", title: lz.swept ? "Liq ✓" : "Liq", dashed: true });
+    }
+    const ms = dto.smc.marketStructure ?? "consolidating";
+    const tag = ms.includes("choch") ? "CHoCH" : ms.includes("bos") ? "BOS" : "";
+    const bull = ms.startsWith("bullish");
+    if (dto.smc.lastSwingHigh) lines.push({ price: dto.smc.lastSwingHigh.price, color: "#8b97ad", title: bull && tag ? `${tag} ↑ (máx)` : "Máx. estrutura", dashed: true });
+    if (dto.smc.lastSwingLow) lines.push({ price: dto.smc.lastSwingLow.price, color: "#8b97ad", title: !bull && tag ? `${tag} ↓ (mín)` : "Mín. estrutura", dashed: true });
+  }
+
   // Volume Profile: POC como linha (VAH/VAL viram a caixa "Value Area").
   if (dto.volumeProfile) {
     lines.push({ price: dto.volumeProfile.poc, color: C.amber, title: "POC", dashed: false });
