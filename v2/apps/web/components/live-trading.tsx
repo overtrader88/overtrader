@@ -10,6 +10,7 @@ import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
 import { TradingViewChart } from "@/components/tradingview-chart";
 import { TechnicalSummary } from "@/components/technical-summary";
+import { EnginePipeline } from "@/components/engine-pipeline";
 
 type VoiceMode = "off" | "browser" | "premium";
 const TFS: Timeframe[] = ["15m", "1h", "4h", "1d"];
@@ -318,6 +319,9 @@ export function LiveTrading() {
           ) : null}
         </aside>
       </div>
+
+      {/* ANÁLISE AO VIVO — pipeline + confirmações cruzadas + gates */}
+      {dto ? <EnginePipeline dto={dto} /> : null}
 
       {/* RESUMO TÉCNICO — os 20 indicadores do motor, grounded */}
       {dto ? (

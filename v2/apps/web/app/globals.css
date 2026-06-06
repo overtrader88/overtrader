@@ -888,9 +888,18 @@ input:focus-visible,
 .analysis-page .cfg-chev { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--ink-soft); pointer-events: none; display: grid; place-items: center; transition: transform 0.18s; }
 .analysis-page .cfg-chev.open { transform: translateY(-50%) rotate(180deg); }
 
+/* logo de ação (Clearbit) num tile claro — garante contraste de qualquer marca */
+.analysis-page .cfg-avatar.logo.brand { background: #f4f6fb; box-shadow: inset 0 0 0 1px var(--line-2); padding: 6px; }
+/* par de bandeiras (forex) — base sobreposta à cotação */
+.analysis-page .cfg-avatar.flags { position: relative; background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line-2); overflow: hidden; }
+.analysis-page .cfg-avatar.flags img { position: absolute; width: 66%; height: 66%; object-fit: cover; border-radius: 50%; box-shadow: 0 0 0 2px var(--panel); }
+.analysis-page .cfg-avatar.flags .fx-b { top: 16%; left: 12%; z-index: 2; }
+.analysis-page .cfg-avatar.flags .fx-q { bottom: 12%; right: 10%; z-index: 1; }
+
 /* dropdown pesquisável do Ativo — apresenta todos os 143 ativos */
 .analysis-page .cfg-avatar.sm { width: 32px; height: 32px; border-radius: 10px; font-size: 10px; box-shadow: none; }
 .analysis-page .cfg-avatar.sm.logo { padding: 5px; }
+.analysis-page .cfg-avatar.sm.logo.brand { padding: 4px; }
 .analysis-page .cfg-dd { position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 60; border: 1px solid var(--line-2); border-radius: 16px; background: var(--panel); box-shadow: 0 34px 80px -28px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.04); overflow: hidden; }
 .analysis-page .cfg-dd-head { padding: 13px 13px 10px; border-bottom: 1px solid var(--line); }
 .analysis-page .cfg-dd-search { width: 100%; height: 42px; border: 1px solid var(--line-2); border-radius: 11px; background: var(--bg-2); color: var(--ink); font-family: var(--font-mono); font-size: 13px; padding: 0 13px; }
@@ -1224,3 +1233,31 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .ts-vote.buy { color: var(--bull); background: var(--bull-soft); }
 .ts-vote.sell { color: var(--bear); background: var(--bear-soft); }
 .ts-vote.neu { color: var(--ink-soft); background: rgba(120,160,225,.08); }
+
+/* Análise ao Vivo — pipeline / confirmações / gates */
+.ep { margin-top: 16px; background: radial-gradient(120% 90% at 0% 0%, rgba(84,168,255,.06), transparent 55%), linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 18px; }
+.ep-head { display: flex; align-items: center; gap: 9px; font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--ink); margin-bottom: 14px; }
+.ep-head .ep-sub { margin-left: auto; font-family: var(--font-sans); font-weight: 400; font-size: 12px; color: var(--ink-faint); }
+.ep-orb { width: 10px; height: 10px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--glow); animation: ltpulse 1.6s infinite; }
+.ep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 760px) { .ep-grid { grid-template-columns: 1fr; } }
+.ep-col-h { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--cyan); margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+
+.ep-conf { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+.ep-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.ep-dot.bull { background: var(--bull); box-shadow: 0 0 8px var(--bull-soft); }
+.ep-dot.bear { background: var(--bear); box-shadow: 0 0 8px var(--bear-soft); }
+.ep-dot.neu { background: var(--ink-faint); }
+.ep-conf-b { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; width: 100%; }
+.ep-conf-l { font-size: 13px; color: var(--ink-soft); }
+.ep-conf-v { font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
+.ep-conf-v.bull { color: var(--bull); } .ep-conf-v.bear { color: var(--bear); } .ep-conf-v.neu { color: var(--ink); }
+.ep-conf-v em { font-style: normal; color: var(--ink-faint); font-weight: 400; font-size: 11px; }
+
+.ep-gate { display: flex; gap: 10px; padding: 7px 0; align-items: flex-start; }
+.ep-gate-x { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none; }
+.ep-gate-x.ok { color: var(--bull); background: var(--bull-soft); }
+.ep-gate-x.no { color: var(--bear); background: var(--bear-soft); }
+.ep-gate-b { display: flex; flex-direction: column; gap: 1px; }
+.ep-gate-n { font-size: 13px; color: var(--ink); font-weight: 500; }
+.ep-gate-d { font-size: 11px; color: var(--ink-faint); }

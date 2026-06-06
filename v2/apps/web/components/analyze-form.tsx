@@ -90,26 +90,68 @@ const TYPE_ICON: Record<AssetType, React.ReactNode> = {
   ),
 };
 
+const baseOf = (symbol: string) => symbol.replace(/USDT$|USD$/i, "");
+const tickerOf = (symbol: string) => baseOf(symbol).slice(0, 4) || "?";
+
+// Ações → domínio (logo via Clearbit). Faltou alguém? cai no fallback de iniciais.
+const STOCK_DOMAIN: Record<string, string> = {
+  AAPL: "apple.com", MSFT: "microsoft.com", NVDA: "nvidia.com", GOOGL: "google.com", AMZN: "amazon.com",
+  META: "meta.com", TSLA: "tesla.com", NFLX: "netflix.com", AMD: "amd.com", INTC: "intel.com",
+  JPM: "jpmorganchase.com", V: "visa.com", MA: "mastercard.com", DIS: "disney.com", KO: "coca-cola.com",
+  PEP: "pepsico.com", NKE: "nike.com", BA: "boeing.com", XOM: "exxonmobil.com", CVX: "chevron.com",
+  WMT: "walmart.com", PYPL: "paypal.com", BABA: "alibaba.com", ORCL: "oracle.com", CRM: "salesforce.com",
+  ADBE: "adobe.com", AVGO: "broadcom.com", COST: "costco.com", MCD: "mcdonalds.com", CSCO: "cisco.com",
+  QCOM: "qualcomm.com", TXN: "ti.com", IBM: "ibm.com", GE: "ge.com", GS: "goldmansachs.com",
+  BAC: "bankofamerica.com", PFE: "pfizer.com", JNJ: "jnj.com", UNH: "unitedhealthgroup.com", HD: "homedepot.com",
+  SBUX: "starbucks.com",
+};
+// Moeda → código de bandeira (flagcdn). EUR usa a bandeira da UE ("eu").
+const CCY_FLAG: Record<string, string> = {
+  EUR: "eu", USD: "us", GBP: "gb", JPY: "jp", CHF: "ch", AUD: "au", CAD: "ca", NZD: "nz",
+  BRL: "br", MXN: "mx", ZAR: "za", SEK: "se",
+};
+const flagUrl = (code: string) => `https://flagcdn.com/w160/${code}.png`;
+
 /**
- * Selo/logo do ativo: para cripto, busca o ícone oficial no CDN
- * (cryptocurrency-icons via jsDelivr); se não existir ou não for cripto,
- * cai pro tile com gradiente + iniciais do ticker. `key` remonta ao trocar.
+ * Selo/logo do ativo, por classe:
+ *  · cripto  → ícone oficial (cryptocurrency-icons via jsDelivr)
+ *  · ações   → logo da empresa (Clearbit, por domínio)
+ *  · forex   → par de bandeiras (base + cotação) via flagcdn
+ *  · resto   → tile com gradiente + iniciais
+ * Qualquer falha de imagem cai no fallback de iniciais. `key` remonta ao trocar.
  */
-function AssetAvatar({ assetType, base, initials, compact }: { assetType: AssetType; base: string; initials: string; compact?: boolean }) {
+function AssetAvatar({ symbol, assetType, compact }: { symbol: string; assetType: AssetType; compact?: boolean }) {
   const [failed, setFailed] = useState(false);
-  const useLogo = assetType === "crypto" && base.length > 0 && !failed;
   const cls = `cfg-avatar${compact ? " sm" : ""}`;
-  if (useLogo) {
-    return (
-      <span className={`${cls} logo`}>
-        <img
-          src={`https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${base}.svg`}
-          alt=""
-          loading="lazy"
-          onError={() => setFailed(true)}
-        />
-      </span>
-    );
+  const initials = tickerOf(symbol);
+
+  if (!failed) {
+    if (assetType === "crypto") {
+      const b = baseOf(symbol).toLowerCase();
+      if (b) return (
+        <span className={`${cls} logo`}>
+          <img src={`https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${b}.svg`} alt="" loading="lazy" onError={() => setFailed(true)} />
+        </span>
+      );
+    }
+    if (assetType === "stocks") {
+      const dom = STOCK_DOMAIN[symbol.toUpperCase()];
+      if (dom) return (
+        <span className={`${cls} logo brand`}>
+          <img src={`https://logo.clearbit.com/${dom}`} alt="" loading="lazy" onError={() => setFailed(true)} />
+        </span>
+      );
+    }
+    if (assetType === "forex") {
+      const b = CCY_FLAG[symbol.slice(0, 3).toUpperCase()];
+      const q = CCY_FLAG[symbol.slice(3, 6).toUpperCase()];
+      if (b && q) return (
+        <span className={`${cls} flags`}>
+          <img className="fx-b" src={flagUrl(b)} alt="" loading="lazy" />
+          <img className="fx-q" src={flagUrl(q)} alt="" loading="lazy" />
+        </span>
+      );
+    }
   }
   return (
     <span className={cls} style={{ background: TYPE_GRAD[assetType] }}>
@@ -117,9 +159,6 @@ function AssetAvatar({ assetType, base, initials, compact }: { assetType: AssetT
     </span>
   );
 }
-
-const baseOf = (symbol: string) => symbol.replace(/USDT$|USD$/i, "");
-const tickerOf = (symbol: string) => baseOf(symbol).slice(0, 4) || "?";
 
 const TRUST: { t: string; s: string; icon: React.ReactNode }[] = [
   {
@@ -177,8 +216,6 @@ export function AnalyzeForm({
 
   const cleanSym = sym.trim().toUpperCase();
   const matched = CATALOG.find((a) => a.symbol === cleanSym);
-  const base = (matched?.symbol ?? cleanSym).replace(/USDT$|USD$/i, "");
-  const ticker = base.slice(0, 4) || "?";
   const typeMeta = TYPES.find((t) => t.v === at);
   const tfMeta = TFS.find((t) => t.v === tf);
   const byClass = useMemo(() => catalogByClass(), []);
@@ -252,7 +289,7 @@ export function AnalyzeForm({
             aria-haspopup="listbox"
             aria-expanded={open}
           >
-            <AssetAvatar key={`${at}-${base.toLowerCase()}`} assetType={at} base={base.toLowerCase()} initials={ticker} />
+            <AssetAvatar key={`${at}-${cleanSym}`} symbol={cleanSym} assetType={at} />
             <span className="cfg-main">
               <span className="cfg-value">{cleanSym || "Selecione"}</span>
               <span className="cfg-meta">{matched?.name ?? "Digite ou escolha um ativo"}</span>
@@ -301,7 +338,7 @@ export function AnalyzeForm({
                       aria-selected={a.symbol === cleanSym}
                       onClick={() => pick(a)}
                     >
-                      <AssetAvatar compact assetType={a.assetType} base={baseOf(a.symbol).toLowerCase()} initials={tickerOf(a.symbol)} />
+                      <AssetAvatar compact key={a.symbol} symbol={a.symbol} assetType={a.assetType} />
                       <span className="it-sym">{a.symbol}</span>
                       <span className="it-name">{a.name}</span>
                       <span className="it-cls">{ASSET_CLASS_PT[a.assetType]}</span>

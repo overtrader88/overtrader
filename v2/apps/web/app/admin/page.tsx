@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { AppBar } from "@/components/ui";
 import { getCurrentUser, planLabel, initialsOf, isAdmin } from "@/lib/supabase/auth";
 import { supabaseService } from "@/lib/supabase/server";
-import { AdminUserRow, type AdminUser } from "@/components/admin-user-row";
+import { type AdminUser } from "@/components/admin-user-row";
+import { AdminPanel } from "@/components/admin-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -15,16 +16,16 @@ export default async function AdminPage() {
   let users: AdminUser[] = [];
   if (sb) {
     const [{ data: profs }, { data: creds }, { data: subs }] = await Promise.all([
-      sb.from("profiles").select("id, email, full_name, plan, created_at").order("created_at", { ascending: false }).limit(200),
+      sb.from("profiles").select("id, email, full_name, plan, created_at").order("created_at", { ascending: false }).limit(1000),
       sb.from("user_credits").select("user_id, balance"),
-      sb.from("subscriptions").select("user_id, hubla_event_id, created_at").order("created_at", { ascending: false }),
+      sb.from("subscriptions").select("user_id, hubla_event_id, current_period_end, status, created_at").order("created_at", { ascending: false }),
     ]);
     const balByUser = new Map<string, number>();
     for (const c of (creds ?? []) as { user_id: string; balance: number }[]) balByUser.set(c.user_id, c.balance);
-    // Código de compra Hubla mais recente por usuário (subs vem ordenado desc).
-    const hublaByUser = new Map<string, string>();
-    for (const s of (subs ?? []) as { user_id: string; hubla_event_id: string | null }[]) {
-      if (s.hubla_event_id && !hublaByUser.has(s.user_id)) hublaByUser.set(s.user_id, s.hubla_event_id);
+    // Subscription mais recente por usuário (subs vem ordenado desc) → código Hubla + vencimento.
+    const subByUser = new Map<string, { hubla: string | null; periodEnd: string | null }>();
+    for (const s of (subs ?? []) as { user_id: string; hubla_event_id: string | null; current_period_end: string | null; status: string }[]) {
+      if (!subByUser.has(s.user_id)) subByUser.set(s.user_id, { hubla: s.hubla_event_id, periodEnd: s.status === "active" ? s.current_period_end : null });
     }
     users = ((profs ?? []) as { id: string; email: string; full_name: string | null; plan: string; created_at: string }[]).map((p) => ({
       id: p.id,
@@ -33,7 +34,8 @@ export default async function AdminPage() {
       plan: p.plan,
       credits: balByUser.get(p.id) ?? 0,
       createdAt: p.created_at,
-      hublaCode: hublaByUser.get(p.id) ?? null,
+      hublaCode: subByUser.get(p.id)?.hubla ?? null,
+      periodEnd: subByUser.get(p.id)?.periodEnd ?? null,
     }));
   }
 
@@ -59,24 +61,7 @@ export default async function AdminPage() {
           <div style={cardStyle}><div className="note" style={{ fontSize: "0.75rem" }}>MRR estimado</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>R${mrr.toLocaleString("pt-BR")}</div></div>
         </div>
 
-        {/* Tabela de usuários */}
-        <div className="tbl" style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
-                <th style={{ padding: "8px 10px" }}>Usuário</th>
-                <th style={{ padding: "8px 10px" }}>Cód. compra (Hubla)</th>
-                <th style={{ padding: "8px 10px" }}>Créditos</th>
-                <th style={{ padding: "8px 10px" }}>Cadastro</th>
-                <th style={{ padding: "8px 10px" }}>Plano</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => <AdminUserRow key={u.id} user={u} />)}
-            </tbody>
-          </table>
-          {total === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Nenhum usuário ainda.</p> : null}
-        </div>
+        <AdminPanel users={users} now={Date.now()} />
 
         <div style={{ height: 60 }} />
       </div>
