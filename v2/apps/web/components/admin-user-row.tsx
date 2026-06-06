@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export interface AdminUser {
   id: string;
@@ -9,12 +10,23 @@ export interface AdminUser {
   plan: string;
   credits: number;
   createdAt: string;
+  hublaCode: string | null;
 }
 
 const PLANS = ["free", "pro", "pro_plus"] as const;
 
-/** Linha da tabela admin: mostra o usuário e permite trocar o plano. */
+// Campos legíveis sobre o tema escuro (fundo claro + texto escuro).
+const FIELD: React.CSSProperties = {
+  padding: "4px 8px",
+  borderRadius: 6,
+  border: "1px solid var(--border,#cbd5e1)",
+  background: "#fff",
+  color: "#0f172a",
+};
+
+/** Linha da tabela admin: mostra o usuário e permite trocar o plano e os créditos. */
 export function AdminUserRow({ user }: { user: AdminUser }) {
+  const router = useRouter();
   const [plan, setPlan] = useState(user.plan);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -25,7 +37,7 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
   const [draft, setDraft] = useState(String(user.credits));
   const [cSaving, setCSaving] = useState(false);
   const [cSaved, setCSaved] = useState(false);
-  const [cErr, setCErr] = useState(false);
+  const [cErr, setCErr] = useState<string | null>(null);
 
   async function save(newPlan: string) {
     setPlan(newPlan);
@@ -39,6 +51,7 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
       if (!r.ok) throw new Error();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      router.refresh();
     } catch {
       setErr(true);
       setPlan(user.plan);
@@ -50,27 +63,29 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
 
   async function saveCredits() {
     const value = Number(draft);
-    if (!Number.isInteger(value) || value < 0) {
-      setCErr(true); setDraft(String(credits));
-      setTimeout(() => setCErr(false), 3000);
+    if (draft.trim() === "" || !Number.isInteger(value) || value < 0) {
+      setCErr("inválido"); setDraft(String(credits));
+      setTimeout(() => setCErr(null), 3000);
       return;
     }
     if (value === credits) return; // nada mudou
-    setCSaving(true); setCSaved(false); setCErr(false);
+    setCSaving(true); setCSaved(false); setCErr(null);
     try {
       const r = await fetch("/api/admin/set-credits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, credits: value }),
       });
-      if (!r.ok) throw new Error();
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((data as { error?: string }).error || `HTTP ${r.status}`);
       setCredits(value);
       setCSaved(true);
       setTimeout(() => setCSaved(false), 2000);
-    } catch {
-      setCErr(true);
+      router.refresh();
+    } catch (e) {
+      setCErr(e instanceof Error ? e.message : "erro");
       setDraft(String(credits));
-      setTimeout(() => setCErr(false), 3000);
+      setTimeout(() => setCErr(null), 5000);
     } finally {
       setCSaving(false);
     }
@@ -84,25 +99,42 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
         <div style={{ fontWeight: 600 }}>{user.email}</div>
         {user.fullName ? <div className="note" style={{ fontSize: "0.75rem" }}>{user.fullName}</div> : null}
       </td>
+      <td style={{ padding: "8px 10px" }}>
+        {user.hublaCode ? (
+          <button
+            type="button"
+            onClick={() => { navigator.clipboard?.writeText(user.hublaCode as string); }}
+            title={`Clique p/ copiar: ${user.hublaCode}`}
+            style={{
+              maxWidth: 180, fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", fontSize: "0.75rem",
+              padding: "2px 6px", borderRadius: 6, border: "1px solid var(--border,#cbd5e1)", background: "#fff", color: "#0f172a",
+              cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block",
+            }}
+          >
+            {user.hublaCode}
+          </button>
+        ) : (
+          <span className="note" style={{ fontSize: "0.8rem" }}>—</span>
+        )}
+      </td>
       <td style={{ padding: "8px 10px", fontVariantNumeric: "tabular-nums" }}>
         <input
-          type="number"
-          min={0}
+          type="text"
+          inputMode="numeric"
           value={draft}
           disabled={cSaving}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => setDraft(e.target.value.replace(/[^\d]/g, ""))}
           onBlur={saveCredits}
           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          style={{ width: 72, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border,#cbd5e1)", fontVariantNumeric: "tabular-nums" }}
+          style={{ ...FIELD, width: 80, fontVariantNumeric: "tabular-nums" }}
         />
         {cSaving ? <span className="note" style={{ marginLeft: 6, fontSize: "0.75rem" }}>salvando…</span> : null}
         {cSaved ? <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "var(--bull,#16a34a)" }}>✓</span> : null}
-        {cErr ? <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "var(--bear,#dc2626)" }}>erro</span> : null}
+        {cErr ? <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "var(--bear,#dc2626)" }} title={cErr}>{cErr}</span> : null}
       </td>
       <td style={{ padding: "8px 10px" }} className="note">{date}</td>
       <td style={{ padding: "8px 10px" }}>
-        <select value={plan} disabled={saving} onChange={(e) => save(e.target.value)}
-          style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border,#cbd5e1)" }}>
+        <select value={plan} disabled={saving} onChange={(e) => save(e.target.value)} style={FIELD}>
           {PLANS.map((p) => <option key={p} value={p}>{p === "pro_plus" ? "PRO+" : p.toUpperCase()}</option>)}
         </select>
         {saving ? <span className="note" style={{ marginLeft: 8, fontSize: "0.75rem" }}>salvando…</span> : null}

@@ -14,12 +14,18 @@ export default async function AdminPage() {
   const sb = supabaseService();
   let users: AdminUser[] = [];
   if (sb) {
-    const [{ data: profs }, { data: creds }] = await Promise.all([
+    const [{ data: profs }, { data: creds }, { data: subs }] = await Promise.all([
       sb.from("profiles").select("id, email, full_name, plan, created_at").order("created_at", { ascending: false }).limit(200),
       sb.from("user_credits").select("user_id, balance"),
+      sb.from("subscriptions").select("user_id, hubla_event_id, created_at").order("created_at", { ascending: false }),
     ]);
     const balByUser = new Map<string, number>();
     for (const c of (creds ?? []) as { user_id: string; balance: number }[]) balByUser.set(c.user_id, c.balance);
+    // Código de compra Hubla mais recente por usuário (subs vem ordenado desc).
+    const hublaByUser = new Map<string, string>();
+    for (const s of (subs ?? []) as { user_id: string; hubla_event_id: string | null }[]) {
+      if (s.hubla_event_id && !hublaByUser.has(s.user_id)) hublaByUser.set(s.user_id, s.hubla_event_id);
+    }
     users = ((profs ?? []) as { id: string; email: string; full_name: string | null; plan: string; created_at: string }[]).map((p) => ({
       id: p.id,
       email: p.email,
@@ -27,6 +33,7 @@ export default async function AdminPage() {
       plan: p.plan,
       credits: balByUser.get(p.id) ?? 0,
       createdAt: p.created_at,
+      hublaCode: hublaByUser.get(p.id) ?? null,
     }));
   }
 
@@ -58,6 +65,7 @@ export default async function AdminPage() {
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
                 <th style={{ padding: "8px 10px" }}>Usuário</th>
+                <th style={{ padding: "8px 10px" }}>Cód. compra (Hubla)</th>
                 <th style={{ padding: "8px 10px" }}>Créditos</th>
                 <th style={{ padding: "8px 10px" }}>Cadastro</th>
                 <th style={{ padding: "8px 10px" }}>Plano</th>
