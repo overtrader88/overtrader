@@ -215,8 +215,8 @@ export function LiveTrading() {
 
         <div className="lt-actions">
           <div className="lt-tfs">
-            <button type="button" className={`lt-tf${chartSrc === "tv" ? " on" : ""}`} onClick={() => setChartSrc("tv")}>TradingView</button>
-            <button type="button" className={`lt-tf${chartSrc === "ovt" ? " on" : ""}`} onClick={() => setChartSrc("ovt")}>Overtrader</button>
+            <button type="button" className={`lt-tf${chartSrc === "tv" ? " on" : ""}`} onClick={() => setChartSrc("tv")} title="Gráfico TradingView com indicadores nativos">TradingView</button>
+            <button type="button" className={`lt-tf${chartSrc === "ovt" ? " on" : ""}`} onClick={() => setChartSrc("ovt")} title="Nosso gráfico com liquidez, order blocks e plano desenhados">Overtrader · SMC</button>
           </div>
           {chartSrc === "ovt" ? <>
             <span className={`lt-live ${live ? "on" : ""}`}><span className="dot" />{live ? "AO VIVO" : "PAUSADO"}</span>

@@ -43,7 +43,16 @@ export function TradingViewChart({
       hide_side_toolbar: false,
       allow_symbol_change: true,
       details: true,
-      studies: ["STD;EMA", "STD;RSI", "STD;MACD"],
+      // Indicadores nativos pré-carregados (o embed grátis não aceita Pine Scripts
+      // de terceiros tipo SMC/LuxAlgo — só os nativos do TradingView).
+      studies: [
+        "STD;EMA",                 // médias exponenciais (overlay)
+        "BB@tv-basicstudies",      // Bandas de Bollinger (overlay)
+        "VWAP@tv-basicstudies",    // VWAP (overlay)
+        "Volume@tv-basicstudies",  // Volume
+        "STD;RSI",                 // RSI (painel)
+        "STD;MACD",                // MACD (painel)
+      ],
       support_host: "https://www.tradingview.com",
     });
     el.appendChild(script);
