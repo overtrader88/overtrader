@@ -208,7 +208,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 25 http://localhost:3001/admin)",
       "Bash(npx tsc *)",
       "Bash(echo \"=== EXIT tsc: $? ===\")",
-      "Bash(echo \"=== build exit: $? ===\")"
+      "Bash(echo \"=== build exit: $? ===\")",
+      "mcp__Claude_in_Chrome__computer"
     ]
   }
 }
