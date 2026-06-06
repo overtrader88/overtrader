@@ -1,6 +1,7 @@
 "use client";
 
 import type { FullAnalysis } from "@/lib/analysis/full";
+import { nearestLiquidity } from "@/lib/analysis/liquidity";
 
 type Tone = "bull" | "bear" | "neu";
 
@@ -53,6 +54,9 @@ export function EnginePipeline({ dto }: { dto: FullAnalysis }) {
   const fp = (n: number) => (n >= 1000 ? n.toLocaleString("pt-BR", { maximumFractionDigits: 0 }) : n.toFixed(2));
   if (dto.volumeProfile) confs.push({ label: "Volume Profile", value: `POC ${fp(dto.volumeProfile.poc)}`, tone: "neu", sub: `VA ${fp(dto.volumeProfile.val)}–${fp(dto.volumeProfile.vah)}` });
   if (dto.wyckoffEvents && dto.wyckoffEvents.length) { const last = dto.wyckoffEvents[dto.wyckoffEvents.length - 1]!; confs.push({ label: "Wyckoff (eventos)", value: `${last.type}`, tone: last.side, sub: `${dto.wyckoffEvents.length} no período` }); }
+  const nl = nearestLiquidity(dto);
+  if (nl && nl.above != null) confs.push({ label: "Liquidação acima", value: fp(nl.above), tone: "bear", sub: `${nl.abovePct! >= 0 ? "+" : ""}${nl.abovePct!.toFixed(1)}% · buy stops` });
+  if (nl && nl.below != null) confs.push({ label: "Liquidação abaixo", value: fp(nl.below), tone: "bull", sub: `${nl.belowPct!.toFixed(1)}% · sell stops` });
 
   const passed = gates.filter((g) => g.passed).length;
 

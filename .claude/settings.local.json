@@ -200,7 +200,11 @@
       "Bash(git --no-pager log --oneline -3)",
       "Bash(git --no-pager diff --stat -- v2/apps/web/app/globals.css v2/apps/web/components/analyze-form.tsx)",
       "Bash(git --no-pager log --oneline -2 -- v2/apps/web/app/globals.css)",
-      "Bash(git --no-pager diff HEAD --stat -- v2/apps/web/app/globals.css v2/apps/web/components/analyze-form.tsx)"
+      "Bash(git --no-pager diff HEAD --stat -- v2/apps/web/app/globals.css v2/apps/web/components/analyze-form.tsx)",
+      "Bash(git -C /c/dev/tradeai/t_a_der status --short -- v2/apps/web/components/analyze-form.tsx v2/design/_zfix.html)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://overtrader.com.br/ao-vivo)",
+      "Bash(git commit -m 'fix\\(admin\\): corrige exception server-side em producao \\(fronteira client/server\\) *)",
+      "Bash(git push *)"
     ]
   }
 }

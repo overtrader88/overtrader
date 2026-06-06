@@ -37,6 +37,7 @@ describe("buildPriceLines", () => {
     const lines = buildPriceLines(
       dto({
         analysis: { signal: { signal: "NEUTRAL" }, risk: {} },
+        montecarlo: { currentPrice: 100 },
         smc: {
           orderBlocks: [{ type: "bullish", zoneTop: 110, zoneBottom: 100, mitigated: false }],
           fvgs: [{ type: "bullish", zoneTop: 105, zoneBottom: 102, status: "active" }],

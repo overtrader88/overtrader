@@ -7,6 +7,7 @@
  */
 import { signalSide } from "@tradeai/shared";
 import type { FullAnalysis } from "./full";
+import { nearestLiquidity } from "./liquidity";
 
 export interface ChartLine {
   price: number;
@@ -31,20 +32,15 @@ export function buildPriceLines(dto: FullAnalysis): ChartLine[] {
     lines.push({ price: r.takeProfit3, color: C.bull, title: "TP3", dashed: true });
   }
 
-  // SMC: faixas de liquidação + order blocks (topo/base) + FVGs.
-  if (dto.smc) {
-    // Faixas de liquidação (onde stops se acumulam) — linhas rotuladas como na concorrência.
-    for (const lz of (dto.smc.liquidityZones ?? []).slice(0, 4)) {
-      const above = lz.type === "buy_stops_above";
-      lines.push({
-        price: lz.level,
-        color: above ? C.bear : C.bull,
-        title: `${lz.swept ? "✓ " : ""}Liquidez ${above ? "↑ (buy stops)" : "↓ (sell stops)"}`,
-        dashed: lz.swept,
-      });
-    }
-    // OB e FVG agora são CAIXAS preenchidas (buildChartZones) — não linhas.
+  // SMC: faixas de liquidação MAIS PRÓXIMAS (acima e abaixo do preço atual) — em
+  // destaque, com a distância %. São os alvos prováveis de caça de stops.
+  const nl = nearestLiquidity(dto);
+  if (nl) {
+    const fmtPct = (p: number) => `${p >= 0 ? "+" : ""}${p.toFixed(1)}%`;
+    if (nl.above != null) lines.push({ price: nl.above, color: C.bear, title: `Liquidez ↑ ${fmtPct(nl.abovePct!)}`, dashed: false });
+    if (nl.below != null) lines.push({ price: nl.below, color: C.bull, title: `Liquidez ↓ ${fmtPct(nl.belowPct!)}`, dashed: false });
   }
+  // (OB e FVG são CAIXAS preenchidas — buildChartZones — não linhas.)
 
   // Volume Profile: POC como linha (VAH/VAL viram a caixa "Value Area").
   if (dto.volumeProfile) {
