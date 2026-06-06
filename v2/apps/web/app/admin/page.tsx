@@ -3,7 +3,8 @@ import { AppBar } from "@/components/ui";
 import { getCurrentUser, planLabel, initialsOf, isAdmin } from "@/lib/supabase/auth";
 import { supabaseService } from "@/lib/supabase/server";
 import { type AdminUser } from "@/components/admin-user-row";
-import { AdminPanel, type AdminExtra, mrrFromSubs } from "@/components/admin-panel";
+import { AdminPanel } from "@/components/admin-panel";
+import { type AdminExtra, mrrFromSubs } from "@/components/admin-shared";
 
 export const dynamic = "force-dynamic";
 
