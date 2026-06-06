@@ -12,6 +12,8 @@ export interface AdminUser {
   createdAt: string;
   hublaCode: string | null;
   periodEnd: string | null;
+  analysisCount: number;
+  lastAnalysisAt: string | null;
 }
 
 const PLANS = ["free", "pro", "pro_plus"] as const;

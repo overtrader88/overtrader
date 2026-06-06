@@ -3,7 +3,33 @@
 import { useMemo, useState } from "react";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 
-type Tab = "users" | "growth" | "expiring";
+// ---- Tipos compartilhados com a page (server) ----
+export interface AuditRow {
+  id: number;
+  actor: string | null;
+  action: string;
+  target: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+export interface AdminExtra {
+  audit: AuditRow[];
+  analysisSeries: { date: string; count: number }[];
+  activeSubs: { plan: string; period: string }[];
+}
+
+// Preço mensal-equivalente por plano×período (R$). PRO anual = 600/12=50; PRO+ anual = 936/12=78.
+const MRR_PRICE: Record<string, Record<string, number>> = {
+  pro: { monthly: 59, annual: 50 },
+  pro_plus: { monthly: 99, annual: 78 },
+};
+export function mrrFromSubs(subs: { plan: string; period: string }[]): number {
+  return subs.reduce((sum, s) => sum + (MRR_PRICE[s.plan]?.[s.period] ?? 0), 0);
+}
+
+const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
+
+type Tab = "users" | "risk" | "expiring" | "growth" | "revenue" | "funnel" | "consumption" | "cohort" | "hubla" | "audit";
 type Bucket = "day" | "week" | "month";
 
 const FIELD: React.CSSProperties = {
@@ -11,15 +37,23 @@ const FIELD: React.CSSProperties = {
   background: "#fff", color: "#0f172a", fontSize: "0.85rem",
 };
 const CARD: React.CSSProperties = { border: "1px solid var(--border-faint,#e4e8ef)", borderRadius: 10, padding: "14px 18px" };
+const TH: React.CSSProperties = { padding: "8px 10px" };
+const TD: React.CSSProperties = { padding: "8px 10px" };
+const ROW: React.CSSProperties = { borderBottom: "1px solid var(--border-faint,#e4e8ef)" };
 const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const DAY = 86_400_000;
 
-/** Segunda-feira 00:00 da semana de `d` (ms). */
+function tabBtn(active: boolean): React.CSSProperties {
+  return { ...FIELD, cursor: "pointer", fontWeight: active ? 700 : 500, background: active ? "var(--accent,#2563eb)" : "#fff", color: active ? "#fff" : "#0f172a", borderColor: active ? "var(--accent,#2563eb)" : "var(--border,#cbd5e1)" };
+}
+function brl(n: number): string { return `R$${n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`; }
+function planLbl(p: string): string { return p === "pro_plus" ? "PRO+" : p.toUpperCase(); }
+function monthLbl(ym: string): string { const [y = "", m = "01"] = ym.split("-"); return `${MONTHS_PT[+m - 1]}/${y}`; }
+function dmy(iso: string): string { return new Date(iso).toLocaleDateString("pt-BR"); }
+function dmyhm(iso: string): string { return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); }
+
 function startOfWeekMs(d: Date): number {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
-  return x.getTime();
+  const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getTime();
 }
 function bucketKey(iso: string, b: Bucket): string {
   const d = new Date(iso);
@@ -34,22 +68,38 @@ function bucketLabel(key: string, b: Bucket): string {
   return `${dd}/${m}`;
 }
 
-export function AdminPanel({ users, now }: { users: AdminUser[]; now: number }) {
+/** Barras horizontais simples. */
+function Bars({ data }: { data: { label: string; count: number }[] }) {
+  const max = Math.max(1, ...data.map((d) => d.count));
+  if (data.length === 0) return <p className="note">Sem dados.</p>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {data.map((s, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="note" style={{ width: 80, fontSize: "0.78rem", textAlign: "right", flexShrink: 0 }}>{s.label}</span>
+          <div style={{ flex: 1, background: "var(--border-faint,#eef2f7)", borderRadius: 6, height: 22 }}>
+            <div style={{ width: `${(s.count / max) * 100}%`, minWidth: 2, height: "100%", background: "var(--accent,#2563eb)", borderRadius: 6 }} />
+          </div>
+          <span style={{ width: 36, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.count}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: number; extra: AdminExtra }) {
   const [tab, setTab] = useState<Tab>("users");
   const [q, setQ] = useState("");
   const [planF, setPlanF] = useState("");
   const [monthF, setMonthF] = useState("");
   const [bucket, setBucket] = useState<Bucket>("day");
   const [windowDays, setWindowDays] = useState(30);
+  const [riskDays, setRiskDays] = useState(7);
+  const [auditAction, setAuditAction] = useState("");
+  const [auditQ, setAuditQ] = useState("");
 
-  // Meses de cadastro presentes (YYYY-MM, desc).
-  const monthOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const u of users) set.add(u.createdAt.slice(0, 7));
-    return [...set].sort().reverse();
-  }, [users]);
+  const monthOptions = useMemo(() => [...new Set(users.map((u) => u.createdAt.slice(0, 7)))].sort().reverse(), [users]);
 
-  // Tabela filtrada.
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return users.filter((u) => {
@@ -60,16 +110,12 @@ export function AdminPanel({ users, now }: { users: AdminUser[]; now: number }) 
     });
   }, [users, q, planF, monthF]);
 
-  // Série de cadastros por período.
   const series = useMemo(() => {
     const counts = new Map<string, number>();
     for (const u of users) { const k = bucketKey(u.createdAt, bucket); counts.set(k, (counts.get(k) ?? 0) + 1); }
-    const keys = [...counts.keys()].sort();
-    const max = Math.max(1, ...keys.map((k) => counts.get(k)!));
-    return keys.map((k) => ({ key: k, label: bucketLabel(k, bucket), count: counts.get(k)!, pct: (counts.get(k)! / max) * 100 }));
+    return [...counts.keys()].sort().map((k) => ({ label: bucketLabel(k, bucket), count: counts.get(k)! }));
   }, [users, bucket]);
 
-  // Vencimentos dentro da janela.
   const expiring = useMemo(() => {
     const horizon = now + windowDays * DAY;
     return users
@@ -79,18 +125,86 @@ export function AdminPanel({ users, now }: { users: AdminUser[]; now: number }) 
       .sort((a, b) => a.endMs - b.endMs);
   }, [users, now, windowDays]);
 
+  const revenue = useMemo(() => {
+    const g = new Map<string, { count: number; mrr: number }>();
+    for (const s of extra.activeSubs) {
+      const price = MRR_PRICE[s.plan]?.[s.period] ?? 0;
+      const cur = g.get(`${s.plan}|${s.period}`) ?? { count: 0, mrr: 0 };
+      cur.count++; cur.mrr += price; g.set(`${s.plan}|${s.period}`, cur);
+    }
+    const rows = [...g.entries()].map(([k, v]) => { const [plan = "", period = ""] = k.split("|"); return { plan, period, ...v }; });
+    const mrr = rows.reduce((s, r) => s + r.mrr, 0);
+    return { rows, mrr, arr: mrr * 12 };
+  }, [extra.activeSubs]);
+
+  const funnel = useMemo(() => ({
+    signups: users.length,
+    activated: users.filter((u) => u.analysisCount >= 1).length,
+    paying: users.filter((u) => u.plan !== "free").length,
+  }), [users]);
+
+  const consumption = useMemo(() => {
+    const totalAnalyses = extra.analysisSeries.reduce((s, d) => s + d.count, 0);
+    const daily = extra.analysisSeries.map((d) => ({ label: `${d.date.slice(8, 10)}/${d.date.slice(5, 7)}`, count: d.count }));
+    const top = [...users].filter((u) => u.analysisCount > 0).sort((a, b) => b.analysisCount - a.analysisCount).slice(0, 10);
+    return { totalAnalyses, cost: totalAnalyses * ANALYSIS_COST, daily, top };
+  }, [extra.analysisSeries, users]);
+
+  const cohort = useMemo(() => {
+    const m = new Map<string, { signups: number; activated: number; paying: number }>();
+    for (const u of users) {
+      const k = u.createdAt.slice(0, 7);
+      const cur = m.get(k) ?? { signups: 0, activated: 0, paying: 0 };
+      cur.signups++; if (u.analysisCount >= 1) cur.activated++; if (u.plan !== "free") cur.paying++;
+      m.set(k, cur);
+    }
+    return [...m.entries()].map(([month, v]) => ({ month, ...v })).sort((a, b) => b.month.localeCompare(a.month));
+  }, [users]);
+
+  const risk = useMemo(() => {
+    const cutoff = now - riskDays * DAY;
+    const out: { u: AdminUser; reason: string; urgent: boolean; sortKey: number }[] = [];
+    for (const u of users) {
+      if (u.plan !== "free") {
+        const last = u.lastAnalysisAt ? new Date(u.lastAnalysisAt).getTime() : 0;
+        if (last <= cutoff) out.push({ u, reason: u.lastAnalysisAt ? `pagante inativo há ${Math.floor((now - last) / DAY)}d` : "pagante sem nenhuma análise", urgent: true, sortKey: last });
+      } else if (u.analysisCount <= 1) {
+        out.push({ u, reason: u.analysisCount === 0 ? "trial sem uso" : "trial usou 1 de 3", urgent: false, sortKey: new Date(u.createdAt).getTime() });
+      }
+    }
+    return out.sort((a, b) => a.sortKey - b.sortKey);
+  }, [users, now, riskDays]);
+
+  const hublaEvents = useMemo(() => extra.audit.filter((a) => a.action === "activate_sub" || a.action === "deactivate_sub"), [extra.audit]);
+  const auditActions = useMemo(() => [...new Set(extra.audit.map((a) => a.action))].sort(), [extra.audit]);
+  const auditFiltered = useMemo(() => {
+    const s = auditQ.trim().toLowerCase();
+    return extra.audit.filter((a) => {
+      if (auditAction && a.action !== auditAction) return false;
+      if (s && !((a.actor ?? "").toLowerCase().includes(s) || (a.target ?? "").toLowerCase().includes(s))) return false;
+      return true;
+    });
+  }, [extra.audit, auditAction, auditQ]);
+
+  const TABS: [Tab, string][] = [
+    ["users", "Usuários"],
+    ["risk", `Em risco${risk.length ? ` (${risk.length})` : ""}`],
+    ["expiring", `Vencimentos${expiring.length ? ` (${expiring.length})` : ""}`],
+    ["growth", "Crescimento"],
+    ["revenue", "Receita"],
+    ["funnel", "Funil"],
+    ["consumption", "Consumo"],
+    ["cohort", "Cohort"],
+    ["hubla", "Hubla"],
+    ["audit", "Auditoria"],
+  ];
   const hasFilter = q || planF || monthF;
+  const stageStyle: React.CSSProperties = { ...CARD, flex: "1 1 140px", textAlign: "center" };
 
   return (
     <>
-      {/* Abas */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {([["users", "Usuários"], ["growth", "Crescimento"], ["expiring", `Vencimentos${expiring.length ? ` (${expiring.length})` : ""}`]] as [Tab, string][]).map(([k, label]) => (
-          <button key={k} type="button" onClick={() => setTab(k)}
-            style={{ ...FIELD, cursor: "pointer", fontWeight: tab === k ? 700 : 500, background: tab === k ? "var(--accent,#2563eb)" : "#fff", color: tab === k ? "#fff" : "#0f172a", borderColor: tab === k ? "var(--accent,#2563eb)" : "var(--border,#cbd5e1)" }}>
-            {label}
-          </button>
-        ))}
+        {TABS.map(([k, label]) => <button key={k} type="button" onClick={() => setTab(k)} style={tabBtn(tab === k)}>{label}</button>)}
       </div>
 
       {/* ---- USUÁRIOS ---- */}
@@ -99,66 +213,56 @@ export function AdminPanel({ users, now }: { users: AdminUser[]; now: number }) 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
             <input type="text" placeholder="Buscar nome ou e-mail…" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...FIELD, minWidth: 220, flex: "1 1 220px" }} />
             <select value={planF} onChange={(e) => setPlanF(e.target.value)} style={FIELD}>
-              <option value="">Todos os planos</option>
-              <option value="free">FREE</option>
-              <option value="pro">PRO</option>
-              <option value="pro_plus">PRO+</option>
+              <option value="">Todos os planos</option><option value="free">FREE</option><option value="pro">PRO</option><option value="pro_plus">PRO+</option>
             </select>
             <select value={monthF} onChange={(e) => setMonthF(e.target.value)} style={FIELD}>
               <option value="">Qualquer mês</option>
-              {monthOptions.map((m) => { const [y = "", mm = "01"] = m.split("-"); return <option key={m} value={m}>{MONTHS_PT[+mm - 1]}/{y}</option>; })}
+              {monthOptions.map((m) => <option key={m} value={m}>{monthLbl(m)}</option>)}
             </select>
             {hasFilter ? <button type="button" onClick={() => { setQ(""); setPlanF(""); setMonthF(""); }} style={{ ...FIELD, cursor: "pointer" }}>Limpar</button> : null}
             <span className="note" style={{ fontSize: "0.8rem" }}>{filtered.length} de {users.length}</span>
           </div>
-
           <div className="tbl" style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-              <thead>
-                <tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
-                  <th style={{ padding: "8px 10px" }}>Usuário</th>
-                  <th style={{ padding: "8px 10px" }}>Cód. compra (Hubla)</th>
-                  <th style={{ padding: "8px 10px" }}>Créditos</th>
-                  <th style={{ padding: "8px 10px" }}>Cadastro</th>
-                  <th style={{ padding: "8px 10px" }}>Plano</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((u) => <AdminUserRow key={u.id} user={u} />)}
-              </tbody>
+              <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
+                <th style={TH}>Usuário</th><th style={TH}>Cód. compra (Hubla)</th><th style={TH}>Créditos</th><th style={TH}>Cadastro</th><th style={TH}>Plano</th>
+              </tr></thead>
+              <tbody>{filtered.map((u) => <AdminUserRow key={u.id} user={u} />)}</tbody>
             </table>
             {filtered.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>{users.length === 0 ? "Nenhum usuário ainda." : "Nenhum usuário com esses filtros."}</p> : null}
           </div>
         </>
       ) : null}
 
-      {/* ---- CRESCIMENTO ---- */}
-      {tab === "growth" ? (
+      {/* ---- EM RISCO (churn radar) ---- */}
+      {tab === "risk" ? (
         <>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            {([["day", "Por dia"], ["week", "Por semana"], ["month", "Por mês"]] as [Bucket, string][]).map(([k, label]) => (
-              <button key={k} type="button" onClick={() => setBucket(k)}
-                style={{ ...FIELD, cursor: "pointer", fontWeight: bucket === k ? 700 : 500, background: bucket === k ? "var(--accent,#2563eb)" : "#fff", color: bucket === k ? "#fff" : "#0f172a", borderColor: bucket === k ? "var(--accent,#2563eb)" : "var(--border,#cbd5e1)" }}>
-                {label}
-              </button>
-            ))}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="note" style={{ fontSize: "0.8rem" }}>Pagante inativo há</span>
+            {[7, 14].map((d) => <button key={d} type="button" onClick={() => setRiskDays(d)} style={tabBtn(riskDays === d)}>{d} dias+</button>)}
           </div>
-          <div style={CARD}>
-            <div className="note" style={{ fontSize: "0.75rem", marginBottom: 12 }}>Cadastros por {bucket === "day" ? "dia" : bucket === "week" ? "semana" : "mês"}</div>
-            {series.length === 0 ? <p className="note">Sem dados.</p> : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {series.map((s) => (
-                  <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="note" style={{ width: 80, fontSize: "0.78rem", textAlign: "right", flexShrink: 0 }}>{s.label}</span>
-                    <div style={{ flex: 1, background: "var(--border-faint,#eef2f7)", borderRadius: 6, height: 22, position: "relative" }}>
-                      <div style={{ width: `${s.pct}%`, minWidth: 2, height: "100%", background: "var(--accent,#2563eb)", borderRadius: 6 }} />
-                    </div>
-                    <span style={{ width: 32, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.count}</span>
-                  </div>
+          <div className="tbl" style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
+                <th style={TH}>Usuário</th><th style={TH}>Plano</th><th style={TH}>Motivo</th><th style={TH}>Últ. análise</th><th style={TH}>Análises</th>
+              </tr></thead>
+              <tbody>
+                {risk.map(({ u, reason, urgent }) => (
+                  <tr key={u.id} style={ROW}>
+                    <td style={TD}><div style={{ fontWeight: 600 }}>{u.email}</div>{u.fullName ? <div className="note" style={{ fontSize: "0.75rem" }}>{u.fullName}</div> : null}</td>
+                    <td style={TD}>{planLbl(u.plan)}</td>
+                    <td style={{ ...TD, color: urgent ? "var(--bear,#dc2626)" : undefined, fontWeight: urgent ? 600 : 400 }}>{reason}</td>
+                    <td style={TD} className="note">{u.lastAnalysisAt ? dmy(u.lastAnalysisAt) : "—"}</td>
+                    <td style={{ ...TD, fontVariantNumeric: "tabular-nums" }}>{u.analysisCount}</td>
+                  </tr>
                 ))}
-              </div>
-            )}
+              </tbody>
+            </table>
+            {risk.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Ninguém em risco no momento. 🎉</p> : null}
           </div>
+          <p className="note" style={{ fontSize: "0.78rem", marginTop: 10, maxWidth: "70ch" }}>
+            Pagantes (PRO/PRO+) sem análise no período + trials (FREE) que usaram 0–1 das 3 análises. Atividade medida por <code>analyses.created_at</code>.
+          </p>
         </>
       ) : null}
 
@@ -167,52 +271,173 @@ export function AdminPanel({ users, now }: { users: AdminUser[]; now: number }) 
         <>
           <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
             <span className="note" style={{ fontSize: "0.8rem" }}>Vencendo em até</span>
-            {[7, 15, 30].map((d) => (
-              <button key={d} type="button" onClick={() => setWindowDays(d)}
-                style={{ ...FIELD, cursor: "pointer", fontWeight: windowDays === d ? 700 : 500, background: windowDays === d ? "var(--accent,#2563eb)" : "#fff", color: windowDays === d ? "#fff" : "#0f172a", borderColor: windowDays === d ? "var(--accent,#2563eb)" : "var(--border,#cbd5e1)" }}>
-                {d} dias
-              </button>
-            ))}
+            {[7, 15, 30].map((d) => <button key={d} type="button" onClick={() => setWindowDays(d)} style={tabBtn(windowDays === d)}>{d} dias</button>)}
           </div>
           <div className="tbl" style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-              <thead>
-                <tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
-                  <th style={{ padding: "8px 10px" }}>Usuário</th>
-                  <th style={{ padding: "8px 10px" }}>Plano</th>
-                  <th style={{ padding: "8px 10px" }}>Vence em</th>
-                  <th style={{ padding: "8px 10px" }}>Faltam</th>
-                </tr>
-              </thead>
+              <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
+                <th style={TH}>Usuário</th><th style={TH}>Plano</th><th style={TH}>Vence em</th><th style={TH}>Faltam</th>
+              </tr></thead>
               <tbody>
                 {expiring.map(({ u, endMs }) => {
-                  const days = Math.ceil((endMs - now) / DAY);
-                  const urgent = days <= 7;
+                  const days = Math.ceil((endMs - now) / DAY); const urgent = days <= 7;
                   return (
-                    <tr key={u.id} style={{ borderBottom: "1px solid var(--border-faint,#e4e8ef)" }}>
-                      <td style={{ padding: "8px 10px" }}>
-                        <div style={{ fontWeight: 600 }}>{u.email}</div>
-                        {u.fullName ? <div className="note" style={{ fontSize: "0.75rem" }}>{u.fullName}</div> : null}
-                      </td>
-                      <td style={{ padding: "8px 10px" }}>{u.plan === "pro_plus" ? "PRO+" : u.plan.toUpperCase()}</td>
-                      <td style={{ padding: "8px 10px" }} className="note">{new Date(endMs).toLocaleDateString("pt-BR")}</td>
-                      <td style={{ padding: "8px 10px", fontWeight: 700, color: days < 0 ? "var(--bear,#dc2626)" : urgent ? "var(--bear,#dc2626)" : undefined }}>
-                        {days < 0 ? "vencido" : days === 0 ? "hoje" : `${days} dia${days > 1 ? "s" : ""}`}
-                      </td>
+                    <tr key={u.id} style={ROW}>
+                      <td style={TD}><div style={{ fontWeight: 600 }}>{u.email}</div>{u.fullName ? <div className="note" style={{ fontSize: "0.75rem" }}>{u.fullName}</div> : null}</td>
+                      <td style={TD}>{planLbl(u.plan)}</td>
+                      <td style={TD} className="note">{dmy(new Date(endMs).toISOString())}</td>
+                      <td style={{ ...TD, fontWeight: 700, color: urgent ? "var(--bear,#dc2626)" : undefined }}>{days < 0 ? "vencido" : days === 0 ? "hoje" : `${days} dia${days > 1 ? "s" : ""}`}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-            {expiring.length === 0 ? (
-              <p className="note" style={{ padding: 20, textAlign: "center" }}>
-                Nenhuma assinatura vencendo nos próximos {windowDays} dias.
-              </p>
-            ) : null}
+            {expiring.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Nenhuma assinatura vencendo nos próximos {windowDays} dias.</p> : null}
           </div>
-          <p className="note" style={{ fontSize: "0.78rem", marginTop: 10, maxWidth: "70ch" }}>
-            Só aparecem assinaturas ativas com vencimento conhecido (vindo do webhook da Hubla). Planos concedidos manualmente pelo admin não têm data de vencimento registrada.
-          </p>
+          <p className="note" style={{ fontSize: "0.78rem", marginTop: 10, maxWidth: "70ch" }}>Só assinaturas ativas com vencimento conhecido (webhook Hubla ou cortesia com data). Planos concedidos sem data não aparecem.</p>
+        </>
+      ) : null}
+
+      {/* ---- CRESCIMENTO ---- */}
+      {tab === "growth" ? (
+        <>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            {([["day", "Por dia"], ["week", "Por semana"], ["month", "Por mês"]] as [Bucket, string][]).map(([k, label]) => <button key={k} type="button" onClick={() => setBucket(k)} style={tabBtn(bucket === k)}>{label}</button>)}
+          </div>
+          <div style={CARD}>
+            <div className="note" style={{ fontSize: "0.75rem", marginBottom: 12 }}>Cadastros por {bucket === "day" ? "dia" : bucket === "week" ? "semana" : "mês"}</div>
+            <Bars data={series} />
+          </div>
+        </>
+      ) : null}
+
+      {/* ---- RECEITA (MRR real) ---- */}
+      {tab === "revenue" ? (
+        <>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+            <div style={{ ...CARD, flex: "1 1 140px" }}><div className="note" style={{ fontSize: "0.75rem" }}>MRR real</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{brl(revenue.mrr)}</div></div>
+            <div style={{ ...CARD, flex: "1 1 140px" }}><div className="note" style={{ fontSize: "0.75rem" }}>ARR (×12)</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{brl(revenue.arr)}</div></div>
+            <div style={{ ...CARD, flex: "1 1 140px" }}><div className="note" style={{ fontSize: "0.75rem" }}>Assinaturas ativas</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{extra.activeSubs.length}</div></div>
+          </div>
+          <div className="tbl" style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}><th style={TH}>Plano</th><th style={TH}>Período</th><th style={TH}>Assinantes</th><th style={TH}>MRR</th></tr></thead>
+              <tbody>{revenue.rows.map((r, i) => (
+                <tr key={i} style={ROW}><td style={TD}>{planLbl(r.plan)}</td><td style={TD}>{r.period === "annual" ? "Anual" : "Mensal"}</td><td style={{ ...TD, fontVariantNumeric: "tabular-nums" }}>{r.count}</td><td style={{ ...TD, fontWeight: 600 }}>{brl(r.mrr)}</td></tr>
+              ))}</tbody>
+            </table>
+            {revenue.rows.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Nenhuma assinatura ativa registrada (via webhook Hubla).</p> : null}
+          </div>
+          <p className="note" style={{ fontSize: "0.78rem", marginTop: 10, maxWidth: "70ch" }}>Receita de assinaturas <b>ativas reais</b> (subscriptions). Planos concedidos manualmente sem assinatura não contam aqui — é receita de verdade, não estimativa por contagem de plano.</p>
+        </>
+      ) : null}
+
+      {/* ---- FUNIL ---- */}
+      {tab === "funnel" ? (
+        <>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
+            <div style={stageStyle}><div className="note" style={{ fontSize: "0.75rem" }}>Cadastros</div><div style={{ fontSize: "1.8rem", fontWeight: 700 }}>{funnel.signups}</div></div>
+            <div style={stageStyle}><div className="note" style={{ fontSize: "0.75rem" }}>Ativados (≥1 análise)</div><div style={{ fontSize: "1.8rem", fontWeight: 700 }}>{funnel.activated}</div><div className="note" style={{ fontSize: "0.75rem" }}>{funnel.signups ? Math.round((funnel.activated / funnel.signups) * 100) : 0}% dos cadastros</div></div>
+            <div style={stageStyle}><div className="note" style={{ fontSize: "0.75rem" }}>Pagantes</div><div style={{ fontSize: "1.8rem", fontWeight: 700 }}>{funnel.paying}</div><div className="note" style={{ fontSize: "0.75rem" }}>{funnel.activated ? Math.round((funnel.paying / funnel.activated) * 100) : 0}% dos ativados · {funnel.signups ? Math.round((funnel.paying / funnel.signups) * 100) : 0}% do total</div></div>
+          </div>
+          <p className="note" style={{ fontSize: "0.78rem", marginTop: 12, maxWidth: "70ch" }}>Ativação = fez ≥1 análise. A 1ª análise é o ponto que decide se o trial vira PRO — acompanhe a queda entre Cadastros → Ativados.</p>
+        </>
+      ) : null}
+
+      {/* ---- CONSUMO / CUSTO ---- */}
+      {tab === "consumption" ? (
+        <>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+            <div style={{ ...CARD, flex: "1 1 140px" }}><div className="note" style={{ fontSize: "0.75rem" }}>Análises (período)</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{consumption.totalAnalyses}</div></div>
+            <div style={{ ...CARD, flex: "1 1 140px" }}><div className="note" style={{ fontSize: "0.75rem" }}>Custo estimado</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{brl(consumption.cost)}</div><div className="note" style={{ fontSize: "0.7rem" }}>~R$0,013/análise</div></div>
+          </div>
+          <div style={{ ...CARD, marginBottom: 16 }}>
+            <div className="note" style={{ fontSize: "0.75rem", marginBottom: 12 }}>Análises por dia</div>
+            <Bars data={consumption.daily} />
+          </div>
+          <div className="tbl" style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}><th style={TH}>Top consumidores</th><th style={TH}>Plano</th><th style={TH}>Análises</th></tr></thead>
+              <tbody>{consumption.top.map((u) => (
+                <tr key={u.id} style={ROW}><td style={TD}>{u.email}</td><td style={TD}>{planLbl(u.plan)}</td><td style={{ ...TD, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{u.analysisCount}</td></tr>
+              ))}</tbody>
+            </table>
+            {consumption.top.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Nenhuma análise ainda.</p> : null}
+          </div>
+        </>
+      ) : null}
+
+      {/* ---- COHORT ---- */}
+      {tab === "cohort" ? (
+        <>
+          <div className="tbl" style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}><th style={TH}>Safra (mês)</th><th style={TH}>Cadastros</th><th style={TH}>Ativados</th><th style={TH}>Pagantes</th><th style={TH}>Conversão</th></tr></thead>
+              <tbody>{cohort.map((c) => (
+                <tr key={c.month} style={ROW}>
+                  <td style={TD}>{monthLbl(c.month)}</td>
+                  <td style={{ ...TD, fontVariantNumeric: "tabular-nums" }}>{c.signups}</td>
+                  <td style={{ ...TD, fontVariantNumeric: "tabular-nums" }}>{c.activated}</td>
+                  <td style={{ ...TD, fontVariantNumeric: "tabular-nums" }}>{c.paying}</td>
+                  <td style={{ ...TD, fontWeight: 600 }}>{c.signups ? Math.round((c.paying / c.signups) * 100) : 0}%</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            {cohort.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Sem dados.</p> : null}
+          </div>
+          <p className="note" style={{ fontSize: "0.78rem", marginTop: 10, maxWidth: "70ch" }}>Conversão por safra de cadastro (<b>estado atual</b>, não histórico). Útil pra comparar a qualidade de quem entrou em cada mês.</p>
+        </>
+      ) : null}
+
+      {/* ---- HUBLA (eventos de pagamento) ---- */}
+      {tab === "hubla" ? (
+        <div className="tbl" style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+            <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}><th style={TH}>Quando</th><th style={TH}>Evento</th><th style={TH}>Usuário</th><th style={TH}>Plano</th><th style={TH}>Detalhe</th></tr></thead>
+            <tbody>{hublaEvents.map((a) => {
+              const activate = a.action === "activate_sub";
+              return (
+                <tr key={a.id} style={ROW}>
+                  <td style={TD} className="note">{dmyhm(a.created_at)}</td>
+                  <td style={{ ...TD, fontWeight: 600, color: activate ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{activate ? "ativou" : "cancelou"}</td>
+                  <td style={TD}>{a.target ?? "—"}</td>
+                  <td style={TD}>{a.metadata?.plan ? planLbl(String(a.metadata.plan)) : "—"}</td>
+                  <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.72rem" }} className="note">{a.metadata?.event ? String(a.metadata.event) : JSON.stringify(a.metadata)}</td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
+          {hublaEvents.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Nenhum evento de pagamento registrado ainda (chega via webhook Hubla).</p> : null}
+        </div>
+      ) : null}
+
+      {/* ---- AUDITORIA ---- */}
+      {tab === "audit" ? (
+        <>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
+            <input type="text" placeholder="Buscar ator ou alvo…" value={auditQ} onChange={(e) => setAuditQ(e.target.value)} style={{ ...FIELD, minWidth: 200, flex: "1 1 200px" }} />
+            <select value={auditAction} onChange={(e) => setAuditAction(e.target.value)} style={FIELD}>
+              <option value="">Todas as ações</option>
+              {auditActions.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <span className="note" style={{ fontSize: "0.8rem" }}>{auditFiltered.length} de {extra.audit.length}</span>
+          </div>
+          <div className="tbl" style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}><th style={TH}>Quando</th><th style={TH}>Ator</th><th style={TH}>Ação</th><th style={TH}>Alvo</th><th style={TH}>Detalhe</th></tr></thead>
+              <tbody>{auditFiltered.map((a) => (
+                <tr key={a.id} style={ROW}>
+                  <td style={TD} className="note">{dmyhm(a.created_at)}</td>
+                  <td style={TD}>{a.actor ?? "—"}</td>
+                  <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.75rem" }}>{a.action}</td>
+                  <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.72rem" }} className="note">{a.target ?? "—"}</td>
+                  <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.72rem" }} className="note">{JSON.stringify(a.metadata)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            {auditFiltered.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Nenhum registro.</p> : null}
+          </div>
+          <p className="note" style={{ fontSize: "0.78rem", marginTop: 10, maxWidth: "70ch" }}>Trilha de operações sensíveis (<code>audit_log</code>): mudança de plano/crédito, eventos de assinatura. Últimos 300 registros.</p>
         </>
       ) : null}
     </>
