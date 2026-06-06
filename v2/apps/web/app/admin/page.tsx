@@ -14,14 +14,15 @@ export default async function AdminPage() {
 
   const sb = supabaseService();
   let users: AdminUser[] = [];
-  let extra: AdminExtra = { audit: [], analysisSeries: [], activeSubs: [] };
+  let extra: AdminExtra = { audit: [], analysisSeries: [], activeSubs: [], ops: { lastSignalAt: null, lastCheckedAt: null, lastResolvedAt: null, openSignals: 0, lastHublaAt: null, lastAnalysisAt: null } };
   if (sb) {
-    const [{ data: profs }, { data: creds }, { data: subs }, { data: analyses }, { data: audit }] = await Promise.all([
+    const [{ data: profs }, { data: creds }, { data: subs }, { data: analyses }, { data: audit }, { data: signals }] = await Promise.all([
       sb.from("profiles").select("id, email, full_name, plan, created_at").order("created_at", { ascending: false }).limit(1000),
       sb.from("user_credits").select("user_id, balance"),
       sb.from("subscriptions").select("user_id, hubla_event_id, current_period_end, status, plan, period, created_at").order("created_at", { ascending: false }),
       sb.from("analyses").select("user_id, created_at").order("created_at", { ascending: false }).limit(5000),
       sb.from("audit_log").select("id, actor, action, target, metadata, created_at").order("created_at", { ascending: false }).limit(300),
+      sb.from("signals").select("emitted_at, checked_at, resolved_at, outcome").order("emitted_at", { ascending: false }).limit(500),
     ]);
 
     const balByUser = new Map<string, number>();
@@ -60,10 +61,24 @@ export default async function AdminPage() {
       lastAnalysisAt: aLast.get(p.id) ?? null,
     }));
 
+    // Ops: proxies de saúde do sistema.
+    const sigRows = (signals ?? []) as { emitted_at: string; checked_at: string | null; resolved_at: string | null; outcome: string | null }[];
+    const maxOf = (vals: (string | null)[]) => { const v = vals.filter(Boolean) as string[]; return v.length ? v.sort().at(-1)! : null; };
+    const auditRows = (audit ?? []) as AdminExtra["audit"];
+    const lastHubla = auditRows.find((a) => a.action === "activate_sub" || a.action === "deactivate_sub");
+
     extra = {
-      audit: (audit ?? []) as AdminExtra["audit"],
+      audit: auditRows,
       analysisSeries: [...dayCount.entries()].map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date)),
       activeSubs: [...activeByUser.values()],
+      ops: {
+        lastSignalAt: sigRows[0]?.emitted_at ?? null,
+        lastCheckedAt: maxOf(sigRows.map((s) => s.checked_at)),
+        lastResolvedAt: maxOf(sigRows.map((s) => s.resolved_at)),
+        openSignals: sigRows.filter((s) => !s.outcome).length,
+        lastHublaAt: lastHubla?.created_at ?? null,
+        lastAnalysisAt: ((analyses ?? [])[0] as { created_at: string } | undefined)?.created_at ?? null,
+      },
     };
   }
 

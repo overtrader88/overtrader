@@ -42,6 +42,11 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
   const [cSaved, setCSaved] = useState(false);
   const [cErr, setCErr] = useState<string | null>(null);
 
+  // Cortesia: data de expiração do plano (só planos pagos).
+  const [courtesy, setCourtesy] = useState(user.periodEnd ? user.periodEnd.slice(0, 10) : "");
+  const [pcSaving, setPcSaving] = useState(false);
+  const [pcMsg, setPcMsg] = useState<string | null>(null);
+
   async function save(newPlan: string) {
     setPlan(newPlan);
     setSaving(true); setSaved(false); setErr(false);
@@ -94,6 +99,29 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
     }
   }
 
+  async function saveCourtesy(dateStr: string) {
+    setCourtesy(dateStr);
+    if (!dateStr) return;
+    setPcSaving(true); setPcMsg(null);
+    try {
+      const r = await fetch("/api/admin/set-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, plan, expiresAt: dateStr, reason: "cortesia" }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((data as { error?: string }).error || `HTTP ${r.status}`);
+      setPcMsg("✓");
+      setTimeout(() => setPcMsg(null), 2000);
+      router.refresh();
+    } catch (e) {
+      setPcMsg(e instanceof Error ? e.message : "erro");
+      setTimeout(() => setPcMsg(null), 4000);
+    } finally {
+      setPcSaving(false);
+    }
+  }
+
   const date = new Date(user.createdAt).toLocaleDateString("pt-BR");
 
   return (
@@ -143,6 +171,14 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
         {saving ? <span className="note" style={{ marginLeft: 8, fontSize: "0.75rem" }}>salvando…</span> : null}
         {saved ? <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--bull,#16a34a)" }}>✓</span> : null}
         {err ? <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--bear,#dc2626)" }}>erro</span> : null}
+        {plan !== "free" ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 10 }}>
+            <span className="note" style={{ fontSize: "0.7rem" }}>cortesia até</span>
+            <input type="date" value={courtesy} disabled={pcSaving} onChange={(e) => saveCourtesy(e.target.value)}
+              style={{ ...FIELD, padding: "2px 6px", fontSize: "0.75rem" }} title="Define um vencimento de cortesia (aparece na aba Vencimentos)" />
+            {pcMsg ? <span style={{ fontSize: "0.72rem", color: pcMsg === "✓" ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }} title={pcMsg}>{pcMsg}</span> : null}
+          </span>
+        ) : null}
       </td>
     </tr>
   );

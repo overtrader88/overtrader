@@ -16,6 +16,14 @@ export interface AdminExtra {
   audit: AuditRow[];
   analysisSeries: { date: string; count: number }[];
   activeSubs: { plan: string; period: string }[];
+  ops: {
+    lastSignalAt: string | null;
+    lastCheckedAt: string | null;
+    lastResolvedAt: string | null;
+    openSignals: number;
+    lastHublaAt: string | null;
+    lastAnalysisAt: string | null;
+  };
 }
 
 // Preço mensal-equivalente por plano×período (R$). PRO anual = 600/12=50; PRO+ anual = 936/12=78.
@@ -29,7 +37,7 @@ export function mrrFromSubs(subs: { plan: string; period: string }[]): number {
 
 const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
 
-type Tab = "users" | "risk" | "expiring" | "growth" | "revenue" | "funnel" | "consumption" | "cohort" | "hubla" | "audit";
+type Tab = "users" | "risk" | "expiring" | "growth" | "revenue" | "funnel" | "consumption" | "cohort" | "hubla" | "audit" | "ops";
 type Bucket = "day" | "week" | "month";
 
 const FIELD: React.CSSProperties = {
@@ -51,6 +59,14 @@ function planLbl(p: string): string { return p === "pro_plus" ? "PRO+" : p.toUpp
 function monthLbl(ym: string): string { const [y = "", m = "01"] = ym.split("-"); return `${MONTHS_PT[+m - 1]}/${y}`; }
 function dmy(iso: string): string { return new Date(iso).toLocaleDateString("pt-BR"); }
 function dmyhm(iso: string): string { return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); }
+function ago(iso: string | null, now: number): string {
+  if (!iso) return "nunca";
+  const min = Math.floor((now - new Date(iso).getTime()) / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min}min`;
+  const h = Math.floor(min / 60); if (h < 24) return `há ${h}h`;
+  return `há ${Math.floor(h / 24)}d`;
+}
 
 function startOfWeekMs(d: Date): number {
   const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getTime();
@@ -197,6 +213,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
     ["cohort", "Cohort"],
     ["hubla", "Hubla"],
     ["audit", "Auditoria"],
+    ["ops", "Saúde"],
   ];
   const hasFilter = q || planF || monthF;
   const stageStyle: React.CSSProperties = { ...CARD, flex: "1 1 140px", textAlign: "center" };
@@ -438,6 +455,40 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
             {auditFiltered.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Nenhum registro.</p> : null}
           </div>
           <p className="note" style={{ fontSize: "0.78rem", marginTop: 10, maxWidth: "70ch" }}>Trilha de operações sensíveis (<code>audit_log</code>): mudança de plano/crédito, eventos de assinatura. Últimos 300 registros.</p>
+        </>
+      ) : null}
+
+      {/* ---- SAÚDE (ops) ---- */}
+      {tab === "ops" ? (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 12 }}>
+            {([
+              { label: "Último sinal emitido", iso: extra.ops.lastSignalAt, th: 6, sub: "cron emit-signals (~4h)" },
+              { label: "Última checagem de sinais", iso: extra.ops.lastCheckedAt, th: 6, sub: "cron resolve/check" },
+              { label: "Última análise (atividade)", iso: extra.ops.lastAnalysisAt, th: 0, sub: "uso de usuário" },
+              { label: "Último evento Hubla", iso: extra.ops.lastHublaAt, th: 0, sub: "pagamento/cancelamento" },
+            ] as { label: string; iso: string | null; th: number; sub: string }[]).map((c, i) => {
+              const stale = c.th > 0 && !!c.iso && now - new Date(c.iso).getTime() > c.th * 3_600_000;
+              const color = c.th === 0 ? "#94a3b8" : c.iso && !stale ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)";
+              return (
+                <div key={i} style={CARD}>
+                  <div className="note" style={{ fontSize: "0.75rem" }}>{c.label}</div>
+                  <div style={{ fontSize: "1.3rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, display: "inline-block" }} />{ago(c.iso, now)}
+                  </div>
+                  <div className="note" style={{ fontSize: "0.72rem" }}>{c.iso ? dmyhm(c.iso) : "—"} · {c.sub}</div>
+                </div>
+              );
+            })}
+            <div style={CARD}>
+              <div className="note" style={{ fontSize: "0.75rem" }}>Sinais em aberto</div>
+              <div style={{ fontSize: "1.3rem", fontWeight: 700 }}>{extra.ops.openSignals}</div>
+              <div className="note" style={{ fontSize: "0.72rem" }}>aguardando resolução forward</div>
+            </div>
+          </div>
+          <p className="note" style={{ fontSize: "0.78rem", marginTop: 12, maxWidth: "70ch" }}>
+            Proxies de saúde a partir dos dados (não é monitor de cron real). Verde = recente; vermelho = pode estar travado. Cota da TwelveData não é exposta aqui.
+          </p>
         </>
       ) : null}
     </>
