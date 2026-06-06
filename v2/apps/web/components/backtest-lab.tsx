@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { AssetType, Timeframe } from "@tradeai/shared";
-import { ConfidenceBadge, EquityCurve } from "@/components/ui";
+import { ConfidenceBadge } from "@/components/ui/confidence-badge";
+import { EquityCurve } from "@/components/ui/equity-curve";
 import type { BacktestView } from "@/lib/analysis/backtest-view";
 import {
   STRATEGY_OPTIONS, PERIOD_OPTIONS, RISK_PRESETS, DEFAULT_BACKTEST_PARAMS, type PeriodMonths,

@@ -188,7 +188,8 @@
       "Bash(curl -s -o /dev/null -w 'emit-signals \\(old secret\\):   HTTP %{http_code}\\\\n' --max-time 20 https://overtrader.com.br/api/cron/emit-signals?secret=264f97beca32addfe4e9b15d33965d4687dfbe6b7f8a3311dd46136ffa19fff1)",
       "Bash(curl -s -o /dev/null -w 'resolve-signals \\(old secret\\): HTTP %{http_code}\\\\n' --max-time 20 https://overtrader.com.br/api/cron/resolve-signals?secret=264f97beca32addfe4e9b15d33965d4687dfbe6b7f8a3311dd46136ffa19fff1)",
       "Bash(cd /c/dev/tradeai/t_a_der/v2/apps/web && find . -path ./.next -prune -o -name \"*analysis-shell*\" -print 2>/dev/null)",
-      "Bash(curl -s -D - -o /tmp/tts.mp3 --max-time 30 -X POST https://overtrader.com.br/api/tts -H 'content-type: application/json' -d '{\"text\":\"BTCUSDT, sinal de compra fraca. Análise, não recomendação.\"}')"
+      "Bash(curl -s -D - -o /tmp/tts.mp3 --max-time 30 -X POST https://overtrader.com.br/api/tts -H 'content-type: application/json' -d '{\"text\":\"BTCUSDT, sinal de compra fraca. Análise, não recomendação.\"}')",
+      "Bash(git --no-pager diff components/ui/app-bar.tsx)"
     ]
   }
 }

@@ -18,13 +18,17 @@ export function LiveChart({
   timeframe,
   lines,
   candleRefreshMs = 12000,
+  onPrice,
 }: {
   symbol: string;
   assetType: AssetType;
   timeframe: Timeframe;
   lines: ChartLine[];
   candleRefreshMs?: number;
+  onPrice?: (p: { price: number; changePct: number }) => void;
 }) {
+  const onPriceRef = useRef(onPrice);
+  onPriceRef.current = onPrice;
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -91,6 +95,13 @@ export function LiveChart({
           seriesRef.current.setData(data.candles.map((c) => ({ ...c, time: c.time as UTCTimestamp })));
           if (fit) chart.timeScale().fitContent();
           redrawLines(); // setData mantém price lines, mas garantimos consistência
+          const cs = data.candles;
+          const last = cs[cs.length - 1];
+          const prev = cs[cs.length - 2];
+          if (last && onPriceRef.current) {
+            const changePct = prev && prev.close ? ((last.close - prev.close) / prev.close) * 100 : 0;
+            onPriceRef.current({ price: last.close, changePct });
+          }
         } catch { /* silencioso — tenta de novo no próximo tick */ }
       }
 
