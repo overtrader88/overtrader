@@ -214,10 +214,19 @@ export function LiveTrading() {
     // depende do preço ao vivo e da assinatura do setup
   }, [livePrice, trade?.side, trade?.entry, trade?.stop, trade?.tp1, symbol, timeframe, dto]);
 
-  const pStats = paperStats(paper.history);
-  const recentPaper = [...paper.history].reverse().slice(0, 8);
+  // Filtro do histórico por ativo / timeframe (opções derivadas do próprio histórico)
+  const [fltSym, setFltSym] = useState("all");
+  const [fltTf, setFltTf] = useState("all");
+  const histSyms = [...new Set(paper.history.map((t) => t.symbol))].sort();
+  const histTfs = [...new Set(paper.history.map((t) => t.timeframe))];
+  const filteredHistory = paper.history.filter((t) =>
+    (fltSym === "all" || t.symbol === fltSym) && (fltTf === "all" || t.timeframe === fltTf),
+  );
+  const pStats = paperStats(filteredHistory);
+  const recentPaper = [...filteredHistory].reverse().slice(0, 8);
   const clearPaper = () => {
     setPaper(EMPTY_PAPER_STATE);
+    setFltSym("all"); setFltTf("all");
     if (typeof window !== "undefined") { try { window.localStorage.removeItem(PAPER_KEY); } catch { /* */ } }
   };
 
@@ -348,6 +357,14 @@ export function LiveTrading() {
                 <div className="lt-meter-bar"><i style={{ width: `${facts.strengthPct}%`, background: sideColor }} /></div>
               </div>
 
+              {facts.crossConfluence ? (
+                <div className={`lt-cross ${facts.crossConfluence.reinforced ? "on" : facts.crossConfluence.againstCount > facts.crossConfluence.agreeCount ? "warn" : ""}`}>
+                  <span className="lt-cross-k">{facts.crossConfluence.reinforced ? "⚡ Confirmações cruzadas" : "Confirmações cruzadas"}</span>
+                  <span className="lt-cross-v">{facts.crossConfluence.verdict}</span>
+                  <span className="lt-cross-n">{facts.crossConfluence.agreeCount} a favor · {facts.crossConfluence.againstCount} contra</span>
+                </div>
+              ) : null}
+
               {setup ? (
                 <div className="lt-setup">
                   <div className="lt-setup-top"><span>Confiança do setup</span><b style={{ color: setupColor }}>{setup.score}%</b></div>
@@ -434,7 +451,19 @@ export function LiveTrading() {
         <section className="lt-trades lt-paper">
           <div className="lt-trades-h">
             Histórico <span>· paper trading</span>
-            {paper.history.length > 0 ? <button type="button" className="lt-paper-clear" onClick={clearPaper}>limpar</button> : null}
+            {paper.history.length > 0 ? (
+              <div className="lt-paper-flt">
+                <select value={fltSym} onChange={(e) => setFltSym(e.target.value)} aria-label="Filtrar por ativo">
+                  <option value="all">Todos os ativos</option>
+                  {histSyms.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select value={fltTf} onChange={(e) => setFltTf(e.target.value)} aria-label="Filtrar por timeframe">
+                  <option value="all">Todos os TFs</option>
+                  {histTfs.map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+                </select>
+                <button type="button" className="lt-paper-clear" onClick={clearPaper}>limpar</button>
+              </div>
+            ) : null}
           </div>
           <div className="lt-paper-stats">
             <div className="lt-pstat"><span>Fechados</span><b>{pStats.closed}</b></div>
@@ -472,7 +501,11 @@ export function LiveTrading() {
               </table>
             </div>
           ) : (
-            <p className="note" style={{ padding: "8px 2px" }}>Nenhum trade fechado ainda. Deixe o modo ao vivo rodando — a IA abre e fecha operações de papel conforme os setups e os alvos/stops vão batendo.</p>
+            <p className="note" style={{ padding: "8px 2px" }}>
+              {paper.history.length > 0
+                ? "Nenhum trade fechado para este filtro."
+                : "Nenhum trade fechado ainda. Deixe o modo ao vivo rodando — a IA abre e fecha operações de papel conforme os setups e os alvos/stops vão batendo."}
+            </p>
           )}
           <p className="note" style={{ fontSize: "0.72rem", marginTop: 6 }}>Histórico salvo só neste navegador. Paper trading (simulado) — não é ordem real nem recomendação de investimento.</p>
         </section>

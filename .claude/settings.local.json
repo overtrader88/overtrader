@@ -209,7 +209,8 @@
       "Bash(npx tsc *)",
       "Bash(echo \"=== EXIT tsc: $? ===\")",
       "Bash(echo \"=== build exit: $? ===\")",
-      "mcp__Claude_in_Chrome__computer"
+      "mcp__Claude_in_Chrome__computer",
+      "mcp__Claude_in_Chrome__read_console_messages"
     ]
   }
 }

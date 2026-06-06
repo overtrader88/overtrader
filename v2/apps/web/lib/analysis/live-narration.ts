@@ -64,10 +64,16 @@ export function buildLiveNarration(f: NarrativeFacts): LiveNarration {
     speech.push(`Sem plano operacional no momento: viés neutro, o ideal é aguardar definição.`);
   }
 
+  // Confirmações cruzadas ao vivo (combos Wyckoff + EMAs + SMC)
+  if (f.crossConfluence) {
+    bullets.push(`Confirmações cruzadas: ${f.crossConfluence.verdict} (${f.crossConfluence.agreeCount} a favor · ${f.crossConfluence.againstCount} contra)`);
+    speech.push(f.crossConfluence.phrase);
+  }
+
   speech.push(`Lembrando: isto é análise, não recomendação de investimento. Há risco de perda.`);
 
   const headline = `${f.symbol} · ${f.timeframe.toUpperCase()} — ${sig.toUpperCase()}`;
-  const key = `${f.signal}|${f.seal?.status ?? "-"}|${f.entry}|${f.stopLoss}|${f.takeProfit1}`;
+  const key = `${f.signal}|${f.seal?.status ?? "-"}|${f.entry}|${f.stopLoss}|${f.takeProfit1}|${f.crossConfluence?.reinforced ? "R" : "-"}`;
 
   return { key, headline, side, bullets, speech: speech.join(" ") };
 }

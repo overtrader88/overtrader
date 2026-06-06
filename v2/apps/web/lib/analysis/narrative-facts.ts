@@ -3,6 +3,7 @@
  * medidos (n + IC) — o prompt proíbe inventar além disto. Puro.
  */
 import type { FullAnalysis } from "./full";
+import { computeLiveConfluence } from "./live-confluence";
 
 const r = (n: number, d = 2): number => Math.round(n * 10 ** d) / 10 ** d;
 
@@ -24,6 +25,7 @@ export interface NarrativeFacts {
   backtest?: { decisiveTrades: number; sufficient: boolean; pf: number; pfCi: [number, number]; winRatePct: number; period: string | null };
   montecarlo?: { probUpPct: number; probUpCiPct: [number, number]; volAnnualPct: number };
   scenario?: { recommended: string; expectedR: number; edge: number };
+  crossConfluence?: { phrase: string; verdict: string; reinforced: boolean; agreeCount: number; againstCount: number };
 }
 
 export function toNarrativeFacts(dto: FullAnalysis): NarrativeFacts {
@@ -31,6 +33,7 @@ export function toNarrativeFacts(dto: FullAnalysis): NarrativeFacts {
   const bt = dto.backtest;
   const mc = dto.montecarlo;
   const sc = dto.scenarios;
+  const conf = computeLiveConfluence(dto);
   return {
     symbol: a.meta.asset,
     timeframe: a.meta.timeframe,
@@ -66,5 +69,6 @@ export function toNarrativeFacts(dto: FullAnalysis): NarrativeFacts {
     scenario: sc
       ? { recommended: sc.recommended, expectedR: r((sc.recommended === "buy" ? sc.buy : sc.sell).expectedR, 2), edge: r(sc.edge, 2) }
       : undefined,
+    crossConfluence: { phrase: conf.phrase, verdict: conf.verdict, reinforced: conf.reinforced, agreeCount: conf.agreeCount, againstCount: conf.againstCount },
   };
 }
