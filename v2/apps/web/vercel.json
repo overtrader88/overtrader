@@ -1,6 +1,4 @@
 {
-  "installCommand": "cd ../.. && pnpm install",
-  "buildCommand": "cd ../.. && pnpm --filter @tradeai/web exec next build",
   "crons": [
     { "path": "/api/cron/check-watchlist", "schedule": "0 * * * *" },
     { "path": "/api/cron/emit-signals",    "schedule": "0 */4 * * *" },
