@@ -3,12 +3,13 @@ import { Chip } from "./chip";
 import { UserMenu } from "../user-menu";
 import { AlertsNavBadge } from "../alerts-nav-badge";
 
-export type NavKey = "dashboard" | "analise" | "monitor" | "historico" | "alertas" | "track-record";
+export type NavKey = "dashboard" | "analise" | "ao-vivo" | "monitor" | "historico" | "alertas" | "track-record";
 
 const ITEMS: { key: NavKey; label: string; href: string }[] = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard" },
   { key: "analise", label: "Análise", href: "/analise" },
-  { key: "monitor", label: "Ao vivo", href: "/monitor" },
+  { key: "ao-vivo", label: "Trading ao vivo", href: "/ao-vivo" },
+  { key: "monitor", label: "Monitor", href: "/monitor" },
   { key: "track-record", label: "Track record", href: "/track-record" },
   { key: "historico", label: "Histórico", href: "/historico" },
   { key: "alertas", label: "Alertas", href: "/alertas" },
