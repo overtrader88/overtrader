@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AssetType, Timeframe } from "@tradeai/shared";
 import type { FullAnalysis } from "@/lib/analysis/full";
-import { buildPriceLines } from "@/lib/analysis/chart-overlays";
+import { buildPriceLines, buildWyckoffOverlays } from "@/lib/analysis/chart-overlays";
 import { buildChartZones } from "@/lib/analysis/chart-zones";
 import { toNarrativeFacts } from "@/lib/analysis/narrative-facts";
 import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narration";
@@ -192,8 +192,9 @@ export function LiveTrading() {
   useEffect(() => () => { if (typeof window !== "undefined") window.speechSynthesis?.cancel(); audioRef.current?.pause(); }, []);
 
   const facts = dto ? toNarrativeFacts(dto) : null;
-  const lines = dto ? buildPriceLines(dto) : [];
-  const zones = dto ? buildChartZones(dto) : [];
+  const wyOverlays = dto ? buildWyckoffOverlays(dto) : { lines: [], zones: [] };
+  const lines = dto ? [...buildPriceLines(dto), ...wyOverlays.lines] : [];
+  const zones = dto ? [...buildChartZones(dto), ...wyOverlays.zones] : [];
   const setup = dto ? computeSetupScore(dto) : null;
   const trade = dto ? computeLiveTrade(dto, ticker?.price ?? null) : null;
 

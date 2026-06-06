@@ -7,6 +7,7 @@
  */
 import { signalSide } from "@tradeai/shared";
 import type { FullAnalysis } from "./full";
+import type { ChartZone } from "@/lib/charts/zone-primitive";
 import { nearestLiquidity } from "./liquidity";
 
 export interface ChartLine {
@@ -68,4 +69,52 @@ export function buildPriceLines(dto: FullAnalysis): ChartLine[] {
   }
 
   return lines.filter((l) => Number.isFinite(l.price));
+}
+
+export interface WyckoffOverlays {
+  lines: ChartLine[];
+  zones: ChartZone[];
+}
+
+/**
+ * Híbrido aprovado: além dos MARCADORES na vela, desenha os eventos Wyckoff
+ * RECENTES (até os 3 últimos) como referência de PREÇO. Eventos do mesmo lado e
+ * próximos (≤0,6%) viram UMA zona (demanda/oferta); isolados viram linha.
+ * Mantém o gráfico limpo — só o que ainda é relevante.
+ */
+export function buildWyckoffOverlays(dto: FullAnalysis): WyckoffOverlays {
+  const lines: ChartLine[] = [];
+  const zones: ChartZone[] = [];
+  const evs = (dto.wyckoffEvents ?? []).filter((e) => Number.isFinite(e.price)).slice(-3);
+  if (!evs.length) return { lines, zones };
+
+  const used = new Array(evs.length).fill(false);
+  for (let i = 0; i < evs.length; i++) {
+    if (used[i]) continue;
+    const base = evs[i]!;
+    const group = [base];
+    used[i] = true;
+    for (let j = i + 1; j < evs.length; j++) {
+      const e = evs[j]!;
+      if (!used[j] && e.side === base.side && Math.abs(e.price - base.price) / base.price <= 0.006) {
+        group.push(e); used[j] = true;
+      }
+    }
+    const bull = base.side === "bull";
+    const col = bull ? C.bull : C.bear;
+    if (group.length >= 2) {
+      const prices = group.map((e) => e.price);
+      const types = [...new Set(group.map((e) => e.type))].join("/");
+      zones.push({
+        top: Math.max(...prices), bottom: Math.min(...prices),
+        from: Math.min(...group.map((e) => e.time)) / 1000,
+        fill: bull ? "rgba(43,212,158,0.12)" : "rgba(255,107,138,0.12)",
+        border: bull ? "rgba(43,212,158,0.7)" : "rgba(255,107,138,0.7)",
+        label: `${types} · ${bull ? "demanda" : "oferta"}`,
+      });
+    } else {
+      lines.push({ price: base.price, color: col, title: base.type, dashed: true });
+    }
+  }
+  return { lines, zones };
 }

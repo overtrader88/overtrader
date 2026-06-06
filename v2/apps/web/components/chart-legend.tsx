@@ -57,6 +57,8 @@ const GROUPS: { title: string; items: Item[] }[] = [
       { label: "SOW · fraqueza (□ perdeu sup.)", color: "#ff6b8a", kind: "sq" },
       { label: "AR · repique / ST · reteste (○)", color: "#9aa7bd", kind: "ci" },
       { label: "LPS (↑ último suporte)", color: "#2bd49e", kind: "up" },
+      { label: "Evento recente · linha no preço", color: "#2bd49e", kind: "dash" },
+      { label: "Cluster de eventos · zona", color: "#2bd49e", kind: "box" },
     ],
   },
 ];
