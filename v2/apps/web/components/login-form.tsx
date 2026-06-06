@@ -82,6 +82,9 @@ export function LoginForm({ next, initialMode = "signin" }: { next: string; init
       <div className="field">
         <label htmlFor="senha">Senha</label>
         <input id="senha" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••••" autoComplete={mode === "signin" ? "current-password" : "new-password"} />
+        {mode === "signin" ? (
+          <a href="/recuperar" className="link-btn" style={{ alignSelf: "flex-end", marginTop: 6, fontSize: "0.8rem" }}>Esqueci a senha</a>
+        ) : null}
       </div>
 
       {error ? <p className="auth-msg err">{error}</p> : null}
