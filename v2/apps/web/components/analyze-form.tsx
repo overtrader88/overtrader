@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AssetType, Timeframe } from "@tradeai/shared";
-import { CATALOG } from "@/lib/market/catalog";
+import { CATALOG, ASSET_CLASS_PT, catalogByClass } from "@/lib/market/catalog";
 
 const TFS: { v: Timeframe; label: string; hint: string }[] = [
   { v: "15m", label: "15 minutos", hint: "Scalp" },

@@ -68,6 +68,7 @@ export function LiveChart({
     let disposed = false;
     let ro: ResizeObserver | null = null;
     let timer: ReturnType<typeof setInterval> | null = null;
+    let ws: WebSocket | null = null;
 
     void (async () => {
       const lc = await import("lightweight-charts");
@@ -148,13 +149,43 @@ export function LiveChart({
       }
 
       await loadCandles(true);
-      if (!disposed) timer = setInterval(() => loadCandles(false), candleRefreshMs);
+      if (disposed) return;
+
+      if (assetType === "crypto") {
+        // WebSocket Binance — candle AO VIVO (tick-a-tick). REST só resync lento.
+        try {
+          ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_${timeframe}`);
+          ws.onmessage = (ev) => {
+            try {
+              const k = (JSON.parse(ev.data as string) as { k?: { t: number; o: string; h: string; l: string; c: string } }).k;
+              const s = seriesRef.current;
+              if (!k || !s) return;
+              const t = Math.floor(k.t / 1000) as UTCTimestamp;
+              const close = Number(k.c);
+              s.update({ time: t, open: Number(k.o), high: Number(k.h), low: Number(k.l), close });
+              // mantém arrays de closes/times p/ recomputar médias ao vivo
+              const times = lastTimesRef.current; const closes = lastClosesRef.current;
+              if (times.length && times[times.length - 1] === Math.floor(k.t / 1000)) { closes[closes.length - 1] = close; }
+              else { times.push(Math.floor(k.t / 1000)); closes.push(close); }
+              setIndRef.current();
+              if (onPriceRef.current) {
+                const prev = closes[closes.length - 2];
+                onPriceRef.current({ price: close, changePct: prev ? ((close - prev) / prev) * 100 : 0 });
+              }
+            } catch { /* ignora msg malformada */ }
+          };
+        } catch { /* sem ws → cai no resync REST abaixo */ }
+        timer = setInterval(() => loadCandles(false), 60000); // resync histórico/indicadores
+      } else {
+        timer = setInterval(() => loadCandles(false), candleRefreshMs);
+      }
     })();
 
     return () => {
       disposed = true;
       if (ro) ro.disconnect();
       if (timer) clearInterval(timer);
+      if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; }
       if (chartRef.current) chartRef.current.remove();
       chartRef.current = null; seriesRef.current = null; priceLinesRef.current = []; indRef.current = {}; setIndRef.current = () => {}; lcRef.current = null;
     };
