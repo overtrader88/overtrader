@@ -2,7 +2,7 @@ import { Logo } from "./logo";
 import { Chip } from "./chip";
 import { UserMenu } from "../user-menu";
 import { AlertsNavBadge } from "../alerts-nav-badge";
-import { isAdminEmail } from "@/lib/supabase/auth";
+import { isAdminEmail } from "@/lib/admin";
 
 export type NavKey = "dashboard" | "analise" | "ao-vivo" | "monitor" | "historico" | "alertas" | "track-record";
 

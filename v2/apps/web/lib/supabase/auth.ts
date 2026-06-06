@@ -3,6 +3,9 @@
  * créditos num objeto pronto pra UI (AppBar). Retorna null se anônimo.
  */
 import { supabaseServerSSR } from "./server-ssr";
+import { isAdminEmail } from "../admin";
+
+export { isAdminEmail };
 
 export interface CurrentUser {
   id: string;
@@ -31,20 +34,6 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     plan: (profile?.plan as string | undefined) ?? "free",
     credits: (credit?.balance as number | undefined) ?? 0,
   };
-}
-
-/** Lista de e-mails admin (env ADMIN_EMAILS, separados por vírgula). */
-function adminEmails(): string[] {
-  return (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-/** True se o e-mail consta em ADMIN_EMAILS. */
-export function isAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return adminEmails().includes(email.trim().toLowerCase());
 }
 
 /** True se o usuário atual é admin. */
