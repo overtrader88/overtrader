@@ -22,7 +22,7 @@ export function LiveTrading() {
   const [dto, setDto] = useState<FullAnalysis | null>(null);
   const [narration, setNarration] = useState<LiveNarration | null>(null);
   const [live, setLive] = useState(true);
-  const [voice, setVoice] = useState<VoiceMode>("off");
+  const [voice, setVoice] = useState<VoiceMode>("browser");
   const [speaking, setSpeaking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 /** Avatar + popover com e-mail, link de planos e logout. */
-export function UserMenu({ initials, email }: { initials: string; email: string }) {
+export function UserMenu({ initials, email, isAdmin }: { initials: string; email: string; isAdmin?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -29,6 +29,7 @@ export function UserMenu({ initials, email }: { initials: string; email: string 
           <div className="usermenu-pop" role="menu">
             <div className="um-email" title={email}>{email}</div>
             <a className="um-item" href="/planos" role="menuitem">Planos &amp; créditos</a>
+            {isAdmin ? <a className="um-item" href="/admin" role="menuitem">Admin</a> : null}
             <button type="button" className="um-item danger" onClick={signOut} disabled={busy} role="menuitem">
               {busy ? "Saindo…" : "Sair"}
             </button>

@@ -2,6 +2,7 @@ import { Logo } from "./logo";
 import { Chip } from "./chip";
 import { UserMenu } from "../user-menu";
 import { AlertsNavBadge } from "../alerts-nav-badge";
+import { isAdminEmail } from "@/lib/supabase/auth";
 
 export type NavKey = "dashboard" | "analise" | "ao-vivo" | "monitor" | "historico" | "alertas" | "track-record";
 
@@ -55,7 +56,7 @@ export function AppBar({
           ) : null}
           {plan ? <Chip variant="plan">{plan}</Chip> : null}
           {email ? (
-            <UserMenu initials={initials ?? "?"} email={email} />
+            <UserMenu initials={initials ?? "?"} email={email} isAdmin={isAdminEmail(email)} />
           ) : (
             <a className="btn ghost" href="/login">Entrar</a>
           )}
