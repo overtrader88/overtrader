@@ -95,12 +95,13 @@ const TYPE_ICON: Record<AssetType, React.ReactNode> = {
  * (cryptocurrency-icons via jsDelivr); se não existir ou não for cripto,
  * cai pro tile com gradiente + iniciais do ticker. `key` remonta ao trocar.
  */
-function AssetAvatar({ assetType, base, initials }: { assetType: AssetType; base: string; initials: string }) {
+function AssetAvatar({ assetType, base, initials, compact }: { assetType: AssetType; base: string; initials: string; compact?: boolean }) {
   const [failed, setFailed] = useState(false);
   const useLogo = assetType === "crypto" && base.length > 0 && !failed;
+  const cls = `cfg-avatar${compact ? " sm" : ""}`;
   if (useLogo) {
     return (
-      <span className="cfg-avatar logo">
+      <span className={`${cls} logo`}>
         <img
           src={`https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${base}.svg`}
           alt=""
@@ -111,11 +112,14 @@ function AssetAvatar({ assetType, base, initials }: { assetType: AssetType; base
     );
   }
   return (
-    <span className="cfg-avatar" style={{ background: TYPE_GRAD[assetType] }}>
+    <span className={cls} style={{ background: TYPE_GRAD[assetType] }}>
       {initials}
     </span>
   );
 }
+
+const baseOf = (symbol: string) => symbol.replace(/USDT$|USD$/i, "");
+const tickerOf = (symbol: string) => baseOf(symbol).slice(0, 4) || "?";
 
 const TRUST: { t: string; s: string; icon: React.ReactNode }[] = [
   {
@@ -167,6 +171,9 @@ export function AnalyzeForm({
   const [at, setAt] = useState<AssetType>(assetType);
   const [tf, setTf] = useState<Timeframe>(timeframe);
   const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ddRef = useRef<HTMLDivElement>(null);
 
   const cleanSym = sym.trim().toUpperCase();
   const matched = CATALOG.find((a) => a.symbol === cleanSym);
@@ -174,6 +181,40 @@ export function AnalyzeForm({
   const ticker = base.slice(0, 4) || "?";
   const typeMeta = TYPES.find((t) => t.v === at);
   const tfMeta = TFS.find((t) => t.v === tf);
+  const byClass = useMemo(() => catalogByClass(), []);
+
+  // Lista do dropdown: sem busca → todos da classe atual; com busca → varre os 143.
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return byClass[at];
+    return CATALOG.filter((a) => a.symbol.toLowerCase().includes(q) || a.name.toLowerCase().includes(q)).slice(0, 80);
+  }, [query, at, byClass]);
+
+  // Fecha ao clicar fora.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ddRef.current && !ddRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  function pick(a: { symbol: string; assetType: AssetType }) {
+    setSym(a.symbol);
+    setAt(a.assetType);
+    setOpen(false);
+    setQuery("");
+  }
+  function openDropdown() {
+    setQuery("");
+    setOpen((v) => !v);
+  }
+  function changeType(next: AssetType) {
+    setAt(next);
+    // mantém ativo coerente com a classe: troca pro 1º da nova classe se o atual não for dela
+    if (matched?.assetType !== next) setSym(byClass[next][0]?.symbol ?? sym);
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -202,39 +243,82 @@ export function AnalyzeForm({
       </div>
 
       <div className="cfg-grid">
-        <label className="cfg-field">
+        <div className="cfg-field" ref={ddRef}>
           <span className="cfg-label">Ativo</span>
-          <div className="cfg-control">
+          <button
+            type="button"
+            className={`cfg-control as-button${open ? " open" : ""}`}
+            onClick={openDropdown}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+          >
             <AssetAvatar key={`${at}-${base.toLowerCase()}`} assetType={at} base={base.toLowerCase()} initials={ticker} />
             <span className="cfg-main">
-              <input
-                className="cfg-input"
-                list="af-symbols"
-                value={sym}
-                onChange={(e) => setSym(e.target.value)}
-                placeholder="Ex.: BTCUSDT"
-                aria-label="Símbolo do ativo"
-                spellCheck={false}
-                autoComplete="off"
-              />
+              <span className="cfg-value">{cleanSym || "Selecione"}</span>
               <span className="cfg-meta">{matched?.name ?? "Digite ou escolha um ativo"}</span>
             </span>
-          </div>
-          <datalist id="af-symbols">
-            {CATALOG.map((a) => (
-              <option key={a.symbol} value={a.symbol}>
-                {a.name}
-              </option>
-            ))}
-          </datalist>
-        </label>
+            <span className={`cfg-chev${open ? " open" : ""}`}><ChevronIcon /></span>
+          </button>
+
+          {open ? (
+            <div className="cfg-dd" role="listbox" aria-label="Lista de ativos">
+              <div className="cfg-dd-head">
+                <input
+                  className="cfg-dd-search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar entre 143 ativos…"
+                  aria-label="Buscar ativo"
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (results[0]) pick(results[0]);
+                      else if (query.trim()) { setSym(query.trim().toUpperCase()); setOpen(false); }
+                    } else if (e.key === "Escape") {
+                      setOpen(false);
+                    }
+                  }}
+                />
+                <div className="cfg-dd-count">
+                  {query.trim()
+                    ? `${results.length} resultado${results.length === 1 ? "" : "s"}`
+                    : `${results.length} ativos · ${ASSET_CLASS_PT[at]}`}
+                </div>
+              </div>
+              <div className="cfg-dd-list">
+                {results.length === 0 ? (
+                  <div className="cfg-dd-empty">Nenhum ativo encontrado. Pressione Enter pra usar “{query.trim().toUpperCase()}”.</div>
+                ) : (
+                  results.map((a) => (
+                    <button
+                      type="button"
+                      key={a.symbol}
+                      className={`cfg-dd-item${a.symbol === cleanSym ? " active" : ""}`}
+                      role="option"
+                      aria-selected={a.symbol === cleanSym}
+                      onClick={() => pick(a)}
+                    >
+                      <AssetAvatar compact assetType={a.assetType} base={baseOf(a.symbol).toLowerCase()} initials={tickerOf(a.symbol)} />
+                      <span className="it-sym">{a.symbol}</span>
+                      <span className="it-name">{a.name}</span>
+                      <span className="it-cls">{ASSET_CLASS_PT[a.assetType]}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
 
         <label className="cfg-field">
           <span className="cfg-label">Tipo de Ativo</span>
           <div className="cfg-control">
             <span className="cfg-avatar soft">{TYPE_ICON[at]}</span>
             <span className="cfg-main">
-              <select className="cfg-select" value={at} onChange={(e) => setAt(e.target.value as AssetType)} aria-label="Classe de ativo">
+              <select className="cfg-select" value={at} onChange={(e) => changeType(e.target.value as AssetType)} aria-label="Classe de ativo">
                 {TYPES.map((t) => (
                   <option key={t.v} value={t.v}>
                     {t.label}

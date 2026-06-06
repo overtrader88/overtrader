@@ -8,6 +8,7 @@ import { toNarrativeFacts } from "@/lib/analysis/narrative-facts";
 import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narration";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
+import { TradingViewChart } from "@/components/tradingview-chart";
 import { TechnicalSummary } from "@/components/technical-summary";
 
 type VoiceMode = "off" | "browser" | "premium";
@@ -40,6 +41,7 @@ export function LiveTrading() {
   const [narration, setNarration] = useState<LiveNarration | null>(null);
   const [live, setLive] = useState(true);
   const [showInd, setShowInd] = useState(true);
+  const [chartSrc, setChartSrc] = useState<"tv" | "ovt">("tv");
   const [voice, setVoice] = useState<VoiceMode>("browser");
   const [speaking, setSpeaking] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
@@ -203,15 +205,23 @@ export function LiveTrading() {
           </div>
         </div>
 
-        <div className="lt-ticker">
-          <span className="lt-px" style={{ color: sideColor }}>{ticker ? fmtPrice(ticker.price) : "—"}</span>
-          {ticker ? <span className={`lt-chg ${ticker.changePct >= 0 ? "up" : "down"}`}>{ticker.changePct >= 0 ? "▲" : "▼"} {Math.abs(ticker.changePct).toFixed(2)}%</span> : null}
-        </div>
+        {chartSrc === "ovt" ? (
+          <div className="lt-ticker">
+            <span className="lt-px" style={{ color: sideColor }}>{ticker ? fmtPrice(ticker.price) : "—"}</span>
+            {ticker ? <span className={`lt-chg ${ticker.changePct >= 0 ? "up" : "down"}`}>{ticker.changePct >= 0 ? "▲" : "▼"} {Math.abs(ticker.changePct).toFixed(2)}%</span> : null}
+          </div>
+        ) : <div style={{ marginLeft: "auto" }} />}
 
         <div className="lt-actions">
-          <span className={`lt-live ${live ? "on" : ""}`}><span className="dot" />{live ? "AO VIVO" : "PAUSADO"}</span>
-          <button type="button" className="lt-btn" onClick={() => setLive((v) => !v)}>{live ? "⏸" : "▶"}</button>
-          <button type="button" className={`lt-btn wide${showInd ? " on" : ""}`} onClick={() => setShowInd((v) => !v)} title="Médias e Bollinger no gráfico">📈 Indicadores</button>
+          <div className="lt-tfs">
+            <button type="button" className={`lt-tf${chartSrc === "tv" ? " on" : ""}`} onClick={() => setChartSrc("tv")}>TradingView</button>
+            <button type="button" className={`lt-tf${chartSrc === "ovt" ? " on" : ""}`} onClick={() => setChartSrc("ovt")}>Overtrader</button>
+          </div>
+          {chartSrc === "ovt" ? <>
+            <span className={`lt-live ${live ? "on" : ""}`}><span className="dot" />{live ? "AO VIVO" : "PAUSADO"}</span>
+            <button type="button" className="lt-btn" onClick={() => setLive((v) => !v)}>{live ? "⏸" : "▶"}</button>
+            <button type="button" className={`lt-btn wide${showInd ? " on" : ""}`} onClick={() => setShowInd((v) => !v)} title="Médias e Bollinger no gráfico">📈 Indicadores</button>
+          </> : null}
           <select value={voice} onChange={(e) => setVoice(e.target.value as VoiceMode)} className="lt-select sm" title="Voz">
             <option value="off">🔇 Sem voz</option>
             <option value="browser">🔊 Voz grátis</option>
@@ -233,15 +243,21 @@ export function LiveTrading() {
             <span className="tf">{timeframe.toUpperCase()}</span>
             <span className="src">{updatedAt ? `atualizado ${new Date(updatedAt).toLocaleTimeString("pt-BR")}` : "carregando…"}</span>
           </div>
-          {showInd ? (
-            <div className="lt-legend">
-              <span><i style={{ background: "#54a8ff" }} />EMA 20</span>
-              <span><i style={{ background: "#ffb020" }} />EMA 50</span>
-              <span><i style={{ background: "#9aa7bd" }} />EMA 200</span>
-              <span><i style={{ background: "rgba(84,168,255,.5)" }} />Bollinger 20/2σ</span>
-            </div>
-          ) : null}
-          <LiveChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={lines} onPrice={setTicker} showIndicators={showInd} />
+          {chartSrc === "tv" ? (
+            <TradingViewChart symbol={symbol} assetType={assetType} timeframe={timeframe} />
+          ) : (
+            <>
+              {showInd ? (
+                <div className="lt-legend">
+                  <span><i style={{ background: "#54a8ff" }} />EMA 20</span>
+                  <span><i style={{ background: "#ffb020" }} />EMA 50</span>
+                  <span><i style={{ background: "#9aa7bd" }} />EMA 200</span>
+                  <span><i style={{ background: "rgba(84,168,255,.5)" }} />Bollinger 20/2σ</span>
+                </div>
+              ) : null}
+              <LiveChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={lines} onPrice={setTicker} showIndicators={showInd} />
+            </>
+          )}
           {/* PLANO OPERACIONAL */}
           {side !== "neutral" && risk ? (
             <div className="lt-plan">
