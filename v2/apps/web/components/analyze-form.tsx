@@ -93,18 +93,8 @@ const TYPE_ICON: Record<AssetType, React.ReactNode> = {
 const baseOf = (symbol: string) => symbol.replace(/USDT$|USD$/i, "");
 const tickerOf = (symbol: string) => baseOf(symbol).slice(0, 4) || "?";
 
-// Ações → domínio (logo via Clearbit). Faltou alguém? cai no fallback de iniciais.
-const STOCK_DOMAIN: Record<string, string> = {
-  AAPL: "apple.com", MSFT: "microsoft.com", NVDA: "nvidia.com", GOOGL: "google.com", AMZN: "amazon.com",
-  META: "meta.com", TSLA: "tesla.com", NFLX: "netflix.com", AMD: "amd.com", INTC: "intel.com",
-  JPM: "jpmorganchase.com", V: "visa.com", MA: "mastercard.com", DIS: "disney.com", KO: "coca-cola.com",
-  PEP: "pepsico.com", NKE: "nike.com", BA: "boeing.com", XOM: "exxonmobil.com", CVX: "chevron.com",
-  WMT: "walmart.com", PYPL: "paypal.com", BABA: "alibaba.com", ORCL: "oracle.com", CRM: "salesforce.com",
-  ADBE: "adobe.com", AVGO: "broadcom.com", COST: "costco.com", MCD: "mcdonalds.com", CSCO: "cisco.com",
-  QCOM: "qualcomm.com", TXN: "ti.com", IBM: "ibm.com", GE: "ge.com", GS: "goldmansachs.com",
-  BAC: "bankofamerica.com", PFE: "pfizer.com", JNJ: "jnj.com", UNH: "unitedhealthgroup.com", HD: "homedepot.com",
-  SBUX: "starbucks.com",
-};
+// Logo de ação por ticker (Financial Modeling Prep). Falha → fallback de iniciais.
+const stockLogo = (symbol: string) => `https://financialmodelingprep.com/image-stock/${symbol.toUpperCase()}.png`;
 // Moeda → código de bandeira (flagcdn). EUR usa a bandeira da UE ("eu").
 const CCY_FLAG: Record<string, string> = {
   EUR: "eu", USD: "us", GBP: "gb", JPY: "jp", CHF: "ch", AUD: "au", CAD: "ca", NZD: "nz",
@@ -135,10 +125,9 @@ function AssetAvatar({ symbol, assetType, compact }: { symbol: string; assetType
       );
     }
     if (assetType === "stocks") {
-      const dom = STOCK_DOMAIN[symbol.toUpperCase()];
-      if (dom) return (
+      return (
         <span className={`${cls} logo brand`}>
-          <img src={`https://logo.clearbit.com/${dom}`} alt="" loading="lazy" onError={() => setFailed(true)} />
+          <img src={stockLogo(symbol)} alt="" loading="lazy" onError={() => setFailed(true)} />
         </span>
       );
     }

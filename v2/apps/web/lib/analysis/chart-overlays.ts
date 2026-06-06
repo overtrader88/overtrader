@@ -31,15 +31,24 @@ export function buildPriceLines(dto: FullAnalysis): ChartLine[] {
     lines.push({ price: r.takeProfit3, color: C.bull, title: "TP3", dashed: true });
   }
 
-  // SMC: order blocks ativos (até 2) + FVGs ativos (até 2) — linha no meio da zona.
+  // SMC: faixas de liquidação + order blocks (topo/base) + FVGs.
   if (dto.smc) {
-    for (const o of dto.smc.orderBlocks.filter((b) => !b.mitigated).slice(0, 2)) {
+    // Faixas de liquidação (onde stops se acumulam) — linhas rotuladas como na concorrência.
+    for (const lz of (dto.smc.liquidityZones ?? []).slice(0, 4)) {
+      const above = lz.type === "buy_stops_above";
       lines.push({
-        price: (o.zoneTop + o.zoneBottom) / 2,
-        color: o.type === "bullish" ? C.bull : C.bear,
-        title: o.type === "bullish" ? "OB+" : "OB−",
-        dashed: true,
+        price: lz.level,
+        color: above ? C.bear : C.bull,
+        title: `${lz.swept ? "✓ " : ""}Liquidez ${above ? "↑ (buy stops)" : "↓ (sell stops)"}`,
+        dashed: lz.swept,
       });
+    }
+    // Order blocks ativos (até 2) — topo e base da zona, rotulados.
+    for (const o of dto.smc.orderBlocks.filter((b) => !b.mitigated).slice(0, 2)) {
+      const col = o.type === "bullish" ? C.bull : C.bear;
+      const tag = o.type === "bullish" ? "OB+" : "OB−";
+      lines.push({ price: o.zoneTop, color: col, title: `${tag} topo`, dashed: true });
+      lines.push({ price: o.zoneBottom, color: col, title: `${tag} base`, dashed: true });
     }
     for (const f of dto.smc.fvgs.filter((g) => g.status === "active").slice(0, 2)) {
       lines.push({ price: (f.zoneTop + f.zoneBottom) / 2, color: C.cyan, title: "FVG", dashed: true });

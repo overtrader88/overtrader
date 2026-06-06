@@ -192,7 +192,8 @@
       "Bash(git --no-pager diff components/ui/app-bar.tsx)",
       "Bash(git --no-pager diff --stat v2/apps/web/app/api/admin/set-credits/route.ts)",
       "Bash(git --no-pager log --oneline -3 -- v2/apps/web/app/api/admin/set-credits/route.ts)",
-      "Bash(git --no-pager log --oneline origin/main..HEAD)"
+      "Bash(git --no-pager log --oneline origin/main..HEAD)",
+      "Bash(netstat -ano)"
     ]
   }
 }
