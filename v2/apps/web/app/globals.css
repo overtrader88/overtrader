@@ -1285,3 +1285,27 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .lt-setup-k.ok { color: var(--bull); } .lt-setup-k.no { color: var(--bear); }
 .lt-setup-it { font-size: 11.5px; line-height: 1.35; }
 .lt-setup-it.ok { color: var(--ink); } .lt-setup-it.no { color: var(--ink); } .lt-setup-it.dim { color: var(--ink-faint); }
+
+/* Header live-stream + Operação ao vivo */
+.lt-livehead { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); padding: 6px 2px; flex-wrap: wrap; }
+.lt-livehead b { color: var(--ink); }
+.lt-livedot { width: 9px; height: 9px; border-radius: 50%; background: var(--bear); box-shadow: 0 0 0 0 var(--bear); animation: ltpulse 1.4s infinite; }
+@keyframes ltpulseR { 0% { box-shadow: 0 0 0 0 rgba(255,107,138,.6);} 70%{box-shadow:0 0 0 7px rgba(255,107,138,0);} 100%{box-shadow:0 0 0 0 rgba(255,107,138,0);} }
+.lt-livedot { animation: ltpulseR 1.4s infinite; }
+.lt-livesep { width: 1px; height: 12px; background: var(--line-2); }
+.lt-livepnl.up { color: var(--bull); } .lt-livepnl.down { color: var(--bear); }
+
+.lt-trades { margin-top: 16px; background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line-2); border-radius: 14px; padding: 14px 16px; }
+.lt-trades-h { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--ink); margin-bottom: 10px; }
+.lt-trades-h span { color: var(--ink-faint); font-weight: 400; font-size: 12px; }
+.lt-trades-tbl { overflow-x: auto; }
+.lt-trades table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-family: var(--font-mono); }
+.lt-trades th { text-align: left; padding: 6px 10px; color: var(--ink-faint); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--line); }
+.lt-trades td { padding: 8px 10px; color: var(--ink); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.lt-trades td.bull { color: var(--bull); } .lt-trades td.bear { color: var(--bear); }
+.lt-side { padding: 2px 8px; border-radius: 5px; font-weight: 700; font-size: 11px; }
+.lt-side.buy { color: var(--bull); background: var(--bull-soft); } .lt-side.sell { color: var(--bear); background: var(--bear-soft); }
+.lt-status { padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; }
+.lt-status.open { color: var(--cyan); background: var(--cyan-soft); }
+.lt-status.ok { color: var(--bull); background: var(--bull-soft); }
+.lt-status.no { color: var(--bear); background: var(--bear-soft); }

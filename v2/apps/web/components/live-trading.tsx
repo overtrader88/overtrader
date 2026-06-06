@@ -8,6 +8,7 @@ import { buildChartZones } from "@/lib/analysis/chart-zones";
 import { toNarrativeFacts } from "@/lib/analysis/narrative-facts";
 import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narration";
 import { computeSetupScore } from "@/lib/analysis/setup-score";
+import { computeLiveTrade } from "@/lib/analysis/live-trade";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
 import { TradingViewChart } from "@/components/tradingview-chart";
@@ -179,6 +180,7 @@ export function LiveTrading() {
   const lines = dto ? buildPriceLines(dto) : [];
   const zones = dto ? buildChartZones(dto) : [];
   const setup = dto ? computeSetupScore(dto) : null;
+  const trade = dto ? computeLiveTrade(dto, ticker?.price ?? null) : null;
   const setupColor = setup ? (setup.tone === "bull" ? "var(--bull)" : setup.tone === "bear" ? "var(--bear)" : "var(--ink-soft)") : "var(--ink-soft)";
   const sealKey = dto?.quality?.status ?? "grey";
   const sealInfo = SEAL[sealKey] ?? SEAL.grey!;
@@ -194,6 +196,14 @@ export function LiveTrading() {
 
   return (
     <div className="lt">
+      {/* HEADER LIVE-STREAM */}
+      <div className="lt-livehead">
+        <span className="lt-livedot" /> AO VIVO
+        <span className="lt-livesep" /> <b>{symbol}</b> · {timeframe.toUpperCase()}
+        <span className="lt-livesep" /> tempo real {assetType === "crypto" ? "(WebSocket)" : ""}
+        {trade ? <><span className="lt-livesep" /> <span className={`lt-livepnl ${trade.pnlPct >= 0 ? "up" : "down"}`}>{trade.pnlPct >= 0 ? "+" : ""}{trade.pnlPct.toFixed(2)}% · {trade.r >= 0 ? "+" : ""}{trade.r.toFixed(2)}R</span></> : null}
+      </div>
+
       {/* BARRA DE CONTROLE */}
       <div className="lt-bar">
         <div className="lt-asset">
@@ -353,6 +363,36 @@ export function LiveTrading() {
         <section className="lt-tech">
           <div className="lt-tech-h">Resumo Técnico · {dto.analysis.indicators.length} indicadores · {timeframe.toUpperCase()}</div>
           <TechnicalSummary indicators={dto.analysis.indicators} votes={dto.analysis.signal.votes} />
+        </section>
+      ) : null}
+
+      {/* OPERAÇÃO AO VIVO (simulada) — estilo Open Trades */}
+      {dto ? (
+        <section className="lt-trades">
+          <div className="lt-trades-h">Operação ao vivo <span>· simulada</span></div>
+          {trade ? (
+            <div className="lt-trades-tbl">
+              <table>
+                <thead><tr><th>Ativo</th><th>Lado</th><th>Entrada</th><th>Atual</th><th>Stop</th><th>Alvo 1</th><th>P&L</th><th>R</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><b>{symbol}</b> {timeframe.toUpperCase()}</td>
+                    <td><span className={`lt-side ${trade.side}`}>{trade.side === "buy" ? "COMPRA" : "VENDA"}</span></td>
+                    <td>{fmtPrice(trade.entry)}</td>
+                    <td>{fmtPrice(trade.price)}</td>
+                    <td className="bear">{fmtPrice(trade.stop)}</td>
+                    <td className="bull">{fmtPrice(trade.tp1)}</td>
+                    <td className={trade.pnlPct >= 0 ? "bull" : "bear"}>{trade.pnlPct >= 0 ? "+" : ""}{trade.pnlPct.toFixed(2)}%</td>
+                    <td className={trade.r >= 0 ? "bull" : "bear"}>{trade.r >= 0 ? "+" : ""}{trade.r.toFixed(2)}R</td>
+                    <td><span className={`lt-status ${trade.status === "Stopada" ? "no" : trade.status === "Alvo 1" ? "ok" : "open"}`}>{trade.status}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="note" style={{ padding: "8px 2px" }}>Sem operação — viés neutro. A IA aguarda definição.</p>
+          )}
+          <p className="note" style={{ fontSize: "0.72rem", marginTop: 6 }}>Simulação do setup vigente (atualiza com o preço ao vivo). Não é ordem real nem recomendação de investimento.</p>
         </section>
       ) : null}
     </div>
