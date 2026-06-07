@@ -13,6 +13,13 @@
 - [ ] **Rotação restante:** Hubla webhook secret · GitHub token · FMP/TwelveData/NewsData/WorldNews · CRON_SECRET · TELEGRAM_WEBHOOK_SECRET (ver `docs/ROTACAO-KEYS.md`).
 - [ ] **Plano Vercel:** Hobby limita cron a 1×/dia — confirmar se precisa do Pro p/ os crons `emit-signals`(4h)/`check-watchlist`(1h)/`resolve-signals`.
 
+## 🔒 Cadastros FECHADOS (pré-lançamento / validação)
+
+Trava na UI ativa via flag `NEXT_PUBLIC_SIGNUPS_OPEN` (ausente/`false` = fechado).
+- [x] UI travada: landing sem "Criar conta", /login só "Entrar" com aviso.
+- [ ] **OBRIGATÓRIO (bloqueio real):** Supabase → **Authentication → Sign In / Providers → desligar "Allow new users to sign up"**. Sem isso, dá pra criar conta chamando a API de auth direto com a anon key (pública) — e via Google OAuth. Existentes continuam logando.
+- [ ] **No lançamento:** religar → setar `NEXT_PUBLIC_SIGNUPS_OPEN=true` na Vercel (rebuild) **e** reativar o toggle do Supabase.
+
 ## 🟡 Web Push (alertas de confluência reforçada) — ativar
 
 Código pronto (SW `public/sw.js`, `lib/push/*`, rotas `/api/push/subscribe|notify`, toggle "🔔 Alertas" no /ao-vivo). Falta:
