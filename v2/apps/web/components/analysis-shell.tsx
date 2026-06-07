@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import type { AssetType, Timeframe } from "@tradeai/shared";
 import { ENGINE_VERSION } from "@tradeai/engine";
 import { AnalyzeForm } from "./analyze-form";
-import { WatchlistButton } from "./watchlist-button";
 
 type Mode = "simples" | "avancado";
 const STORAGE_KEY = "tradeai:analysis-mode";
@@ -29,7 +28,7 @@ export function AnalysisShell({
   assetType,
   regime,
   adx,
-  showForm = false,
+  plan,
   children,
 }: {
   symbol: string;
@@ -37,7 +36,7 @@ export function AnalysisShell({
   assetType: AssetType;
   regime?: string;
   adx?: number;
-  showForm?: boolean;
+  plan?: string;
   children: ReactNode;
 }) {
   const [mode, setMode] = useState<Mode>("avancado");
@@ -60,18 +59,6 @@ export function AnalysisShell({
     }
   }
 
-  if (showForm) {
-    // Modo formulário: só o configurador (sem statusbar de uma análise inexistente).
-    return (
-      <div className={`analysis-page${mode === "simples" ? " mode-simples" : ""}`}>
-        <div className="wrap">
-          <AnalyzeForm symbol={symbol} assetType={assetType} timeframe={timeframe} />
-        </div>
-      </div>
-    );
-  }
-
-  // Modo relatório: ativo/TF no topo + botão "Nova análise" (filtros somem).
   return (
     <div className={`analysis-page${mode === "simples" ? " mode-simples" : ""}`}>
       <div className="wrap">
@@ -84,9 +71,7 @@ export function AnalysisShell({
           ) : null}
           {typeof adx === "number" ? <span className="seg">ADX <b>{adx.toFixed(1)}</b></span> : null}
           <span className="spacer" />
-          <a href="/analise?new=1" className="statusbar-new">+ Nova análise</a>
           <span className="seg last">ENGINE <b>{ENGINE_VERSION}</b></span>
-          <WatchlistButton symbol={symbol} timeframe={timeframe} />
           <div className="mode-switch" role="group" aria-label="Modo de exibição">
             <button type="button" className={mode === "simples" ? "on" : undefined} onClick={() => choose("simples")} aria-pressed={mode === "simples"}>
               Simples
@@ -96,6 +81,8 @@ export function AnalysisShell({
             </button>
           </div>
         </div>
+        {/* "Configurar Análise" SEMPRE visível (campos zeram após gerar). */}
+        <AnalyzeForm symbol={symbol} assetType={assetType} timeframe={timeframe} plan={plan} />
         {children}
       </div>
     </div>

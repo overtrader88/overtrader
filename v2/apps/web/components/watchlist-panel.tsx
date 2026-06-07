@@ -41,7 +41,7 @@ export function WatchlistPanel() {
   if (items.length === 0) {
     return (
       <p className="note" style={{ padding: "8px 6px", margin: 0 }}>
-        Watchlist vazia. <a href="/watchlist" style={{ color: "var(--cyan)" }}>Gerenciar watchlist</a> ou use <b>★ Acompanhar</b> na <a href="/analise" style={{ color: "var(--cyan)" }}>Análise</a>.
+        Watchlist vazia. <a href="/watchlist" style={{ color: "var(--cyan)" }}>Gerenciar watchlist</a> para adicionar ativos e receber alertas.
       </p>
     );
   }

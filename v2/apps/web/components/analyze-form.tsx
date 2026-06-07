@@ -217,10 +217,12 @@ export function AnalyzeForm({
   symbol,
   assetType,
   timeframe,
+  plan = "free",
 }: {
   symbol: string;
   assetType: AssetType;
   timeframe: Timeframe;
+  plan?: string;
 }) {
   const router = useRouter();
   // Começa SEM seleção — o usuário precisa escolher ativo e timeframe (evita
@@ -284,6 +286,8 @@ export function AnalyzeForm({
     startTransition(() => {
       router.push(`/analise?symbol=${encodeURIComponent(cleanSym)}&type=${at}&tf=${tf}`);
     });
+    // Zera os filtros após disparar (o "Configurar Análise" continua visível, limpo).
+    setSym(""); setAt(""); setTf("");
   }
   // campos ainda vazios (p/ destaque em vermelho ao tentar analisar)
   const errType = showErrors && !at;
@@ -299,14 +303,33 @@ export function AnalyzeForm({
           <h2 className="cfg-title">Configurar Análise</h2>
           <p className="cfg-sub">Escolha o ativo, a classe e o timeframe — o motor faz as 15 camadas com dados reais.</p>
         </div>
-        <Link href="/planos" className="cfg-pro">
-          <span className="pro-ico"><CrownIcon /></span>
-          <span className="pro-txt">
-            <b>Desbloqueie o PRO</b>
-            <small>Análises ilimitadas e camadas exclusivas</small>
-          </span>
-          <span className="pro-arrow"><ArrowIcon /></span>
-        </Link>
+        {plan === "pro_plus" ? (
+          <div className="cfg-pro is-proplus">
+            <span className="pro-ico"><CrownIcon /></span>
+            <span className="pro-txt">
+              <b>VOCÊ É PRO+</b>
+              <small>Acesso completo · obrigado por ser PRO+</small>
+            </span>
+          </div>
+        ) : plan === "pro" ? (
+          <Link href="/planos" className="cfg-pro">
+            <span className="pro-ico"><CrownIcon /></span>
+            <span className="pro-txt">
+              <b>Suba para o PRO+</b>
+              <small>Mais créditos por mês e recursos exclusivos</small>
+            </span>
+            <span className="pro-arrow"><ArrowIcon /></span>
+          </Link>
+        ) : (
+          <Link href="/planos" className="cfg-pro">
+            <span className="pro-ico"><CrownIcon /></span>
+            <span className="pro-txt">
+              <b>Desbloqueie o PRO</b>
+              <small>Análises ilimitadas e camadas exclusivas</small>
+            </span>
+            <span className="pro-arrow"><ArrowIcon /></span>
+          </Link>
+        )}
       </div>
 
       <div className="cfg-grid" ref={gridRef}>

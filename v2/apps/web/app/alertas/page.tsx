@@ -43,11 +43,12 @@ export default async function AlertasPage() {
         email={user?.email}
       />
       <div className="wrap">
-        <div className="head2">
+        <div className="head2" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h1>Alertas</h1>
             <div className="meta"><b>{items.length}</b> {items.length === 1 ? "alerta" : "alertas"} · disparados pela watchlist</div>
           </div>
+          <a href="/watchlist" className="btn primary" style={{ whiteSpace: "nowrap" }}>★ Gerenciar watchlist</a>
         </div>
 
         <TelegramConnect />
@@ -56,8 +57,8 @@ export default async function AlertasPage() {
         {items.length === 0 ? (
           <div className="tbl" style={{ padding: "40px 24px", textAlign: "center" }}>
             <p className="note" style={{ margin: 0 }}>
-              Nenhum alerta ainda. Adicione ativos à watchlist com <b>★ Acompanhar</b> na <a href="/analise" style={{ color: "var(--cyan)" }}>Análise</a> —
-              quando o sinal de compra atingir o limiar, o alerta aparece aqui.
+              Nenhum alerta ainda. Adicione ativos em <a href="/watchlist" style={{ color: "var(--cyan)" }}>Gerenciar watchlist</a> —
+              quando o sinal (compra ou venda) atingir o limiar escolhido, o alerta aparece aqui.
             </p>
           </div>
         ) : (

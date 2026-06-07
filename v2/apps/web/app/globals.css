@@ -368,8 +368,12 @@ body::after {
 .analysis-page .statusbar-new { margin-right: 12px; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--cyan); color: var(--cyan); font-family: var(--font-mono); font-size: 11px; font-weight: 700; white-space: nowrap; transition: .15s; }
 .analysis-page .statusbar-new:hover { background: var(--cyan-soft); }
 
-.analysis-page .hero2 { display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; }
+.analysis-page .hero2 { display: grid; grid-template-columns: 1fr auto auto; gap: 28px; align-items: center; }
 @media (max-width: 680px) { .analysis-page .hero2 { grid-template-columns: 1fr; } }
+.analysis-page .hero2-asset { text-align: center; }
+.analysis-page .hero2-asset .ha-sym { font-family: var(--font-mono); font-weight: 700; font-size: 22px; color: var(--ink); letter-spacing: .01em; }
+.analysis-page .hero2-asset .ha-tf { font-family: var(--font-mono); font-size: 12px; color: var(--cyan); margin-top: 2px; }
+@media (max-width: 680px) { .analysis-page .hero2-asset { display: none; } }
 .analysis-page .verdict .kick { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); }
 .analysis-page .verdict .big { font-family: var(--font-display); font-variation-settings: "wdth" 125; font-weight: 800; font-size: clamp(56px, 9vw, 100px); line-height: 0.92; letter-spacing: -0.005em; text-transform: uppercase; color: var(--bull); text-shadow: 0 0 38px rgba(43, 212, 158, 0.36); margin: 2px 0; }
 .analysis-page .verdict .sub { font-size: 13.5px; color: var(--ink-soft); max-width: 48ch; }
@@ -875,6 +879,11 @@ input:focus-visible,
 .analysis-page .cfg-pro .pro-txt small { display: block; font-size: 10.5px; color: var(--ink-soft); }
 .analysis-page .cfg-pro .pro-arrow { color: var(--ink-faint); display: grid; place-items: center; transition: 0.16s; }
 .analysis-page .cfg-pro:hover .pro-arrow { color: #9a8bff; transform: translateX(2px); }
+/* PRO+ ativo — banner dourado, sem link */
+.analysis-page .cfg-pro.is-proplus { cursor: default; border-color: rgba(255, 196, 60, 0.55); background: linear-gradient(120deg, rgba(255, 196, 60, 0.18), rgba(255, 160, 40, 0.10)); }
+.analysis-page .cfg-pro.is-proplus:hover { transform: none; box-shadow: none; }
+.analysis-page .cfg-pro.is-proplus .pro-ico { background: linear-gradient(135deg, #ffd24a, #ff9f1c); box-shadow: 0 6px 16px -8px rgba(255, 180, 40, 0.9); }
+.analysis-page .cfg-pro.is-proplus .pro-txt b { color: #ffce5a; }
 
 .analysis-page .cfg-grid { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 14px; }
 .analysis-page .cfg-field { position: relative; display: flex; flex-direction: column; gap: 10px; min-width: 0; cursor: pointer; }
