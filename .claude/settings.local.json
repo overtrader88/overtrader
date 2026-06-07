@@ -225,7 +225,8 @@
       "Bash(git commit -q -m 'chore: redeploy p/ registrar crons horarios \\(Vercel PRO ativo\\) *)",
       "Bash(echo \"exit $?\")",
       "WebFetch(domain:docs.coinglass.com)",
-      "WebFetch(domain:www.coinglass.com)"
+      "WebFetch(domain:www.coinglass.com)",
+      "Bash(echo \"TSC_EXIT:$?\")"
     ]
   }
 }

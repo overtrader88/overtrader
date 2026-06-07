@@ -9,6 +9,12 @@
  */
 import type { AssetType } from "@tradeai/shared";
 import type { FullAnalysis } from "./full";
+import type { BinanceDerivatives } from "@/lib/market/derivatives-binance";
+
+/** Dados externos reais já buscados (por onda) que o Motor 2 pode usar. */
+export interface ClassExtras {
+  derivatives?: BinanceDerivatives | null;
+}
 
 export type EngineId = "padrao" | "classe";
 export const ENGINES: { id: EngineId; label: string; hint: string }[] = [
@@ -107,15 +113,18 @@ export interface ClassReading {
   agree: string[];
   against: string[];
   methodology: ClassMethodology;
+  /** itens de `pending` que ainda faltam (após remover os já integrados). */
+  stillPending: string[];
 }
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
 
 /** Re-pondera os dados REAIS do dto conforme a metodologia da classe. */
-export function computeClassReading(dto: FullAnalysis, assetType: AssetType): ClassReading {
+export function computeClassReading(dto: FullAnalysis, assetType: AssetType, extras?: ClassExtras): ClassReading {
   const m = CLASS_METHODOLOGY[assetType] ?? CLASS_METHODOLOGY.crypto;
   const w = m.weights;
   const factors: ClassFactor[] = [];
+  const integrated = new Set<string>(); // rótulos de `pending` já cobertos por dado real
 
   // 1) Indicadores reais, agrupados por categoria, ponderados pela classe.
   const byCat = new Map<string, number>();
@@ -147,6 +156,20 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType): Cl
     if (up >= 55 || up <= 45) factors.push({ label: "Monte Carlo", side: up >= 55 ? "bull" : "bear", weight: w.montecarlo });
   }
 
+  // 2b) Derivativos cripto (funding / OI / long-short) — sentimento e exaustão.
+  const d = extras?.derivatives;
+  if (d) {
+    integrated.add("Funding & Open Interest (Binance — onda cripto)");
+    // Funding extremo = lado lotado → leitura CONTRÁRIA (exaustão).
+    if (d.fundingAnnualizedPct > 30) factors.push({ label: `Funding alto (${d.fundingAnnualizedPct.toFixed(0)}% a.a. — longs lotados)`, side: "bear", weight: 0.8 });
+    else if (d.fundingAnnualizedPct < -10) factors.push({ label: `Funding negativo (${d.fundingAnnualizedPct.toFixed(0)}% a.a. — shorts lotados)`, side: "bull", weight: 0.8 });
+    // Razão de contas long/short extrema → contrária.
+    if (d.longShortRatio != null) {
+      if (d.longShortRatio >= 1.8) factors.push({ label: `Contas muito compradas (L/S ${d.longShortRatio.toFixed(2)})`, side: "bear", weight: 0.6 });
+      else if (d.longShortRatio <= 0.7) factors.push({ label: `Contas muito vendidas (L/S ${d.longShortRatio.toFixed(2)})`, side: "bull", weight: 0.6 });
+    }
+  }
+
   // 3) Score ponderado.
   let net = 0, total = 0;
   for (const f of factors) {
@@ -167,5 +190,7 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType): Cl
   else if (score >= 70 || score <= 30) label = "Forte para a classe";
   else label = "Moderado para a classe";
 
-  return { side, score, label, factors, agree, against, methodology: m };
+  const stillPending = m.pending.filter((p) => !integrated.has(p));
+
+  return { side, score, label, factors, agree, against, methodology: m, stillPending };
 }
