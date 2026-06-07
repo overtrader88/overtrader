@@ -215,7 +215,10 @@
       "Bash(node -e \"const w=require\\('web-push'\\);const k=w.generateVAPIDKeys\\(\\);console.log\\('PUB='+k.publicKey\\);console.log\\('PRIV='+k.privateKey\\);\")",
       "Bash(echo \"=== exit $? ===\")",
       "Bash(git commit -q -m ' *)",
-      "Bash(git -c credential.helper= push)"
+      "Bash(git -c credential.helper= push)",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__javascript_tool",
+      "Bash(git commit -q --allow-empty -m 'chore: redeploy para aplicar env VAPID \\(web push\\) *)"
     ]
   }
 }

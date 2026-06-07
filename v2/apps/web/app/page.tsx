@@ -1,5 +1,6 @@
 import { ENGINE_VERSION } from "@tradeai/engine";
 import { Logo, ConfidenceBadge, RadialGauge } from "@/components/ui";
+import { signupsOpen } from "@/lib/signups";
 
 const TICKER = [
   { s: "BTC", v: "67.420", c: "+2,14%", up: true },
@@ -14,6 +15,7 @@ const TICKER = [
 ];
 
 export default function HomePage() {
+  const open = signupsOpen();
   return (
     <>
       {/* NAV */}
@@ -33,7 +35,7 @@ export default function HomePage() {
           </div>
           <div className="nav-cta">
             <a className="btn ghost" href="/login">Entrar</a>
-            <a className="btn primary" href="/login?mode=signup">Criar conta grátis</a>
+            {open ? <a className="btn primary" href="/login?mode=signup">Criar conta grátis</a> : null}
           </div>
         </div>
       </nav>
@@ -224,7 +226,7 @@ export default function HomePage() {
                 <li><span className="c">✓</span> Dashboard de preços ao vivo</li>
                 <li><span className="c">✓</span> Selo de qualidade em toda análise</li>
               </ul>
-              <a className="btn" href="/login?mode=signup">Criar conta grátis</a>
+              <a className="btn" href={open ? "/login?mode=signup" : "/login"}>{open ? "Criar conta grátis" : "Entrar"}</a>
             </div>
             <div className="plan pro">
               <span className="tagp">Mais popular</span>

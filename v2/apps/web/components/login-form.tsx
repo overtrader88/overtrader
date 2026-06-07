@@ -3,13 +3,15 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { signupsOpen } from "@/lib/signups";
 
 type Mode = "signin" | "signup";
 
 /** Formulário de acesso (email + senha) com cadastro e Google (OAuth). */
 export function LoginForm({ next, initialMode = "signin" }: { next: string; initialMode?: Mode }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const open = signupsOpen();
+  const [mode, setMode] = useState<Mode>(open ? initialMode : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -32,6 +34,7 @@ export function LoginForm({ next, initialMode = "signin" }: { next: string; init
         router.push(dest);
         router.refresh();
       } else {
+        if (!open) throw new Error("Cadastros temporariamente fechados.");
         const { data, error: err } = await sb.auth.signUp({
           email,
           password,
@@ -106,7 +109,9 @@ export function LoginForm({ next, initialMode = "signin" }: { next: string; init
       </button>
 
       <div className="foot">
-        {mode === "signin" ? (
+        {!open ? (
+          <span className="note" style={{ fontSize: "0.85rem" }}>Cadastros temporariamente fechados — plataforma em validação. Em breve abriremos as inscrições.</span>
+        ) : mode === "signin" ? (
           <>Não tem conta? <button type="button" className="link-btn" onClick={() => { setMode("signup"); setError(null); }}>Criar conta grátis →</button></>
         ) : (
           <>Já tem conta? <button type="button" className="link-btn" onClick={() => { setMode("signin"); setError(null); }}>Entrar →</button></>
