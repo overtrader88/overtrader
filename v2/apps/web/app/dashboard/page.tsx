@@ -112,7 +112,7 @@ export default async function DashboardPage() {
           </Panel>
 
           <Panel>
-            <PanelLabel more="gerenciar →" moreHref="/analise">Watchlist</PanelLabel>
+            <PanelLabel more="gerenciar →" moreHref="/watchlist">Watchlist</PanelLabel>
             <WatchlistPanel />
           </Panel>
         </div>

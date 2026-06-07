@@ -1339,6 +1339,24 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 
 /* Tela de créditos */
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* Gerenciador de watchlist */
+.wm-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.wm-sel { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+.wm-sel.sm { padding: 4px 8px; font-size: 11.5px; }
+.wm-sym { flex: 1; min-width: 200px; }
+.wm-add-btn { cursor: pointer; background: var(--cyan); color: #06090f; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 700; font-size: 13px; }
+.wm-add-btn:disabled { opacity: .5; }
+.wm-tbl { margin-top: 12px; }
+.wm-head, .wm-row { display: grid; grid-template-columns: 1fr 60px 1fr 120px; gap: 10px; align-items: center; padding: 9px 10px; }
+.wm-head { color: var(--ink-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--line); }
+.wm-row { border-bottom: 1px solid var(--line); }
+.wm-asset b { font-family: var(--font-mono); color: var(--ink); }
+.wm-asset small { color: var(--ink-faint); font-size: 11px; }
+.wm-tf { font-family: var(--font-mono); color: var(--ink-soft); font-size: 12.5px; }
+.wm-row-act { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
+.wm-x { cursor: pointer; background: transparent; border: 1px solid var(--line-2); color: var(--ink-faint); border-radius: 6px; width: 26px; height: 26px; font-size: 15px; line-height: 1; }
+.wm-x:hover { color: var(--bear); border-color: var(--bear); }
 .cr-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
 .cr-stat { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line-2); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
 .cr-stat span { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em; }
