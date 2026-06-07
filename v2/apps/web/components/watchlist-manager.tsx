@@ -9,11 +9,11 @@ interface WItem { id: string; symbol: string; timeframe: string; min_signal_stre
 const TFS: Timeframe[] = ["15m", "1h", "4h", "1d", "1w", "1M"];
 // Gatilho do alerta: lado + força mínima (compra OU venda).
 const STRENGTHS = [
-  { v: "WEAK_BUY", label: "↑ Compra fraca ou +", group: "Compra" },
-  { v: "BUY", label: "↑ Compra ou +", group: "Compra" },
+  { v: "WEAK_BUY", label: "↑ Qualquer compra", group: "Compra" },
+  { v: "BUY", label: "↑ Compra ou mais forte", group: "Compra" },
   { v: "STRONG_BUY", label: "↑ Só compra forte", group: "Compra" },
-  { v: "WEAK_SELL", label: "↓ Venda fraca ou +", group: "Venda" },
-  { v: "SELL", label: "↓ Venda ou +", group: "Venda" },
+  { v: "WEAK_SELL", label: "↓ Qualquer venda", group: "Venda" },
+  { v: "SELL", label: "↓ Venda ou mais forte", group: "Venda" },
   { v: "STRONG_SELL", label: "↓ Só venda forte", group: "Venda" },
 ];
 const STRENGTH_GROUPS = ["Compra", "Venda"] as const;

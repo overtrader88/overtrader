@@ -11,8 +11,8 @@ interface WItem {
 
 /** Gatilho em PT (≥ aquele lado/força). */
 const SIG_PT: Record<string, string> = {
-  STRONG_BUY: "↑ Compra forte", BUY: "↑ Compra+", WEAK_BUY: "↑ Compra fraca+",
-  WEAK_SELL: "↓ Venda fraca+", SELL: "↓ Venda+", STRONG_SELL: "↓ Venda forte",
+  WEAK_BUY: "↑ Qualquer compra", BUY: "↑ Compra ou mais forte", STRONG_BUY: "↑ Só compra forte",
+  WEAK_SELL: "↓ Qualquer venda", SELL: "↓ Venda ou mais forte", STRONG_SELL: "↓ Só venda forte",
 };
 
 /** Painel de watchlist do dashboard — lista/remove itens reais via /api/watchlist. */
