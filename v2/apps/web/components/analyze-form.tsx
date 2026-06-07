@@ -225,9 +225,9 @@ export function AnalyzeForm({
   const router = useRouter();
   // Começa SEM seleção — o usuário precisa escolher ativo e timeframe (evita
   // analisar o padrão por engano). `at` é só a classe de navegação do dropdown.
-  void symbol; void timeframe;
+  void symbol; void timeframe; void assetType;
   const [sym, setSym] = useState("");
-  const [at, setAt] = useState<AssetType>(assetType);
+  const [at, setAt] = useState<AssetType | "">("");   // classe — começa sem seleção
   const [tf, setTf] = useState<Timeframe | "">("");
   const [pending, setPending] = useState(false);
   const [openDD, setOpenDD] = useState<null | "ativo" | "tipo" | "tf">(null);
@@ -240,8 +240,10 @@ export function AnalyzeForm({
   const tfMeta = TFS.find((t) => t.v === tf);
   const byClass = useMemo(() => catalogByClass(), []);
 
-  // Lista do dropdown: sem busca → todos da classe atual; com busca → varre os 143.
+  // Lista do dropdown: precisa da classe escolhida; sem busca → todos da classe;
+  // com busca → varre os 143 (e o pick ajusta a classe).
   const results = useMemo(() => {
+    if (!at) return [];
     const q = query.trim().toLowerCase();
     if (!q) return byClass[at];
     return CATALOG.filter((a) => a.symbol.toLowerCase().includes(q) || a.name.toLowerCase().includes(q)).slice(0, 80);
@@ -269,8 +271,7 @@ export function AnalyzeForm({
   }
   function changeType(next: AssetType) {
     setAt(next);
-    // mantém ativo coerente com a classe: troca pro 1º da nova classe se o atual não for dela
-    if (matched?.assetType !== next) setSym(byClass[next][0]?.symbol ?? sym);
+    setSym(""); // troca de classe → limpa o ativo (usuário escolhe de novo)
   }
 
   const canAnalyze = !!cleanSym && !!tf;
@@ -302,23 +303,62 @@ export function AnalyzeForm({
 
       <div className="cfg-grid" ref={gridRef}>
         <div className="cfg-field">
+          <span className="cfg-label">Tipo de Ativo</span>
+          <button
+            type="button"
+            className={`cfg-control as-button${openDD === "tipo" ? " open" : ""}`}
+            onClick={() => toggleDD("tipo")}
+            aria-haspopup="listbox"
+            aria-expanded={openDD === "tipo"}
+          >
+            <span className="cfg-avatar soft">{at ? TYPE_ICON[at] : "?"}</span>
+            <span className="cfg-main">
+              <span className="cfg-value">{typeMeta?.label ?? "Selecione"}</span>
+              <span className="cfg-meta">{typeMeta?.hint ?? "Escolha a classe do ativo"}</span>
+            </span>
+            <span className={`cfg-chev${openDD === "tipo" ? " open" : ""}`}><ChevronIcon /></span>
+          </button>
+          {openDD === "tipo" ? (
+            <div className="cfg-dd" role="listbox" aria-label="Classe de ativo">
+              <div className="cfg-dd-list">
+                {TYPES.map((t) => (
+                  <button
+                    type="button"
+                    key={t.v}
+                    className={`cfg-dd-item${t.v === at ? " active" : ""}`}
+                    role="option"
+                    aria-selected={t.v === at}
+                    onClick={() => { changeType(t.v); setOpenDD(null); }}
+                  >
+                    <span className="cfg-avatar sm soft">{TYPE_ICON[t.v]}</span>
+                    <span className="it-sym">{t.label}</span>
+                    <span className="it-name">{t.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="cfg-field">
           <span className="cfg-label">Ativo</span>
           <button
             type="button"
             className={`cfg-control as-button${openDD === "ativo" ? " open" : ""}`}
-            onClick={() => toggleDD("ativo")}
+            onClick={() => { if (at) toggleDD("ativo"); }}
+            disabled={!at}
             aria-haspopup="listbox"
             aria-expanded={openDD === "ativo"}
           >
-            <AssetAvatar key={`${at}-${cleanSym}`} symbol={cleanSym} assetType={at} />
+            {at ? <AssetAvatar key={`${at}-${cleanSym}`} symbol={cleanSym} assetType={at} /> : <span className="cfg-avatar soft">?</span>}
             <span className="cfg-main">
               <span className="cfg-value">{cleanSym || "Selecione"}</span>
-              <span className="cfg-meta">{matched?.name ?? "Digite ou escolha um ativo"}</span>
+              <span className="cfg-meta">{!at ? "Escolha a classe primeiro" : (matched?.name ?? "Digite ou escolha um ativo")}</span>
             </span>
             <span className={`cfg-chev${openDD === "ativo" ? " open" : ""}`}><ChevronIcon /></span>
           </button>
 
-          {openDD === "ativo" ? (
+          {openDD === "ativo" && at ? (
             <div className="cfg-dd" role="listbox" aria-label="Lista de ativos">
               <div className="cfg-dd-head">
                 <input
@@ -366,44 +406,6 @@ export function AnalyzeForm({
                     </button>
                   ))
                 )}
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="cfg-field">
-          <span className="cfg-label">Tipo de Ativo</span>
-          <button
-            type="button"
-            className={`cfg-control as-button${openDD === "tipo" ? " open" : ""}`}
-            onClick={() => toggleDD("tipo")}
-            aria-haspopup="listbox"
-            aria-expanded={openDD === "tipo"}
-          >
-            <span className="cfg-avatar soft">{TYPE_ICON[at]}</span>
-            <span className="cfg-main">
-              <span className="cfg-value">{typeMeta?.label}</span>
-              <span className="cfg-meta">{typeMeta?.hint}</span>
-            </span>
-            <span className={`cfg-chev${openDD === "tipo" ? " open" : ""}`}><ChevronIcon /></span>
-          </button>
-          {openDD === "tipo" ? (
-            <div className="cfg-dd" role="listbox" aria-label="Classe de ativo">
-              <div className="cfg-dd-list">
-                {TYPES.map((t) => (
-                  <button
-                    type="button"
-                    key={t.v}
-                    className={`cfg-dd-item${t.v === at ? " active" : ""}`}
-                    role="option"
-                    aria-selected={t.v === at}
-                    onClick={() => { changeType(t.v); setOpenDD(null); }}
-                  >
-                    <span className="cfg-avatar sm soft">{TYPE_ICON[t.v]}</span>
-                    <span className="it-sym">{t.label}</span>
-                    <span className="it-name">{t.hint}</span>
-                  </button>
-                ))}
               </div>
             </div>
           ) : null}
