@@ -13,6 +13,14 @@
 - [ ] **Rotação restante:** Hubla webhook secret · GitHub token · FMP/TwelveData/NewsData/WorldNews · CRON_SECRET · TELEGRAM_WEBHOOK_SECRET (ver `docs/ROTACAO-KEYS.md`).
 - [ ] **Plano Vercel:** Hobby limita cron a 1×/dia — confirmar se precisa do Pro p/ os crons `emit-signals`(4h)/`check-watchlist`(1h)/`resolve-signals`.
 
+## 🟡 Web Push (alertas de confluência reforçada) — ativar
+
+Código pronto (SW `public/sw.js`, `lib/push/*`, rotas `/api/push/subscribe|notify`, toggle "🔔 Alertas" no /ao-vivo). Falta:
+- [ ] **Migration 0007** aplicada no Supabase de prod: `v2/supabase/migrations/0007_push.sql` (tabela `push_subscriptions` + RLS).
+- [ ] **Env vars na Vercel** (3): `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (mailto). As chaves já estão no `.env.local`; **recriar com `npx web-push generate-vapid-keys` se vazarem**. `NEXT_PUBLIC_*` é baked no build → redeploy após setar.
+- [ ] Validar: logar → /ao-vivo → "🔔 Alertas" (aceitar permissão) → quando uma confluência REFORÇADA aparecer, chega notificação + entra no sininho (tabela `alerts`).
+- ⚠️ Sem cron, o push só dispara enquanto há uma aba do /ao-vivo aberta detectando a confluência. Para alerta com o site fechado, ligar um cron server-side que analisa os ativos (depende do Vercel Pro — ver acima).
+
 ## 🟡 Telegram (C5 + C2) — validar ao vivo
 
 - [ ] **Registrar o webhook** após o deploy (Telegram não alcança `localhost`):

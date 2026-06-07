@@ -1337,6 +1337,22 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .lt-paper-open .lt-po-sym b { color: var(--ink); }
 .lt-paper-open .bull { color: var(--bull); } .lt-paper-open .bear { color: var(--bear); }
 
+/* Série histórica de eventos Wyckoff (timeline) */
+.wt { margin-top: 12px; background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line-2); border-radius: 14px; padding: 14px 16px; }
+.wt-h { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--ink); margin-bottom: 10px; }
+.wt-h span { color: var(--ink-faint); font-weight: 400; font-size: 12px; }
+.wt-bal { margin-left: auto; font-family: var(--font-mono); font-size: 12px; }
+.wt-bal b.bull { color: var(--bull); } .wt-bal b.bear { color: var(--bear); }
+.wt-strip { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; }
+.wt-it { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 6px 9px; border-radius: 9px; background: var(--bg-2); border: 1px solid var(--line); position: relative; min-width: 70px; }
+.wt-it .wt-dot { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%; }
+.wt-it.bull .wt-dot { background: var(--bull); } .wt-it.bear .wt-dot { background: var(--bear); }
+.wt-it.recent { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan-soft) inset; }
+.wt-t { font-family: var(--font-display); font-weight: 700; font-size: 12px; }
+.wt-it.bull .wt-t { color: var(--bull); } .wt-it.bear .wt-t { color: var(--bear); }
+.wt-p { font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.wt-a { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+
 /* Legenda de cores do gráfico */
 .cl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 18px; margin-top: 12px; padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; }
 .cl-gt { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--cyan); margin-bottom: 6px; }

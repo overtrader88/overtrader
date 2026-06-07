@@ -10,12 +10,14 @@ import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narr
 import { computeSetupScore } from "@/lib/analysis/setup-score";
 import { computeLiveTrade } from "@/lib/analysis/live-trade";
 import { stepPaperTrading, paperStats, livePnl, EMPTY_PAPER_STATE, type PaperState } from "@/lib/analysis/paper-trading";
+import { enablePush, disablePush, pushSupported, notifyReinforced } from "@/lib/push/client";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
 import { TradingViewChart } from "@/components/tradingview-chart";
 import { ChartLegend } from "@/components/chart-legend";
 import { TechnicalSummary } from "@/components/technical-summary";
 import { EnginePipeline } from "@/components/engine-pipeline";
+import { WyckoffTimeline } from "@/components/wyckoff-timeline";
 
 type VoiceMode = "off" | "browser" | "premium";
 const TFS: Timeframe[] = ["15m", "1h", "4h", "1d"];
@@ -192,6 +194,36 @@ export function LiveTrading() {
   useEffect(() => () => { if (typeof window !== "undefined") window.speechSynthesis?.cancel(); audioRef.current?.pause(); }, []);
 
   const facts = dto ? toNarrativeFacts(dto) : null;
+
+  // Alertas (web push) de confluência reforçada
+  const [pushReady, setPushReady] = useState(false);
+  const [alertsOn, setAlertsOn] = useState(false);
+  const lastReinforcedRef = useRef<string | null>(null);
+  useEffect(() => { setPushReady(pushSupported()); }, []);
+  const toggleAlerts = useCallback(async () => {
+    if (alertsOn) { await disablePush(); setAlertsOn(false); return; }
+    const st = await enablePush();
+    if (st === "ok") setAlertsOn(true);
+    else if (typeof window !== "undefined") {
+      const msg = st === "denied" ? "Permissão de notificação negada pelo navegador."
+        : st === "no_vapid" ? "Push ainda não configurado no servidor (chave VAPID ausente)."
+        : st === "unsupported" ? "Este navegador não suporta notificações push."
+        : "Não foi possível ativar os alertas agora.";
+      window.alert(msg);
+    }
+  }, [alertsOn]);
+
+  // Dispara alerta quando uma confluência REFORÇADA nova aparece (dedupe por chave).
+  const reinforced = facts?.crossConfluence?.reinforced ?? false;
+  const confSide = facts?.signal?.includes("BUY") ? "buy" : facts?.signal?.includes("SELL") ? "sell" : "neutral";
+  useEffect(() => {
+    if (!alertsOn || !reinforced || !facts?.crossConfluence) return;
+    const key = `${symbol}|${timeframe}|${confSide}`;
+    if (lastReinforcedRef.current === key) return;
+    lastReinforcedRef.current = key;
+    void notifyReinforced({ symbol, timeframe, side: confSide, verdict: facts.crossConfluence.verdict });
+  }, [alertsOn, reinforced, symbol, timeframe, confSide, facts?.crossConfluence?.verdict]);
+
   const wyOverlays = dto ? buildWyckoffOverlays(dto) : { lines: [], zones: [] };
   const lines = dto ? [...buildPriceLines(dto), ...wyOverlays.lines] : [];
   const zones = dto ? [...buildChartZones(dto), ...wyOverlays.zones] : [];
@@ -230,6 +262,7 @@ export function LiveTrading() {
     setFltSym("all"); setFltTf("all");
     if (typeof window !== "undefined") { try { window.localStorage.removeItem(PAPER_KEY); } catch { /* */ } }
   };
+
 
   const setupColor = setup ? (setup.tone === "bull" ? "var(--bull)" : setup.tone === "bear" ? "var(--bear)" : "var(--ink-soft)") : "var(--ink-soft)";
   const sealKey = dto?.quality?.status ?? "grey";
@@ -293,6 +326,11 @@ export function LiveTrading() {
             <option value="browser">🔊 Voz grátis</option>
             <option value="premium">✨ Voz natural</option>
           </select>
+          {pushReady ? (
+            <button type="button" className={`lt-btn wide${alertsOn ? " on" : ""}`} onClick={toggleAlerts} title="Notificação no navegador quando uma confluência reforçada aparecer">
+              {alertsOn ? "🔔 Alertas ON" : "🔕 Alertas"}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -408,6 +446,9 @@ export function LiveTrading() {
 
       {/* ANÁLISE AO VIVO — pipeline + confirmações cruzadas + gates */}
       {dto ? <EnginePipeline dto={dto} /> : null}
+
+      {/* SÉRIE HISTÓRICA DE EVENTOS WYCKOFF */}
+      {dto ? <WyckoffTimeline dto={dto} /> : null}
 
       {/* RESUMO TÉCNICO — os 20 indicadores do motor, grounded */}
       {dto ? (

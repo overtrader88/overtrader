@@ -39,7 +39,7 @@ export interface WyckoffEvent {
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
-export function detectWyckoffEvents(candles: Candle[], lookback = 20, max = 8): WyckoffEvent[] {
+export function detectWyckoffEvents(candles: Candle[], lookback = 20, max = 24): WyckoffEvent[] {
   const out: WyckoffEvent[] = [];
   if (candles.length < lookback + 2) return out;
 

@@ -210,7 +210,12 @@
       "Bash(echo \"=== EXIT tsc: $? ===\")",
       "Bash(echo \"=== build exit: $? ===\")",
       "mcp__Claude_in_Chrome__computer",
-      "mcp__Claude_in_Chrome__read_console_messages"
+      "mcp__Claude_in_Chrome__read_console_messages",
+      "Bash(pnpm add *)",
+      "Bash(node -e \"const w=require\\('web-push'\\);const k=w.generateVAPIDKeys\\(\\);console.log\\('PUB='+k.publicKey\\);console.log\\('PRIV='+k.privateKey\\);\")",
+      "Bash(echo \"=== exit $? ===\")",
+      "Bash(git commit -q -m ' *)",
+      "Bash(git -c credential.helper= push)"
     ]
   }
 }
