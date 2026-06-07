@@ -1320,6 +1320,9 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .lt-status.ok { color: var(--bull); background: var(--bull-soft); }
 .lt-status.no { color: var(--bear); background: var(--bear-soft); }
 
+.lt-asset-fixed { font-family: var(--font-mono); font-size: 13px; color: var(--ink-soft); padding: 8px 12px; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; }
+.lt-asset-fixed b { color: var(--ink); }
+
 /* Confirmações cruzadas (painel IA) */
 .lt-cross { display: flex; flex-direction: column; gap: 2px; margin: 10px 0; padding: 8px 11px; border-radius: 9px; background: var(--bg-2); border: 1px solid var(--line-2); border-left: 3px solid var(--ink-faint); }
 .lt-cross.on { background: var(--bull-soft); border-left-color: var(--bull); }

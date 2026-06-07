@@ -289,6 +289,8 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
   const sideColor = side === "buy" ? "var(--bull)" : side === "sell" ? "var(--bear)" : "var(--ink-soft)";
   const risk = dto?.analysis.risk;
 
+  // Aberto a partir da grade (initialSymbol) → o ativo é FIXO (cobrança é por ativo).
+  const locked = !!initialSymbol;
   function onPickSymbol(sym: string) { const a = findAsset(sym); setSymbol(sym); if (a) setAssetType(a.assetType); }
   const grouped = (["crypto", "forex", "commodities", "indices", "stocks"] as AssetType[]).map((cls) => ({
     cls, label: ASSET_CLASS_PT[cls], items: CATALOG.filter((c) => c.assetType === cls),
@@ -307,13 +309,17 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
       {/* BARRA DE CONTROLE */}
       <div className="lt-bar">
         <div className="lt-asset">
-          <select value={symbol} onChange={(e) => onPickSymbol(e.target.value)} className="lt-select">
-            {grouped.map((g) => (
-              <optgroup key={g.cls} label={g.label}>
-                {g.items.map((it) => <option key={it.symbol} value={it.symbol}>{it.name} ({it.symbol})</option>)}
-              </optgroup>
-            ))}
-          </select>
+          {locked ? (
+            <span className="lt-asset-fixed" title="Cobrança é por ativo — ative outro na tela de lives">{findAsset(symbol)?.name ?? symbol} <b>({symbol})</b></span>
+          ) : (
+            <select value={symbol} onChange={(e) => onPickSymbol(e.target.value)} className="lt-select">
+              {grouped.map((g) => (
+                <optgroup key={g.cls} label={g.label}>
+                  {g.items.map((it) => <option key={it.symbol} value={it.symbol}>{it.name} ({it.symbol})</option>)}
+                </optgroup>
+              ))}
+            </select>
+          )}
           <div className="lt-tfs">
             {TFS.map((tf) => (
               <button key={tf} type="button" className={`lt-tf${tf === timeframe ? " on" : ""}`} onClick={() => setTimeframe(tf)}>{tf.toUpperCase()}</button>
