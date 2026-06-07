@@ -47,7 +47,7 @@ export default async function DashboardPage() {
           </a>
         </div>
 
-        <PanelLabel more="ver catálogo →">Mercados ao vivo · 5 classes</PanelLabel>
+        <PanelLabel more="ver catálogo →" moreHref="/analise">Mercados ao vivo · 5 classes</PanelLabel>
         <TickerRail />
 
         {/* KPIs — créditos, selo verde, fear&greed (sobem pra uma linha tidy) */}
@@ -85,7 +85,7 @@ export default async function DashboardPage() {
         {/* DUAS LISTAS equilibradas — recentes + watchlist (mata o vão) */}
         <div className="grid2" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
           <Panel>
-            <PanelLabel more="histórico completo →">Análises recentes</PanelLabel>
+            <PanelLabel more="histórico completo →" moreHref="/historico">Análises recentes</PanelLabel>
             <div className="alist">
               {recents.length === 0 ? (
                 <p className="note" style={{ padding: "8px 6px", margin: 0 }}>
@@ -112,7 +112,7 @@ export default async function DashboardPage() {
           </Panel>
 
           <Panel>
-            <PanelLabel more="gerenciar →">Watchlist</PanelLabel>
+            <PanelLabel more="gerenciar →" moreHref="/analise">Watchlist</PanelLabel>
             <WatchlistPanel />
           </Panel>
         </div>

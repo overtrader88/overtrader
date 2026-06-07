@@ -15,20 +15,26 @@ export function Panel({
 export function PanelLabel({
   children,
   more,
-  moreHref = "#",
+  moreHref,
 }: {
   children: ReactNode;
   more?: ReactNode;
   moreHref?: string;
 }) {
+  const hasLink = !!moreHref && moreHref !== "#";
   return (
     <div className="label">
       <span>{children}</span>
       <span className="tail" />
       {more ? (
-        <a className="more" href={moreHref}>
-          {more}
-        </a>
+        hasLink ? (
+          <a className="more" href={moreHref}>
+            {more}
+          </a>
+        ) : (
+          // sem destino real → texto, nunca um link morto pra "#"
+          <span className="more" style={{ opacity: 0.6, cursor: "default" }}>{more}</span>
+        )
       ) : null}
     </div>
   );
