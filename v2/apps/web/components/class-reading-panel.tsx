@@ -2,6 +2,7 @@ import { Panel, PanelLabel, RadialGauge } from "@/components/ui";
 import { computeClassReading, type ClassExtras } from "@/lib/analysis/engines";
 import { getMacroContext } from "@/lib/market/macro-yahoo";
 import { fetchFmpFundamental } from "@/lib/market/fmp";
+import { getCotPositioning } from "@/lib/market/cot-cftc";
 import { DerivativesLive } from "@/components/derivatives-live";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import type { AssetType } from "@tradeai/shared";
@@ -22,17 +23,23 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   // Derivativos da Binance são buscados NO NAVEGADOR (DerivativesLive) — a Vercel
   // é bloqueada por IP de cloud. Macro (Yahoo) funciona server-side.
   const extras: ClassExtras = {};
-  if (assetType === "forex" || assetType === "commodities" || assetType === "indices") {
-    extras.macro = await getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices" });
-  }
-  if (assetType === "stocks" && process.env.FMP_API_KEY) {
-    extras.fundamental = await fetchFmpFundamental(dto.analysis.meta.asset, process.env.FMP_API_KEY);
-  }
+  const asset = dto.analysis.meta.asset;
+  const [macro, cot, fundamental] = await Promise.all([
+    assetType === "forex" || assetType === "commodities" || assetType === "indices"
+      ? getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices" })
+      : Promise.resolve(null),
+    assetType === "forex" || assetType === "commodities" ? getCotPositioning(asset) : Promise.resolve(null),
+    assetType === "stocks" && process.env.FMP_API_KEY ? fetchFmpFundamental(asset, process.env.FMP_API_KEY) : Promise.resolve(null),
+  ]);
+  extras.macro = macro;
+  extras.cot = cot;
+  extras.fundamental = fundamental;
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
   const mc = extras.macro;
   const fnd = extras.fundamental;
+  const ct = extras.cot;
 
   return (
     <Panel style={{ ["--gc" as string]: side.color }}>
@@ -91,6 +98,33 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
           <p className="note" style={{ margin: "6px 0 0" }}>
             {fnd.companyName}{fnd.sector ? ` · ${fnd.sector}` : ""}. Fundamentos pesam pouco no curtíssimo prazo, mas dão viés;
             <b> evite TA pura perto de earnings</b>.
+          </p>
+        </div>
+      )}
+
+      {ct && (
+        <div className="cls-deriv">
+          <div className="cd-h">COT · CFTC <span>dados reais · semanal</span></div>
+          <div className="cd-grid">
+            <div className="cd-cell">
+              <div className="k">Specs líquido</div>
+              <div className={`v ${ct.netPctOfOi >= 0 ? "bull" : "bear"}`}>{ct.netPctOfOi >= 0 ? "+" : ""}{(ct.netPctOfOi * 100).toFixed(1)}%</div>
+              <div className="s">do open interest</div>
+            </div>
+            <div className="cd-cell">
+              <div className="k">Variação semanal</div>
+              <div className={`v ${ct.weekChangePctOfOi >= 0 ? "bull" : "bear"}`}>{ct.weekChangePctOfOi >= 0 ? "+" : ""}{(ct.weekChangePctOfOi * 100).toFixed(1)}%</div>
+              <div className="s">{ct.weekChangePctOfOi >= 0 ? "aumentando compra" : "reduzindo compra"}</div>
+            </div>
+            <div className="cd-cell">
+              <div className="k">Faixa 6 meses</div>
+              <div className="v">{(ct.rangePos * 100).toFixed(0)}%</div>
+              <div className="s">{ct.extreme ? "posição esticada" : "dentro da faixa"}</div>
+            </div>
+          </div>
+          <p className="note" style={{ margin: "6px 0 0" }}>
+            Posição dos grandes especuladores no contrato <b>{ct.contract}</b> ({new Date(ct.reportDate).toLocaleDateString("pt-BR")}).
+            Net comprado = viés de alta; <b>esticado</b> perto da máx/mín de 6 meses sinaliza risco de reversão.
           </p>
         </div>
       )}

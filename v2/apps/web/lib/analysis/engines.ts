@@ -12,12 +12,14 @@ import type { FullAnalysis } from "./full";
 import type { BinanceDerivatives } from "@/lib/market/derivatives-binance";
 import type { MacroContext } from "@/lib/market/macro-yahoo";
 import type { FmpFundamental } from "@/lib/market/fmp";
+import type { CotPositioning } from "@/lib/market/cot-cftc";
 
 /** Dados externos reais já buscados (por onda) que o Motor 2 pode usar. */
 export interface ClassExtras {
   derivatives?: BinanceDerivatives | null;
   macro?: MacroContext | null;
   fundamental?: FmpFundamental | null;
+  cot?: CotPositioning | null;
 }
 
 export type EngineId = "padrao" | "classe";
@@ -216,6 +218,17 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType, ext
     if (fnd.roeTTM != null) {
       if (fnd.roeTTM >= 0.15) factors.push({ label: `ROE alto (${(fnd.roeTTM * 100).toFixed(0)}%)`, side: "bull", weight: 0.5 });
       else if (fnd.roeTTM < 0) factors.push({ label: "ROE negativo", side: "bear", weight: 0.5 });
+    }
+  }
+
+  // 2e) COT (forex & commodities) — posicionamento dos grandes especuladores.
+  const cot = extras?.cot;
+  if (cot && (assetType === "forex" || assetType === "commodities")) {
+    if (assetType === "forex") integrated.add("COT (CFTC — onda forex)");
+    if (assetType === "commodities") integrated.add("COT (CFTC — onda commodities)");
+    if (cot.bias !== "neutral") {
+      const pct = (cot.netPctOfOi * 100).toFixed(0);
+      factors.push({ label: `COT specs ${cot.netPctOfOi > 0 ? "comprados" : "vendidos"} (${pct}% do OI${cot.extreme ? " · esticado" : ""})`, side: cot.bias === "bull" ? "bull" : "bear", weight: cot.extreme ? 0.5 : 0.7 });
     }
   }
 
