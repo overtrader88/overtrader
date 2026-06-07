@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import { activateMonitor } from "@/lib/monitor";
+import { supabaseService } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,4 +25,14 @@ export async function POST(): Promise<NextResponse> {
     error: "Não foi possível ativar agora.",
   }[res.reason];
   return NextResponse.json({ error: msg, reason: res.reason, expiresAt: res.expiresAt }, { status });
+}
+
+/** DELETE — encerra a janela de monitor do usuário (expira agora). Sem reembolso. */
+export async function DELETE(): Promise<NextResponse> {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "não autenticado" }, { status: 401 });
+  const svc = supabaseService();
+  if (!svc) return NextResponse.json({ error: "indisponível" }, { status: 503 });
+  await svc.from("monitor_activations").update({ expires_at: new Date().toISOString() }).eq("user_id", user.id).gt("expires_at", new Date().toISOString());
+  return NextResponse.json({ ok: true });
 }

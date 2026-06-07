@@ -17,7 +17,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 // Dados do usuário — exigem login em QUALQUER modo (pré ou pós-lançamento).
-const PROTECTED = ["/dashboard", "/analise", "/ao-vivo", "/monitor", "/track-record", "/historico", "/alertas"];
+const PROTECTED = ["/dashboard", "/analise", "/ao-vivo", "/monitor", "/track-record", "/historico", "/alertas", "/creditos"];
 // Navegável sem login em QUALQUER modo (marketing + auth + legais).
 const PUBLIC = new Set(["/", "/login", "/recuperar", "/redefinir-senha", "/termos", "/privacidade"]);
 const LAUNCHED = process.env.NEXT_PUBLIC_SIGNUPS_OPEN === "true";

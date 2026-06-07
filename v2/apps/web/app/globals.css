@@ -1337,6 +1337,34 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .lt-paper-open .lt-po-sym b { color: var(--ink); }
 .lt-paper-open .bull { color: var(--bull); } .lt-paper-open .bear { color: var(--bear); }
 
+/* Tela de créditos */
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.cr-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.cr-stat { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line-2); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.cr-stat span { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em; }
+.cr-stat b { font-family: var(--font-display); font-size: 26px; color: var(--ink); }
+.cr-stat b.bull { color: var(--bull); }
+.cr-stat small { font-size: 11px; color: var(--ink-faint); }
+.cr-sec-h { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--ink); margin-bottom: 8px; }
+.cr-lives { display: flex; flex-direction: column; gap: 8px; }
+.cr-live { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.cr-live-sym { font-family: var(--font-mono); }
+.cr-live-sym small { color: var(--ink-faint); font-size: 11px; }
+.cr-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--bull); margin-right: 6px; animation: pulse 1.6s infinite; }
+.cr-live-rate { color: var(--bull); font-family: var(--font-mono); font-size: 12px; }
+.cr-live-since { color: var(--ink-faint); font-size: 11px; }
+.cr-live-act { margin-left: auto; display: flex; gap: 8px; }
+.cr-link { color: var(--cyan); font-weight: 600; font-size: 12px; align-self: center; }
+.cr-off { cursor: pointer; background: transparent; border: 1px solid var(--bear); color: var(--bear); border-radius: 7px; padding: 5px 12px; font-size: 12px; font-weight: 600; }
+.cr-off:disabled { opacity: .5; }
+.cr-tbl { font-family: var(--font-mono); font-size: 12.5px; }
+.cr-thead, .cr-trow { display: grid; grid-template-columns: 130px 1fr 90px; gap: 10px; padding: 8px 10px; }
+.cr-thead { color: var(--ink-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--line); }
+.cr-trow { border-bottom: 1px solid var(--line); color: var(--ink); }
+.cr-dt { color: var(--ink-faint); }
+.cr-amt { text-align: right; font-variant-numeric: tabular-nums; }
+.cr-amt.bull { color: var(--bull); } .cr-amt.bear { color: var(--bear); }
+
 /* Grade de Live Trading */
 .lg-banner { background: linear-gradient(180deg, rgba(84,168,255,.06), transparent); border: 1px solid var(--line-2); border-radius: 14px; padding: 14px 18px; margin-bottom: 16px; }
 .lg-b-h { font-family: var(--font-display); font-weight: 700; color: var(--cyan); margin-bottom: 4px; }

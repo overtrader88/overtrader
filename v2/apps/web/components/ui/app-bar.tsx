@@ -50,9 +50,11 @@ export function AppBar({
         </nav>
         <div className="ab-right">
           {typeof credits === "number" ? (
-            <Chip>
-              <b className="am">{credits}</b> créditos
-            </Chip>
+            <a href="/creditos" title="Meus créditos" style={{ textDecoration: "none" }}>
+              <Chip>
+                <b className="am">{credits}</b> créditos
+              </Chip>
+            </a>
           ) : null}
           {plan ? <Chip variant="plan">{plan}</Chip> : null}
           {email ? (
