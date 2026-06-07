@@ -1,15 +1,25 @@
 /**
  * Middleware de sessão Supabase: faz refresh dos cookies a cada request e
- * protege as rotas de dados do usuário. /analise fica PÚBLICA (try-before-signup);
- * /dashboard, /historico e /alertas exigem login.
+ * controla o acesso às rotas.
  *
- * Se o Supabase não estiver configurado (sem env), não bloqueia nada — assim o
- * dev/CI sem `.env` segue funcionando.
+ * DOIS MODOS (chave: NEXT_PUBLIC_SIGNUPS_OPEN):
+ *  - PRÉ-LANÇAMENTO (flag != "true", padrão): site fechado — só a allowlist
+ *    pública (landing, login, recuperação, legais, callback OAuth) é navegável
+ *    sem login. Todo o resto (dashboard, /analise, /ao-vivo, /monitor, /planos…)
+ *    redireciona pra /login. Evita a concorrência navegar o produto na validação.
+ *  - LANÇADO (flag == "true"): comportamento aberto — só /dashboard, /historico
+ *    e /alertas exigem login; /analise e demais voltam a ser públicas
+ *    (try-before-signup).
+ *
+ * Sem env do Supabase (dev/CI), não bloqueia nada.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PROTECTED = ["/dashboard", "/historico", "/alertas"];
+// Navegável sem login em QUALQUER modo (marketing + auth + legais).
+const PUBLIC = new Set(["/", "/login", "/recuperar", "/redefinir-senha", "/termos", "/privacidade"]);
+const LAUNCHED = process.env.NEXT_PUBLIC_SIGNUPS_OPEN === "true";
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
   let res = NextResponse.next({ request: req });
@@ -36,7 +46,9 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   } = await supabase.auth.getUser();
 
   const path = req.nextUrl.pathname;
-  const needsAuth = PROTECTED.some((p) => path === p || path.startsWith(`${p}/`));
+  const needsAuth = LAUNCHED
+    ? PROTECTED.some((p) => path === p || path.startsWith(`${p}/`))
+    : !PUBLIC.has(path); // pré-lançamento: tudo fora da allowlist exige login
 
   if (needsAuth && !user) {
     const login = req.nextUrl.clone();
@@ -54,5 +66,6 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/historico/:path*", "/alertas/:path*", "/login"],
+  // Roda em todas as páginas, exceto assets estáticos, /api e o callback OAuth (/auth).
+  matcher: ["/((?!api|auth|_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icon-).*)"],
 };
