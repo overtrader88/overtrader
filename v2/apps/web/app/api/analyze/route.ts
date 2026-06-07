@@ -9,11 +9,17 @@ import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/http/limit";
 import { analyzeInputSchema } from "@/lib/validation/schemas";
 import { analyzeSymbol } from "@/lib/analysis/service";
+import { getCurrentUser } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request): Promise<NextResponse> {
+  // Exige login: análise é recurso do usuário (anônimo não acessa). O monitor
+  // ao vivo (/ao-vivo) usa esta rota em polling — por isso NÃO consome crédito.
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Faça login para analisar." }, { status: 401 });
+
   const limited = await rateLimit(req, "analyze", 15);
   if (limited) return limited;
   let raw: unknown;
