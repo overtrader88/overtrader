@@ -11,7 +11,7 @@
 - ✅ Webhook Hubla com as 4 regras apontando pro domínio final.
 - ✅ **Rotação de keys (crítica):** Supabase (migrado p/ `sb_publishable`/`sb_secret`, legadas desativadas), OpenAI, Resend, Telegram — todas trocadas e verificadas ao vivo.
 - [ ] **Rotação restante:** Hubla webhook secret · GitHub token · FMP/TwelveData/NewsData/WorldNews · CRON_SECRET · TELEGRAM_WEBHOOK_SECRET (ver `docs/ROTACAO-KEYS.md`).
-- [ ] **Plano Vercel:** Hobby limita cron a 1×/dia — confirmar se precisa do Pro p/ os crons `emit-signals`(4h)/`check-watchlist`(1h)/`resolve-signals`.
+- [x] **Plano Vercel PRO (07/06):** crons agora rodam no schedule real — `check-watchlist`(1h), `emit-signals`(4h), `resolve-signals`(1h), `settle-live`(1h).
 
 ## 💳 Sistema de créditos (modelo definido 07/06)
 
@@ -19,7 +19,7 @@
 **Consumo:** /analise = 1 crédito/análise · /ao-vivo = 2 créditos/hora (PRO/PRO+) · /monitor = ativação 20 créditos por 5 dias (re-paga ao expirar).
 
 - [x] **Fase 1 — /analise consome 1 crédito por análise NOVA** (RPC `consume_credits`; Free a 0 → bloqueia + CTA /planos). Análises ficam SALVAS no histórico e o usuário reabre quando quiser **de graça** via `/analise?id=<id>` (snapshot, sem recomputar/cobrar) — histórico e recentes do dashboard linkam por `?id`. Validado em prod (gerar nova 49→48; abrir salva 48→48).
-- [x] **Fase 2 — /ao-vivo (código):** grade de ativos com toggle + metering no servidor (2 na ativação + 2/hora; relógio segue com página fechada até desligar; sem saldo desativa). Exclusivo PRO/PRO+; mercado fechado trava. Cron `settle-live` (15 * * * *). **Aplicar migration 0010.** Sem Pro o cron roda 1×/dia (acerto on-touch cobre o resto); com Pro vira horário (tempo real).
+- [x] **Fase 2 — /ao-vivo (código):** grade de ativos com toggle + metering no servidor (2 na ativação + 2/hora; relógio segue com página fechada até desligar; sem saldo desativa). Exclusivo PRO/PRO+; mercado fechado trava. Cron `settle-live` (15 * * * *). Migration 0010 aplicada. **Vercel PRO ativo (07/06) → crons rodam de hora em hora (metering em tempo real).**
 - [x] **Fase 3 — /monitor (código):** exclusivo PRO/PRO+, ativação 20 créditos/5 dias. **Aplicar migration 0009.**
 - [x] **Fase 4 — grants (código):** `activate_subscription` concede 75/900 (PRO) · 175/2100 (PRO+); anual de uma vez, mensal a cada renovação (event_id novo). **Aplicar migration 0008.** ⚠️ validar com evento real da Hubla que a renovação mensal chega como webhook.
 - [ ] **APLICAR EM PROD (Supabase):** migrations **0008, 0009, 0010** (na ordem).
