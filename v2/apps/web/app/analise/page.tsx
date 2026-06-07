@@ -3,7 +3,7 @@ import { AnalysisShell } from "@/components/analysis-shell";
 import { analyzeSymbol } from "@/lib/analysis/service";
 import { findAsset } from "@/lib/market/catalog";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
-import { recordAnalysisView, getAnalysisById } from "@/lib/history";
+import { recordAnalysisView, getAnalysisById, recentAnalyses } from "@/lib/history";
 import { checkAnalysisCredit, chargeAnalysis } from "@/lib/credits";
 import { AiNarrative } from "@/components/ai-narrative";
 import { NewsCard } from "@/components/news-card";
@@ -618,51 +618,65 @@ export default async function AnalisePage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const sp = await searchParams;
-  const savedId = typeof sp.id === "string" ? sp.id : null;
-  let symbol = (typeof sp.symbol === "string" ? sp.symbol : "BTCUSDT").toUpperCase();
+  const explicit = typeof sp.symbol === "string"; // veio do form/link com um ativo
+  let savedId = typeof sp.id === "string" ? sp.id : null;
+  let symbol = (explicit ? (sp.symbol as string) : "BTCUSDT").toUpperCase();
   let timeframe = resolveTf(sp.tf);
   let assetType = resolveAssetType(sp.type, symbol);
 
   const user = await getCurrentUser();
 
   // Regras de crédito:
-  //  - ?id=<id> → abre a análise SALVA do histórico (snapshot): SEMPRE grátis.
-  //  - sem id   → gera análise NOVA: 1 crédito (re-gerar a mesma em ≤10min é grátis).
-  // O middleware já exige login aqui; se anônimo escapar, bloqueia.
+  //  - LANDING (sem ?symbol e sem ?id) → mostra a ÚLTIMA análise SALVA (grátis);
+  //    NÃO gera nem cobra. Abrir a aba Análise nunca consome crédito.
+  //  - ?id=<id> → snapshot salvo do histórico (grátis).
+  //  - ?symbol=... (form/link "Analisar") → gera análise NOVA: 1 crédito
+  //    (re-gerar a mesma em ≤10min é grátis).
   let dto: FullAnalysis | null = null;
   let error: string | null = null;
   let blocked = false;
+  let landingEmpty = false;
   let displayCredits = user?.credits;
 
   if (!user) {
     blocked = true;
-  } else if (savedId) {
-    const saved = await getAnalysisById(savedId);
-    if (saved) {
-      dto = saved.dto;
-      symbol = saved.symbol;
-      timeframe = saved.timeframe as Timeframe;
-      assetType = saved.assetType as AssetType;
-    } else {
-      error = "Análise não encontrada no seu histórico.";
-    }
   } else {
-    const gate = await checkAnalysisCredit(user.id, symbol, timeframe);
-    if (!gate.allowed) {
-      blocked = true; // créditos esgotados
-      displayCredits = gate.balance;
-    } else {
-      try {
-        dto = await analyzeSymbol(symbol, assetType, timeframe, "complete");
-      } catch (e) {
-        error = e instanceof Error ? e.message : "Falha desconhecida.";
+    if (!savedId && !explicit) {
+      const recents = await recentAnalyses(1);
+      savedId = recents[0]?.id ?? null;
+      if (!savedId) landingEmpty = true; // sem histórico → prompt, sem cobrar
+    }
+    if (!landingEmpty && savedId) {
+      const saved = await getAnalysisById(savedId);
+      if (saved) {
+        dto = saved.dto;
+        symbol = saved.symbol;
+        timeframe = saved.timeframe as Timeframe;
+        assetType = saved.assetType as AssetType;
+      } else if (explicit) {
+        error = "Análise não encontrada no seu histórico.";
+      } else {
+        landingEmpty = true;
       }
-      if (dto) {
-        if (gate.needsCharge) {
-          const remaining = await chargeAnalysis(user.id, symbol, timeframe);
-          if (remaining != null) displayCredits = remaining;
+    } else if (!landingEmpty) {
+      // explícito (escolheu um ativo e clicou Analisar) → gera + cobra
+      const gate = await checkAnalysisCredit(user.id, symbol, timeframe);
+      if (!gate.allowed) {
+        blocked = true; // créditos esgotados
+        displayCredits = gate.balance;
+      } else {
+        try {
+          dto = await analyzeSymbol(symbol, assetType, timeframe, "complete");
+        } catch (e) {
+          error = e instanceof Error ? e.message : "Falha desconhecida.";
         }
-        await recordAnalysisView(dto); // salva no histórico (best-effort, deduplicado)
+        if (dto) {
+          if (gate.needsCharge) {
+            const remaining = await chargeAnalysis(user.id, symbol, timeframe);
+            if (remaining != null) displayCredits = remaining;
+          }
+          await recordAnalysisView(dto); // salva no histórico (best-effort, deduplicado)
+        }
       }
     }
   }
@@ -683,7 +697,15 @@ export default async function AnalisePage({
         regime={dto?.analysis.meta.regime}
         adx={dto?.analysis.meta.adxValue}
       >
-        {blocked ? (
+        {landingEmpty ? (
+          <Panel>
+            <PanelLabel>Escolha um ativo para analisar</PanelLabel>
+            <p className="note" style={{ maxWidth: "70ch" }}>
+              Selecione o ativo e o timeframe no seletor acima e clique em <b>Analisar</b>. Cada análise nova consome
+              <b> 1 crédito</b> — e fica salva no seu histórico para reabrir quando quiser, de graça. Abrir esta aba não consome nada.
+            </p>
+          </Panel>
+        ) : blocked ? (
           <Panel>
             <PanelLabel>Créditos esgotados</PanelLabel>
             <p className="note" style={{ marginBottom: 14 }}>
