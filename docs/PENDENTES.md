@@ -18,7 +18,7 @@
 **Grants (assinatura):** PRO 75/mês · 900/ano · PRO+ 175/mês · 2.100/ano · Free 3 vitalícios (já no signup).
 **Consumo:** /analise = 1 crédito/análise · /ao-vivo = 2 créditos/hora (PRO/PRO+) · /monitor = ativação 20 créditos por 5 dias (re-paga ao expirar).
 
-- [x] **Fase 1 — /analise consome 1 crédito** (RPC `consume_credits`, dedup ≤10min grátis, Free a 0 → bloqueia + CTA /planos). Validado em prod (saldo debitou 49→48; re-view grátis).
+- [x] **Fase 1 — /analise consome 1 crédito por análise NOVA** (RPC `consume_credits`; Free a 0 → bloqueia + CTA /planos). Análises ficam SALVAS no histórico e o usuário reabre quando quiser **de graça** via `/analise?id=<id>` (snapshot, sem recomputar/cobrar) — histórico e recentes do dashboard linkam por `?id`. Validado em prod (gerar nova 49→48; abrir salva 48→48).
 - [ ] **Fase 2 — /ao-vivo:** gate PRO/PRO+ (Free → upgrade) + metering 2 créditos/hora; pausa ao esgotar.
 - [ ] **Fase 3 — /monitor:** tabela `monitor_activations` (migration) + ativar por 20 créditos/5 dias + gate de acesso por ativação válida.
 - [ ] **Fase 4 — grants na assinatura:** `activate_subscription` (migration nova) concede os créditos por plano/período; cada evento Hubla (inclui renovação mensal) concede 1× (idempotente por event_id). ⚠️ depende de a Hubla enviar webhook em cada renovação — validar com evento real.
