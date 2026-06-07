@@ -219,7 +219,8 @@
       "mcp__Claude_in_Chrome__navigate",
       "mcp__Claude_in_Chrome__javascript_tool",
       "Bash(git commit -q --allow-empty -m 'chore: redeploy para aplicar env VAPID \\(web push\\) *)",
-      "Bash(echo \"=== tsc exit $? ===\")"
+      "Bash(echo \"=== tsc exit $? ===\")",
+      "Bash(echo \"=== tsc $? ===\")"
     ]
   }
 }

@@ -1337,6 +1337,15 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .lt-paper-open .lt-po-sym b { color: var(--ink); }
 .lt-paper-open .bull { color: var(--bull); } .lt-paper-open .bear { color: var(--bear); }
 
+/* Ativação do Monitor */
+.mon-activate { display: flex; justify-content: center; padding: 40px 16px; }
+.ma-card { max-width: 460px; text-align: center; background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line-2); border-radius: 16px; padding: 28px 26px; }
+.ma-ico { font-size: 36px; margin-bottom: 8px; }
+.ma-card h2 { font-family: var(--font-display); font-size: 20px; margin-bottom: 8px; color: var(--ink); }
+.ma-card .note { margin-bottom: 16px; }
+.ma-card .btn { display: inline-block; cursor: pointer; }
+.ma-bal { margin-top: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+
 /* Série histórica de eventos Wyckoff (timeline) */
 .wt { margin-top: 12px; background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line-2); border-radius: 14px; padding: 14px 16px; }
 .wt-h { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--ink); margin-bottom: 10px; }

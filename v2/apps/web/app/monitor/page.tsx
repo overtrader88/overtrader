@@ -3,6 +3,8 @@ import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
 import { supabaseServerSSR } from "@/lib/supabase/server-ssr";
 import { signalToDir, signalLabelPt, relativeTime } from "@/lib/analysis/display";
 import { MonitorLive } from "@/components/monitor-live";
+import { MonitorActivate } from "@/components/monitor-activate";
+import { getMonitorStatus } from "@/lib/monitor";
 import type { SignalDirection } from "@tradeai/shared";
 
 export const dynamic = "force-dynamic";
@@ -13,9 +15,14 @@ interface AlertRow { id: string; symbol: string; timeframe: string; signal: Sign
 export default async function MonitorPage() {
   const user = await getCurrentUser();
 
+  // Gate: exclusivo PRO/PRO+ e requer ativação (20 créditos / 5 dias).
+  const isPro = user?.plan === "pro" || user?.plan === "pro_plus";
+  const status = user ? await getMonitorStatus(user.id) : { active: false, expiresAt: null };
+  const showMonitor = !!user && isPro && status.active;
+
   let watch = "";
   let alerts: AlertRow[] = [];
-  if (user) {
+  if (user && showMonitor) {
     const sb = await supabaseServerSSR();
     const [{ data: wl }, { data: al }] = await Promise.all([
       sb.from("watchlist").select("symbol,timeframe").eq("user_id", user.id).limit(10),
@@ -33,10 +40,17 @@ export default async function MonitorPage() {
         <div className="head2">
           <div>
             <h1>Monitor ao vivo</h1>
-            <div className="meta">Preço · regime · sinal dos mercados acompanhados — e o sinal surge quando forma um setup de qualidade</div>
+            <div className="meta">
+              Preço · regime · sinal dos mercados acompanhados — e o sinal surge quando forma um setup de qualidade
+              {showMonitor && status.expiresAt ? <> · <b style={{ color: "var(--bull)" }}>ativo até {new Date(status.expiresAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</b></> : null}
+            </div>
           </div>
         </div>
 
+        {!showMonitor ? (
+          <MonitorActivate canActivate={isPro} credits={user?.credits ?? 0} />
+        ) : (
+        <>
         {alerts.length > 0 ? (
           <>
             <div className="mon-sec-h" style={{ marginTop: 0 }}>Seus alertas recentes · watchlist</div>
@@ -59,6 +73,8 @@ export default async function MonitorPage() {
           Sem teatro: o monitor não simula "IA conversando". Mostra o estado real dos mercados (★ = da sua watchlist) e só
           destaca um sinal quando o backtest valida (selo verde/amarelo). Conteúdo educativo — não é recomendação de investimento.
         </p>
+        </>
+        )}
       </div>
     </div>
   );
