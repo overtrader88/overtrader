@@ -874,7 +874,7 @@ input:focus-visible,
 .analysis-page .cfg-pro .pro-arrow { color: var(--ink-faint); display: grid; place-items: center; transition: 0.16s; }
 .analysis-page .cfg-pro:hover .pro-arrow { color: #9a8bff; transform: translateX(2px); }
 
-.analysis-page .cfg-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 14px; }
+.analysis-page .cfg-grid { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 14px; }
 .analysis-page .cfg-field { position: relative; display: flex; flex-direction: column; gap: 10px; min-width: 0; cursor: pointer; }
 .analysis-page .cfg-label { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--ink-faint); }
 .analysis-page .cfg-control.as-button { width: 100%; font: inherit; text-align: left; cursor: pointer; }
@@ -1351,6 +1351,7 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .last-an.open { border-color: var(--cyan); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .last-an-l { display: flex; align-items: center; gap: 10px; }
 .last-an-tag { font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink); }
+.last-an-asset { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; color: var(--cyan); }
 .last-an-dt { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
 .last-an-btn { font-family: var(--font-mono); font-size: 12px; color: var(--cyan); white-space: nowrap; }
 .last-an-body { animation: fadeIn .2s ease; }

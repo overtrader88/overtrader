@@ -743,7 +743,7 @@ export default async function AnalisePage({
             </p>
           </Panel>
         ) : !dto ? null : (
-          <LastAnalysisBanner enabled={isLastSaved} generatedAt={dto.generatedAt}>
+          <LastAnalysisBanner enabled={isLastSaved} generatedAt={dto.generatedAt} symbol={symbol} timeframe={timeframe}>
           <>
             <ReportActions dto={dto} symbol={symbol} assetType={assetType} timeframe={timeframe} />
             <Verdict dto={dto} />

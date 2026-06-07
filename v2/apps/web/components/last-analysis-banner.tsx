@@ -8,19 +8,21 @@ import { useState, type ReactNode } from "react";
  * é histórico (não uma análise nova) e não polui a tela. Se `enabled` for false,
  * renderiza o conteúdo normalmente (caso de análise nova ou snapshot por id).
  */
-export function LastAnalysisBanner({ enabled, generatedAt, children }: { enabled: boolean; generatedAt?: number; children: ReactNode }) {
+export function LastAnalysisBanner({ enabled, generatedAt, symbol, timeframe, children }: { enabled: boolean; generatedAt?: number; symbol?: string; timeframe?: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   if (!enabled) return <>{children}</>;
 
   const dt = generatedAt
     ? new Date(generatedAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })
     : null;
+  const asset = symbol ? `${symbol}${timeframe ? ` · ${timeframe.toUpperCase()}` : ""}` : null;
 
   return (
     <>
       <button type="button" className={`last-an${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className="last-an-l">
           <span className="last-an-tag">Última análise gerada</span>
+          {asset ? <span className="last-an-asset">{asset}</span> : null}
           {dt ? <span className="last-an-dt">{dt}</span> : null}
         </span>
         <span className="last-an-btn">{open ? "Recolher ▲" : "Expandir ▼"}</span>
