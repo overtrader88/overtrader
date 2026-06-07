@@ -25,7 +25,7 @@ const SEAL_C: Record<string, string> = { green: "var(--bull)", yellow: "var(--am
 const sideClass = (s: string) => (s.includes("BUY") || s === "buy" ? "up" : s.includes("SELL") || s === "sell" ? "dn" : "neu");
 const fmt = (p: number | null) => (p == null ? "—" : p.toLocaleString("pt-BR", { maximumFractionDigits: p >= 100 ? 2 : p >= 1 ? 4 : 6 }));
 
-export function MonitorLive({ watch }: { watch?: string }) {
+export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs?: string }) {
   const [data, setData] = useState<MonitorData | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [err, setErr] = useState(false);
@@ -89,7 +89,7 @@ export function MonitorLive({ watch }: { watch?: string }) {
       <div className="mon-sec-h">Mercados monitorados</div>
       <div className="mon-grid">
         {data.markets.map((m, i) => (
-          <a className="mon-row" key={i} href={`/analise?symbol=${m.symbol}&tf=${m.timeframe}&type=crypto`}>
+          <a className="mon-row" key={i} href={`/analise?symbol=${m.symbol}&tf=${m.timeframe}&type=crypto${engineQs}`}>
             <span className="mr-sym">{m.watched ? <span className="mr-star" title="Da sua watchlist">★</span> : null}<b>{m.symbol}</b> · {m.timeframe.toUpperCase()}</span>
             <span className={`mr-sig ${sideClass(m.side)}`}>{SIGNAL_PT[m.signal] ?? m.signal}</span>
             <span className="mr-reg">{m.regime ? REGIME_PT[m.regime] ?? m.regime : "—"}</span>

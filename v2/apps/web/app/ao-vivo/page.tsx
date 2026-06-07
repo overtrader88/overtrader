@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
 import { LiveTrading } from "@/components/live-trading";
 import { LiveGrid, type LiveAsset } from "@/components/live-grid";
+import { EngineSelector } from "@/components/engine-selector";
+import { ClassReadingPanel } from "@/components/class-reading-panel";
+import { isEngine, type EngineId } from "@/lib/analysis/engines";
+import { analyzeSymbol } from "@/lib/analysis/service";
 import { listActiveLive } from "@/lib/live/session";
 import { findAsset } from "@/lib/market/catalog";
 import { marketState } from "@/lib/market/hours";
@@ -17,12 +21,25 @@ const LIVE_SYMBOLS = [
   "XAUUSD", "DJI", "NDX", "SPX",
 ];
 
+/** Motor 2 na live: computa a leitura por classe (4h) server-side; falha → nada. */
+async function renderLiveClass(symbol: string) {
+  try {
+    const a = findAsset(symbol);
+    const at = (a?.assetType ?? "crypto") as AssetType;
+    const dto = await analyzeSymbol(symbol, at, "4h", "complete");
+    return <ClassReadingPanel dto={dto} assetType={at} />;
+  } catch {
+    return null;
+  }
+}
+
 export default async function AoVivoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ symbol?: string }>;
+  searchParams: Promise<{ symbol?: string; engine?: string }>;
 }) {
   const sp = await searchParams;
+  const engine: EngineId = isEngine(sp.engine) ? sp.engine : "padrao";
   const user = await getCurrentUser();
   const sessions = user ? await listActiveLive(user.id) : [];
   const activeSymbols = sessions.map((s) => s.symbol);
@@ -59,6 +76,11 @@ export default async function AoVivoPage({
                 <div className="meta">A IA lê o gráfico, desenha o plano e narra — com prova (n · IC · selo). Live ativa · −2 créditos/h.</div>
               </div>
             </div>
+            <div className="engine-bar">
+              <span className="eb-k">Motor de análise</span>
+              <EngineSelector active={engine} />
+            </div>
+            {engine === "classe" ? await renderLiveClass(liveView) : null}
             <LiveTrading initialSymbol={liveView} />
           </>
         ) : (
