@@ -18,7 +18,9 @@
 Trava na UI ativa via flag `NEXT_PUBLIC_SIGNUPS_OPEN` (ausente/`false` = fechado).
 - [x] UI travada: landing sem "Criar conta", /login só "Entrar" com aviso.
 - [ ] **OBRIGATÓRIO (bloqueio real):** Supabase → **Authentication → Sign In / Providers → desligar "Allow new users to sign up"**. Sem isso, dá pra criar conta chamando a API de auth direto com a anon key (pública) — e via Google OAuth. Existentes continuam logando.
-- [ ] **No lançamento:** religar → setar `NEXT_PUBLIC_SIGNUPS_OPEN=true` na Vercel (rebuild) **e** reativar o toggle do Supabase.
+- [x] **Navegação travada (anti-recon):** mesma flag no middleware — pré-lançamento só deixa navegar sem login a allowlist (`/`, `/login`, `/recuperar`, `/redefinir-senha`, `/termos`, `/privacidade`, callback OAuth); todo o produto (dashboard, /analise, /ao-vivo, /monitor, /planos, /track-record, /roadmap…) redireciona pra /login. Validado anônimo (307→/login).
+- [ ] **Hardening opcional:** APIs de produto (`/api/analyze`, `/api/candles`, `/api/quotes`) NÃO são gated pelo middleware (excluídas p/ não quebrar webhooks/cron/telegram). Recon direto via API ainda é possível — gatear por auth se virar preocupação (cuidando p/ não afetar webhooks/cron).
+- [ ] **No lançamento:** setar `NEXT_PUBLIC_SIGNUPS_OPEN=true` na Vercel (rebuild) reabre **cadastro E navegação** de uma vez **e** reativar o toggle do Supabase.
 
 ## 🟡 Web Push (alertas de confluência reforçada) — ativar
 
