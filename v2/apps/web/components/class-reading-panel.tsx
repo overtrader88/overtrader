@@ -1,7 +1,7 @@
 import { Panel, PanelLabel, RadialGauge } from "@/components/ui";
 import { computeClassReading, type ClassExtras } from "@/lib/analysis/engines";
-import { getBinanceDerivatives } from "@/lib/market/derivatives-binance";
 import { getMacroContext } from "@/lib/market/macro-yahoo";
+import { DerivativesLive } from "@/components/derivatives-live";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import type { AssetType } from "@tradeai/shared";
 
@@ -18,19 +18,15 @@ const SIDE_PT = {
  * integramos (`pending`). Não substitui o Motor 1 — é uma segunda lente.
  */
 export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis; assetType: AssetType }) {
+  // Derivativos da Binance são buscados NO NAVEGADOR (DerivativesLive) — a Vercel
+  // é bloqueada por IP de cloud. Macro (Yahoo) funciona server-side.
   const extras: ClassExtras = {};
-  const [deriv, macro] = await Promise.all([
-    assetType === "crypto" ? getBinanceDerivatives(dto.analysis.meta.asset) : Promise.resolve(null),
-    assetType === "forex" || assetType === "commodities" || assetType === "indices"
-      ? getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices" })
-      : Promise.resolve(null),
-  ]);
-  extras.derivatives = deriv;
-  extras.macro = macro;
+  if (assetType === "forex" || assetType === "commodities" || assetType === "indices") {
+    extras.macro = await getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices" });
+  }
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
-  const d = extras.derivatives;
   const mc = extras.macro;
 
   return (
@@ -59,36 +55,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
         <div className="cm-cell warn"><div className="k">Cuidados</div><div className="v">{m.cuidados}</div></div>
       </div>
 
-      {d && (
-        <div className="cls-deriv">
-          <div className="cd-h">Derivativos · Binance Futures <span>dados reais</span></div>
-          <div className="cd-grid">
-            <div className="cd-cell">
-              <div className="k">Funding (8h)</div>
-              <div className={`v ${d.fundingRate >= 0 ? "bull" : "bear"}`}>{(d.fundingRate * 100).toFixed(4)}%</div>
-              <div className="s">{d.fundingAnnualizedPct >= 0 ? "+" : ""}{d.fundingAnnualizedPct.toFixed(0)}% a.a.</div>
-            </div>
-            {d.oiChangePct != null && (
-              <div className="cd-cell">
-                <div className="k">Open Interest (1h)</div>
-                <div className={`v ${d.oiChangePct >= 0 ? "bull" : "bear"}`}>{d.oiChangePct >= 0 ? "+" : ""}{d.oiChangePct.toFixed(2)}%</div>
-                <div className="s">{d.oiChangePct >= 0 ? "expansão" : "redução"} de contratos</div>
-              </div>
-            )}
-            {d.longShortRatio != null && (
-              <div className="cd-cell">
-                <div className="k">Contas long/short</div>
-                <div className="v">{d.longShortRatio.toFixed(2)}</div>
-                <div className="s">{d.longPct != null ? `${d.longPct.toFixed(0)}% compradas` : ""}</div>
-              </div>
-            )}
-          </div>
-          <p className="note" style={{ margin: "6px 0 0" }}>
-            Funding/contas <b>muito esticados</b> num lado sinalizam <b>exaustão</b> (leitura contrária); OI subindo confirma
-            convicção. Sentimento, não gatilho isolado.
-          </p>
-        </div>
-      )}
+      {assetType === "crypto" && <DerivativesLive symbol={dto.analysis.meta.asset} />}
 
       {mc && (mc.dxy || mc.vix) && (
         <div className="cls-deriv">

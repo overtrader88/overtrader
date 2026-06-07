@@ -229,7 +229,8 @@
       "Bash(echo \"TSC_EXIT:$?\")",
       "Bash(curl -s --max-time 12 \"https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1d&range=5d\")",
       "Bash(curl -s --max-time 12 \"https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d\")",
-      "Bash(echo \"TSC:$?\")"
+      "Bash(echo \"TSC:$?\")",
+      "mcp__Claude_in_Chrome__read_page"
     ]
   }
 }

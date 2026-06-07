@@ -66,7 +66,7 @@ export const CLASS_METHODOLOGY: Record<AssetType, ClassMethodology> = {
     cruzamentos: "Estrutura + rompimento; funding+OI p/ exaustão; on-chain p/ viés macro",
     cuidados: "On-chain é ruim pra timing curto; alta alavancagem amplifica erro",
     weights: W({ Tendência: 1.6, Volume: 1.5, smc: 1.5, "Médias Móveis": 1.3, montecarlo: 0.8 }),
-    pending: ["Funding & Open Interest (Binance — onda cripto)", "On-chain / fluxos de exchange", "Mapa de liquidações (CoinGlass, pago)"],
+    pending: ["On-chain / fluxos de exchange", "Mapa de liquidações (CoinGlass, pago)"],
   },
   forex: {
     label: "Forex",
