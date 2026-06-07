@@ -41,9 +41,10 @@ function fmtPrice(n: number): string {
   return n.toPrecision(4);
 }
 
-export function LiveTrading() {
-  const [symbol, setSymbol] = useState("BTCUSDT");
-  const [assetType, setAssetType] = useState<AssetType>("crypto");
+export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) {
+  const initial = initialSymbol ? (findAsset(initialSymbol) ?? findAsset("BTCUSDT")!) : findAsset("BTCUSDT")!;
+  const [symbol, setSymbol] = useState(initial.symbol);
+  const [assetType, setAssetType] = useState<AssetType>(initial.assetType);
   const [timeframe, setTimeframe] = useState<Timeframe>("4h");
   const [dto, setDto] = useState<FullAnalysis | null>(null);
   const [narration, setNarration] = useState<LiveNarration | null>(null);
