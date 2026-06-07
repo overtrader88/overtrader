@@ -5,6 +5,9 @@ import { findAsset } from "@/lib/market/catalog";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
 import { recordAnalysisView, getAnalysisById, recentAnalyses } from "@/lib/history";
 import { LastAnalysisBanner } from "@/components/last-analysis-banner";
+import { EngineSelector } from "@/components/engine-selector";
+import { ClassReadingPanel } from "@/components/class-reading-panel";
+import { isEngine, type EngineId } from "@/lib/analysis/engines";
 import { checkAnalysisCredit, chargeAnalysis } from "@/lib/credits";
 import { AiNarrative } from "@/components/ai-narrative";
 import { NewsCard } from "@/components/news-card";
@@ -637,6 +640,7 @@ export default async function AnalisePage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const sp = await searchParams;
+  const engine: EngineId = isEngine(sp.engine) ? sp.engine : "padrao";
   const explicit = typeof sp.symbol === "string"; // veio do form/link com um ativo
   const fromId = typeof sp.id === "string";
   let savedId = typeof sp.id === "string" ? sp.id : null;
@@ -742,6 +746,11 @@ export default async function AnalisePage({
           <LastAnalysisBanner enabled={isLastSaved} generatedAt={dto.generatedAt} symbol={symbol} timeframe={timeframe}>
           <>
             <ReportActions dto={dto} symbol={symbol} assetType={assetType} timeframe={timeframe} />
+            <div className="engine-bar">
+              <span className="eb-k">Motor de análise</span>
+              <EngineSelector active={engine} />
+            </div>
+            {engine === "classe" ? <ClassReadingPanel dto={dto} assetType={assetType} /> : null}
             <Verdict dto={dto} />
             <TradeGuardPanel dto={dto} />
             <Panel>

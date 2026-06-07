@@ -1,14 +1,16 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 /** Painel base do design system (superfície escura + hairline frio). */
 export function Panel({
   children,
   className,
+  style,
 }: {
   children: ReactNode;
   className?: string;
+  style?: CSSProperties;
 }) {
-  return <section className={`panel${className ? ` ${className}` : ""}`}>{children}</section>;
+  return <section className={`panel${className ? ` ${className}` : ""}`} style={style}>{children}</section>;
 }
 
 /** Rótulo de seção dentro de um painel (mono + dot cyan + régua). */
