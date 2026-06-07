@@ -10,10 +10,12 @@
 import type { AssetType } from "@tradeai/shared";
 import type { FullAnalysis } from "./full";
 import type { BinanceDerivatives } from "@/lib/market/derivatives-binance";
+import type { MacroContext } from "@/lib/market/macro-yahoo";
 
 /** Dados externos reais já buscados (por onda) que o Motor 2 pode usar. */
 export interface ClassExtras {
   derivatives?: BinanceDerivatives | null;
+  macro?: MacroContext | null;
 }
 
 export type EngineId = "padrao" | "classe";
@@ -168,6 +170,35 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType, ext
       if (d.longShortRatio >= 1.8) factors.push({ label: `Contas muito compradas (L/S ${d.longShortRatio.toFixed(2)})`, side: "bear", weight: 0.6 });
       else if (d.longShortRatio <= 0.7) factors.push({ label: `Contas muito vendidas (L/S ${d.longShortRatio.toFixed(2)})`, side: "bull", weight: 0.6 });
     }
+  }
+
+  // 2c) Macro (DXY p/ forex & commodities; VIX p/ índices) — relação direcional.
+  const macro = extras?.macro;
+  if (macro?.dxy != null) {
+    const dxyUp = macro.dxy.changePct;
+    if (assetType === "forex") {
+      integrated.add("DXY (Yahoo — onda forex/índices)");
+      const sym = (dto.analysis?.meta?.asset ?? "").toUpperCase().replace(/[^A-Z]/g, "");
+      const base = sym.slice(0, 3), quote = sym.slice(3, 6);
+      // par cotado em USD (EURUSD) é INVERSO ao DXY; par com USD na base (USDJPY) acompanha.
+      const inverse = quote === "USD";
+      const aligned = base === "USD";
+      if ((inverse || aligned) && Math.abs(dxyUp) >= 0.25) {
+        const dollarStrong = dxyUp > 0;
+        const bullForAsset = aligned ? dollarStrong : !dollarStrong;
+        factors.push({ label: `DXY ${dxyUp >= 0 ? "+" : ""}${dxyUp.toFixed(2)}% (dólar ${dollarStrong ? "forte" : "fraco"})`, side: bullForAsset ? "bull" : "bear", weight: 1.0 });
+      }
+    } else if (assetType === "commodities") {
+      integrated.add("DXY (Yahoo)");
+      // commodities cotadas em USD: dólar forte = vento contra (inverso).
+      if (Math.abs(dxyUp) >= 0.25) factors.push({ label: `DXY ${dxyUp >= 0 ? "+" : ""}${dxyUp.toFixed(2)}% (dólar ${dxyUp > 0 ? "forte" : "fraco"})`, side: dxyUp > 0 ? "bear" : "bull", weight: 0.8 });
+    }
+  }
+  if (macro?.vix != null && assetType === "indices") {
+    integrated.add("VIX (Yahoo — onda índices)");
+    const v = macro.vix;
+    // VIX subindo = risk-off (baixa p/ índices); caindo = risk-on (alta).
+    if (Math.abs(v.changePct) >= 3) factors.push({ label: `VIX ${v.changePct >= 0 ? "+" : ""}${v.changePct.toFixed(1)}% (${v.changePct > 0 ? "medo subindo" : "medo recuando"})`, side: v.changePct > 0 ? "bear" : "bull", weight: 1.0 });
   }
 
   // 3) Score ponderado.

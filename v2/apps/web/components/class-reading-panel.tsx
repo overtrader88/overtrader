@@ -1,6 +1,7 @@
 import { Panel, PanelLabel, RadialGauge } from "@/components/ui";
 import { computeClassReading, type ClassExtras } from "@/lib/analysis/engines";
 import { getBinanceDerivatives } from "@/lib/market/derivatives-binance";
+import { getMacroContext } from "@/lib/market/macro-yahoo";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import type { AssetType } from "@tradeai/shared";
 
@@ -18,13 +19,19 @@ const SIDE_PT = {
  */
 export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis; assetType: AssetType }) {
   const extras: ClassExtras = {};
-  if (assetType === "crypto") {
-    extras.derivatives = await getBinanceDerivatives(dto.analysis.meta.asset);
-  }
+  const [deriv, macro] = await Promise.all([
+    assetType === "crypto" ? getBinanceDerivatives(dto.analysis.meta.asset) : Promise.resolve(null),
+    assetType === "forex" || assetType === "commodities" || assetType === "indices"
+      ? getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices" })
+      : Promise.resolve(null),
+  ]);
+  extras.derivatives = deriv;
+  extras.macro = macro;
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
   const d = extras.derivatives;
+  const mc = extras.macro;
 
   return (
     <Panel style={{ ["--gc" as string]: side.color }}>
@@ -79,6 +86,33 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
           <p className="note" style={{ margin: "6px 0 0" }}>
             Funding/contas <b>muito esticados</b> num lado sinalizam <b>exaustão</b> (leitura contrária); OI subindo confirma
             convicção. Sentimento, não gatilho isolado.
+          </p>
+        </div>
+      )}
+
+      {mc && (mc.dxy || mc.vix) && (
+        <div className="cls-deriv">
+          <div className="cd-h">Macro · Yahoo Finance <span>dados reais</span></div>
+          <div className="cd-grid">
+            {mc.dxy && (
+              <div className="cd-cell">
+                <div className="k">DXY · dólar</div>
+                <div className={`v ${mc.dxy.changePct >= 0 ? "bear" : "bull"}`}>{mc.dxy.value.toFixed(2)}</div>
+                <div className="s">{mc.dxy.changePct >= 0 ? "+" : ""}{mc.dxy.changePct.toFixed(2)}% · dólar {mc.dxy.changePct >= 0 ? "forte" : "fraco"}</div>
+              </div>
+            )}
+            {mc.vix && (
+              <div className="cd-cell">
+                <div className="k">VIX · medo</div>
+                <div className={`v ${mc.vix.changePct >= 0 ? "bear" : "bull"}`}>{mc.vix.value.toFixed(2)}</div>
+                <div className="s">{mc.vix.changePct >= 0 ? "+" : ""}{mc.vix.changePct.toFixed(1)}% · {mc.vix.value >= 20 ? "estresse elevado" : "calmo"}</div>
+              </div>
+            )}
+          </div>
+          <p className="note" style={{ margin: "6px 0 0" }}>
+            {assetType === "indices"
+              ? "VIX subindo = aversão a risco (vento contra índices); caindo = apetite a risco."
+              : "Dólar forte costuma ser vento contra ativos cotados em USD; a direção é aplicada conforme o par."}
           </p>
         </div>
       )}

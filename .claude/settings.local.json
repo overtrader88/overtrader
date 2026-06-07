@@ -226,7 +226,10 @@
       "Bash(echo \"exit $?\")",
       "WebFetch(domain:docs.coinglass.com)",
       "WebFetch(domain:www.coinglass.com)",
-      "Bash(echo \"TSC_EXIT:$?\")"
+      "Bash(echo \"TSC_EXIT:$?\")",
+      "Bash(curl -s --max-time 12 \"https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1d&range=5d\")",
+      "Bash(curl -s --max-time 12 \"https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d\")",
+      "Bash(echo \"TSC:$?\")"
     ]
   }
 }
