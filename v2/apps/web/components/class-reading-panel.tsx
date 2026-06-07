@@ -1,6 +1,7 @@
 import { Panel, PanelLabel, RadialGauge } from "@/components/ui";
 import { computeClassReading, type ClassExtras } from "@/lib/analysis/engines";
 import { getMacroContext } from "@/lib/market/macro-yahoo";
+import { fetchFmpFundamental } from "@/lib/market/fmp";
 import { DerivativesLive } from "@/components/derivatives-live";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import type { AssetType } from "@tradeai/shared";
@@ -24,10 +25,14 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   if (assetType === "forex" || assetType === "commodities" || assetType === "indices") {
     extras.macro = await getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices" });
   }
+  if (assetType === "stocks" && process.env.FMP_API_KEY) {
+    extras.fundamental = await fetchFmpFundamental(dto.analysis.meta.asset, process.env.FMP_API_KEY);
+  }
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
   const mc = extras.macro;
+  const fnd = extras.fundamental;
 
   return (
     <Panel style={{ ["--gc" as string]: side.color }}>
@@ -56,6 +61,39 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
       </div>
 
       {assetType === "crypto" && <DerivativesLive symbol={dto.analysis.meta.asset} />}
+
+      {fnd && (
+        <div className="cls-deriv">
+          <div className="cd-h">Fundamentos · FMP <span>dados reais</span></div>
+          <div className="cd-grid">
+            {fnd.revenueGrowthYoY != null && (
+              <div className="cd-cell">
+                <div className="k">Receita YoY</div>
+                <div className={`v ${fnd.revenueGrowthYoY >= 0 ? "bull" : "bear"}`}>{fnd.revenueGrowthYoY >= 0 ? "+" : ""}{(fnd.revenueGrowthYoY * 100).toFixed(1)}%</div>
+                <div className="s">crescimento anual</div>
+              </div>
+            )}
+            {fnd.netMarginTTM != null && (
+              <div className="cd-cell">
+                <div className="k">Margem líquida</div>
+                <div className={`v ${fnd.netMarginTTM >= 0 ? "bull" : "bear"}`}>{(fnd.netMarginTTM * 100).toFixed(1)}%</div>
+                <div className="s">TTM</div>
+              </div>
+            )}
+            {fnd.peRatioTTM != null && (
+              <div className="cd-cell">
+                <div className="k">P/L</div>
+                <div className="v">{fnd.peRatioTTM.toFixed(1)}</div>
+                <div className="s">{fnd.roeTTM != null ? `ROE ${(fnd.roeTTM * 100).toFixed(0)}%` : "TTM"}</div>
+              </div>
+            )}
+          </div>
+          <p className="note" style={{ margin: "6px 0 0" }}>
+            {fnd.companyName}{fnd.sector ? ` · ${fnd.sector}` : ""}. Fundamentos pesam pouco no curtíssimo prazo, mas dão viés;
+            <b> evite TA pura perto de earnings</b>.
+          </p>
+        </div>
+      )}
 
       {mc && (mc.dxy || mc.vix) && (
         <div className="cls-deriv">

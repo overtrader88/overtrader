@@ -11,11 +11,13 @@ import type { AssetType } from "@tradeai/shared";
 import type { FullAnalysis } from "./full";
 import type { BinanceDerivatives } from "@/lib/market/derivatives-binance";
 import type { MacroContext } from "@/lib/market/macro-yahoo";
+import type { FmpFundamental } from "@/lib/market/fmp";
 
 /** Dados externos reais já buscados (por onda) que o Motor 2 pode usar. */
 export interface ClassExtras {
   derivatives?: BinanceDerivatives | null;
   macro?: MacroContext | null;
+  fundamental?: FmpFundamental | null;
 }
 
 export type EngineId = "padrao" | "classe";
@@ -199,6 +201,22 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType, ext
     const v = macro.vix;
     // VIX subindo = risk-off (baixa p/ índices); caindo = risk-on (alta).
     if (Math.abs(v.changePct) >= 3) factors.push({ label: `VIX ${v.changePct >= 0 ? "+" : ""}${v.changePct.toFixed(1)}% (${v.changePct > 0 ? "medo subindo" : "medo recuando"})`, side: v.changePct > 0 ? "bear" : "bull", weight: 1.0 });
+  }
+
+  // 2d) Fundamentos (ações) — qualidade/crescimento como viés lento.
+  const fnd = extras?.fundamental;
+  if (fnd && assetType === "stocks") {
+    integrated.add("Fundamentos & earnings (FMP — onda ações)");
+    if (fnd.revenueGrowthYoY != null && Math.abs(fnd.revenueGrowthYoY) >= 0.05) {
+      factors.push({ label: `Receita YoY ${fnd.revenueGrowthYoY >= 0 ? "+" : ""}${(fnd.revenueGrowthYoY * 100).toFixed(0)}%`, side: fnd.revenueGrowthYoY > 0 ? "bull" : "bear", weight: 0.8 });
+    }
+    if (fnd.netMarginTTM != null && fnd.netMarginTTM < 0) {
+      factors.push({ label: "Margem líquida negativa", side: "bear", weight: 0.6 });
+    }
+    if (fnd.roeTTM != null) {
+      if (fnd.roeTTM >= 0.15) factors.push({ label: `ROE alto (${(fnd.roeTTM * 100).toFixed(0)}%)`, side: "bull", weight: 0.5 });
+      else if (fnd.roeTTM < 0) factors.push({ label: "ROE negativo", side: "bear", weight: 0.5 });
+    }
   }
 
   // 3) Score ponderado.
