@@ -13,6 +13,7 @@ import type { BinanceDerivatives } from "@/lib/market/derivatives-binance";
 import type { MacroContext } from "@/lib/market/macro-yahoo";
 import type { FmpFundamental } from "@/lib/market/fmp";
 import type { CotPositioning } from "@/lib/market/cot-cftc";
+import type { FundamentalResult } from "@/lib/market/defillama";
 
 /** Dados externos reais já buscados (por onda) que o Motor 2 pode usar. */
 export interface ClassExtras {
@@ -20,6 +21,7 @@ export interface ClassExtras {
   macro?: MacroContext | null;
   fundamental?: FmpFundamental | null;
   cot?: CotPositioning | null;
+  onchain?: FundamentalResult | null;
 }
 
 export type EngineId = "padrao" | "classe";
@@ -70,7 +72,7 @@ export const CLASS_METHODOLOGY: Record<AssetType, ClassMethodology> = {
     cruzamentos: "Estrutura + rompimento; funding+OI p/ exaustão; on-chain p/ viés macro",
     cuidados: "On-chain é ruim pra timing curto; alta alavancagem amplifica erro",
     weights: W({ Tendência: 1.6, Volume: 1.5, smc: 1.5, "Médias Móveis": 1.3, montecarlo: 0.8 }),
-    pending: ["On-chain / fluxos de exchange", "Mapa de liquidações (CoinGlass, pago)"],
+    pending: ["Fluxos de exchange / MVRV (on-chain avançado)", "Mapa de liquidações (CoinGlass, pago)"],
   },
   forex: {
     label: "Forex",
@@ -230,6 +232,13 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType, ext
       const pct = (cot.netPctOfOi * 100).toFixed(0);
       factors.push({ label: `COT specs ${cot.netPctOfOi > 0 ? "comprados" : "vendidos"} (${pct}% do OI${cot.extreme ? " · esticado" : ""})`, side: cot.bias === "bull" ? "bull" : "bear", weight: cot.extreme ? 0.5 : 0.7 });
     }
+  }
+
+  // 2f) On-chain (cripto) — tendência de TVL da rede (adoção). Contexto lento.
+  const oc = extras?.onchain;
+  if (oc && assetType === "crypto" && (oc.applicability === "chain" || oc.applicability === "limited") && oc.tvlTrend && oc.tvlTrend !== "stable") {
+    const weak = oc.applicability === "limited";
+    factors.push({ label: `TVL on-chain ${oc.tvlTrend === "rising" ? "subindo" : "caindo"}${oc.tvlChange30dPct != null ? ` (${oc.tvlChange30dPct >= 0 ? "+" : ""}${oc.tvlChange30dPct}% 30d)` : ""}`, side: oc.tvlTrend === "rising" ? "bull" : "bear", weight: weak ? 0.3 : 0.5 });
   }
 
   // 3) Score ponderado.

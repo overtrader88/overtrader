@@ -3,6 +3,7 @@ import { computeClassReading, type ClassExtras } from "@/lib/analysis/engines";
 import { getMacroContext } from "@/lib/market/macro-yahoo";
 import { fetchFmpFundamental } from "@/lib/market/fmp";
 import { getCotPositioning } from "@/lib/market/cot-cftc";
+import { fetchFundamental } from "@/lib/market/defillama";
 import { DerivativesLive } from "@/components/derivatives-live";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import type { AssetType } from "@tradeai/shared";
@@ -24,22 +25,25 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   // é bloqueada por IP de cloud. Macro (Yahoo) funciona server-side.
   const extras: ClassExtras = {};
   const asset = dto.analysis.meta.asset;
-  const [macro, cot, fundamental] = await Promise.all([
+  const [macro, cot, fundamental, onchain] = await Promise.all([
     assetType === "forex" || assetType === "commodities" || assetType === "indices"
       ? getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices" })
       : Promise.resolve(null),
     assetType === "forex" || assetType === "commodities" ? getCotPositioning(asset) : Promise.resolve(null),
     assetType === "stocks" && process.env.FMP_API_KEY ? fetchFmpFundamental(asset, process.env.FMP_API_KEY) : Promise.resolve(null),
+    assetType === "crypto" ? fetchFundamental(asset) : Promise.resolve(null),
   ]);
   extras.macro = macro;
   extras.cot = cot;
   extras.fundamental = fundamental;
+  extras.onchain = onchain;
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
   const mc = extras.macro;
   const fnd = extras.fundamental;
   const ct = extras.cot;
+  const oc = extras.onchain;
 
   return (
     <Panel style={{ ["--gc" as string]: side.color }}>
@@ -68,6 +72,29 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
       </div>
 
       {assetType === "crypto" && <DerivativesLive symbol={dto.analysis.meta.asset} />}
+
+      {oc && oc.applicability !== "not_applicable" && oc.tvlUsd != null && (
+        <div className="cls-deriv">
+          <div className="cd-h">On-chain · DefiLlama <span>dados reais</span></div>
+          <div className="cd-grid">
+            <div className="cd-cell">
+              <div className="k">TVL da rede</div>
+              <div className="v">${(oc.tvlUsd / 1e9).toFixed(2)}B</div>
+              <div className="s">valor on-chain</div>
+            </div>
+            {oc.tvlChange30dPct != null && (
+              <div className="cd-cell">
+                <div className="k">Variação 30d</div>
+                <div className={`v ${oc.tvlChange30dPct >= 0 ? "bull" : "bear"}`}>{oc.tvlChange30dPct >= 0 ? "+" : ""}{oc.tvlChange30dPct}%</div>
+                <div className="s">{oc.tvlTrend === "rising" ? "adoção subindo" : oc.tvlTrend === "declining" ? "adoção caindo" : "estável"}</div>
+              </div>
+            )}
+          </div>
+          <p className="note" style={{ margin: "6px 0 0" }}>
+            TVL é <b>contexto de adoção</b>, ruim para timing curto{oc.applicability === "limited" ? " (DeFi raso nesta rede — leitura fraca)" : ""}. Observado, não probabilidade.
+          </p>
+        </div>
+      )}
 
       {fnd && (
         <div className="cls-deriv">
