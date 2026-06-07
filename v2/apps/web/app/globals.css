@@ -503,6 +503,10 @@ body::after {
 .analysis-page .smc-row.bull .dir { color: var(--bull); }
 .analysis-page .smc-row.bear .dir { color: var(--bear); }
 .analysis-page .smc-row.lq .dir { color: var(--cyan); }
+.analysis-page .smc-row.lq .dir.bull { color: var(--bull); }
+.analysis-page .smc-row.lq .dir.bear { color: var(--bear); }
+.analysis-page .smc-hint { font-size: 11px; line-height: 1.5; margin: 0 0 10px; color: var(--ink-soft); }
+.analysis-page .smc-sub { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin: 10px 0 6px; }
 .analysis-page .smc-row .zone { grid-area: zone; font-family: var(--font-mono); font-weight: 700; font-size: 12px; color: var(--ink); text-align: right; }
 .analysis-page .smc-row .str { grid-area: str; font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); }
 .analysis-page .smc-row .bdg { grid-area: bdg; font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 99px; align-self: center; white-space: nowrap; }

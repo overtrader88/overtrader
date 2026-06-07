@@ -310,7 +310,7 @@ const SMC_STRUCT_PT: Record<string, string> = {
   consolidating: "Consolidando · sem quebra recente",
 };
 
-function SmcPanel({ smc }: { smc: NonNullable<FullAnalysis["smc"]> }) {
+function SmcPanel({ smc, price }: { smc: NonNullable<FullAnalysis["smc"]>; price: number }) {
   const bias = SMC_BIAS_PT[smc.bias];
   const activeObs = smc.orderBlocks.filter((o) => !o.mitigated).length;
   const activeFvgs = smc.fvgs.filter((f) => f.status === "active").length;
@@ -367,19 +367,35 @@ function SmcPanel({ smc }: { smc: NonNullable<FullAnalysis["smc"]> }) {
             </div>
           ) : null}
 
-          {smc.liquidityZones.length ? (
-            <div className="smc-group">
-              <div className="smc-gh">Zonas de liquidez <span>{smc.liquidityZones.length}</span></div>
-              {smc.liquidityZones.map((z, i) => (
-                <div className="smc-row lq" key={`lz-${z.type}-${z.formedAt}-${i}`}>
-                  <span className="dir">{z.type === "buy_stops_above" ? "LIQ ↑ acima" : "LIQ ↓ abaixo"}</span>
-                  <span className="zone">{fmtPrice(z.level)}</span>
-                  <span className="str">cluster {z.cluster}</span>
-                  <span className={`bdg ${z.swept ? "off" : "on"}`}>{z.swept ? "varrida" : "intacta"}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          {smc.liquidityZones.length || smc.lastSwingLow || smc.lastSwingHigh ? (() => {
+            const zones = smc.liquidityZones
+              .filter((z) => Number.isFinite(z.level))
+              .map((z) => ({ ...z, isAbove: z.level >= price, pct: ((z.level - price) / price) * 100 }));
+            const above = zones.filter((z) => z.isAbove).sort((a, b) => a.level - b.level);
+            const below = zones.filter((z) => !z.isAbove).sort((a, b) => b.level - a.level);
+            const typePt = (t: string) => (t === "buy_stops_above" ? "buy-side" : "sell-side");
+            const Row = (z: (typeof zones)[number], i: number) => (
+              <div className="smc-row lq" key={`lz-${z.type}-${z.formedAt}-${i}`}>
+                <span className={`dir ${z.isAbove ? "bear" : "bull"}`}>{z.isAbove ? "↑ acima" : "↓ abaixo"}</span>
+                <span className="zone">{fmtPrice(z.level)}</span>
+                <span className="str">{typePt(z.type)} · {z.pct >= 0 ? "+" : ""}{z.pct.toFixed(1)}%</span>
+                <span className={`bdg ${z.swept ? "off" : "on"}`}>{z.swept ? "varrida" : "intacta"}</span>
+              </div>
+            );
+            return (
+              <div className="smc-group">
+                <div className="smc-gh">Zonas de liquidez <span>{smc.liquidityZones.length}</span></div>
+                <p className="note smc-hint">
+                  Pools de ordens (stops) que funcionam como ímãs de preço. <b>Buy-side</b> = acima de topos; <b>sell-side</b> = abaixo de fundos.
+                  Aqui <b>↑ acima / ↓ abaixo</b> e a % são em relação ao <b>preço atual ({fmtPrice(price)})</b>.
+                </p>
+                <div className="smc-sub">Acima do preço ({above.length})</div>
+                {above.length ? above.map(Row) : <p className="note" style={{ padding: "2px 2px 8px" }}>Nenhuma zona acima{smc.lastSwingHigh ? ` — topo estrutural mais próximo: ${fmtPrice(smc.lastSwingHigh.price)}` : ""}.</p>}
+                <div className="smc-sub">Abaixo do preço ({below.length})</div>
+                {below.length ? below.map(Row) : <p className="note" style={{ padding: "2px 2px 8px" }}>Nenhuma zona de liquidez detectada abaixo{smc.lastSwingLow ? ` — suporte estrutural mais próximo (swing): ${fmtPrice(smc.lastSwingLow.price)}` : ""}.</p>}
+              </div>
+            );
+          })() : null}
         </div>
       )}
 
@@ -757,7 +773,7 @@ export default async function AnalisePage({
             {dto.multiTimeframe ? <MultiTimeframePanel mtf={dto.multiTimeframe} /> : null}
             {dto.montecarlo ? <MonteCarloPanel mc={dto.montecarlo} /> : null}
             {dto.scenarios ? <ScenariosPanel sc={dto.scenarios} /> : null}
-            {dto.smc ? <SmcPanel smc={dto.smc} /> : null}
+            {dto.smc ? <SmcPanel smc={dto.smc} price={dto.montecarlo?.currentPrice ?? dto.analysis.risk.entry} /> : null}
             {dto.harmonics ? <HarmonicsPanel harm={dto.harmonics} /> : null}
             {dto.wegd ? <WegdPanel wegd={dto.wegd} /> : null}
             {dto.seasonality ? <SeasonalityPanel seas={dto.seasonality} /> : null}
