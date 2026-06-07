@@ -373,25 +373,24 @@ function SmcPanel({ smc, price }: { smc: NonNullable<FullAnalysis["smc"]>; price
               .map((z) => ({ ...z, isAbove: z.level >= price, pct: ((z.level - price) / price) * 100 }));
             const above = zones.filter((z) => z.isAbove).sort((a, b) => a.level - b.level);
             const below = zones.filter((z) => !z.isAbove).sort((a, b) => b.level - a.level);
-            const typePt = (t: string) => (t === "buy_stops_above" ? "buy-side" : "sell-side");
             const Row = (z: (typeof zones)[number], i: number) => (
               <div className="smc-row lq" key={`lz-${z.type}-${z.formedAt}-${i}`}>
-                <span className={`dir ${z.isAbove ? "bear" : "bull"}`}>{z.isAbove ? "↑ acima" : "↓ abaixo"}</span>
                 <span className="zone">{fmtPrice(z.level)}</span>
-                <span className="str">{typePt(z.type)} · {z.pct >= 0 ? "+" : ""}{z.pct.toFixed(1)}%</span>
-                <span className={`bdg ${z.swept ? "off" : "on"}`}>{z.swept ? "varrida" : "intacta"}</span>
+                <span className="str">a {Math.abs(z.pct).toFixed(1)}% do preço</span>
+                <span className={`bdg ${z.swept ? "off" : "on"}`}>{z.swept ? "já varrida" : "intacta"}</span>
               </div>
             );
             return (
               <div className="smc-group">
                 <div className="smc-gh">Zonas de liquidez <span>{smc.liquidityZones.length}</span></div>
                 <p className="note smc-hint">
-                  Pools de ordens (stops) que funcionam como ímãs de preço. <b>Buy-side</b> = acima de topos; <b>sell-side</b> = abaixo de fundos.
-                  Aqui <b>↑ acima / ↓ abaixo</b> e a % são em relação ao <b>preço atual ({fmtPrice(price)})</b>.
+                  Preços com muitas ordens de <b>stop</b> acumuladas — funcionam como <b>ímãs</b> (o preço tende a buscá-las).
+                  <b> Intacta</b> = ainda não foi tocada (alvo provável). <b>Já varrida</b> = o preço já passou e consumiu as ordens.
+                  Distâncias em relação ao <b>preço atual ({fmtPrice(price)})</b>.
                 </p>
-                <div className="smc-sub">Acima do preço ({above.length})</div>
+                <div className="smc-sub">↑ Acima do preço ({above.length})</div>
                 {above.length ? above.map(Row) : <p className="note" style={{ padding: "2px 2px 8px" }}>Nenhuma zona acima{smc.lastSwingHigh ? ` — topo estrutural mais próximo: ${fmtPrice(smc.lastSwingHigh.price)}` : ""}.</p>}
-                <div className="smc-sub">Abaixo do preço ({below.length})</div>
+                <div className="smc-sub">↓ Abaixo do preço ({below.length})</div>
                 {below.length ? below.map(Row) : <p className="note" style={{ padding: "2px 2px 8px" }}>Nenhuma zona de liquidez detectada abaixo{smc.lastSwingLow ? ` — suporte estrutural mais próximo (swing): ${fmtPrice(smc.lastSwingLow.price)}` : ""}.</p>}
               </div>
             );
