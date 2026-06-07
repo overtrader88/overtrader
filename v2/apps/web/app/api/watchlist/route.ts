@@ -43,14 +43,17 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
   }
   const sb = await supabaseServerSSR();
+  // Lado do gatilho — permite acompanhar compra E venda do mesmo ativo+TF.
+  const side = parsed.data.min_signal_strength.includes("SELL") ? "sell" : "buy";
   const { error } = await sb.from("watchlist").upsert(
     {
       user_id: user.id,
       symbol: parsed.data.symbol,
       timeframe: parsed.data.timeframe,
       min_signal_strength: parsed.data.min_signal_strength,
+      side,
     },
-    { onConflict: "user_id,symbol,timeframe" },
+    { onConflict: "user_id,symbol,timeframe,side" },
   );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
