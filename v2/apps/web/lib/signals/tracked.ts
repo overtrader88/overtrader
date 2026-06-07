@@ -18,4 +18,6 @@ export const TRACKED_MARKETS: TrackedMarket[] = [
   { symbol: "BTCUSDT", assetType: "crypto", timeframe: "1d" },
   { symbol: "ETHUSDT", assetType: "crypto", timeframe: "1d" },
   { symbol: "SOLUSDT", assetType: "crypto", timeframe: "1d" },
+  { symbol: "XAUUSD", assetType: "commodities", timeframe: "4h" },
+  { symbol: "XAUUSD", assetType: "commodities", timeframe: "1d" },
 ];
