@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { AssetType, Timeframe } from "@tradeai/shared";
 import { CATALOG, ASSET_CLASS_PT, catalogByClass } from "@/lib/market/catalog";
 
@@ -229,7 +229,7 @@ export function AnalyzeForm({
   const [sym, setSym] = useState("");
   const [at, setAt] = useState<AssetType | "">("");   // classe — começa sem seleção
   const [tf, setTf] = useState<Timeframe | "">("");
-  const [pending, setPending] = useState(false);
+  const [pending, startTransition] = useTransition();
   const [openDD, setOpenDD] = useState<null | "ativo" | "tipo" | "tf">(null);
   const [query, setQuery] = useState("");
   const gridRef = useRef<HTMLDivElement>(null);
@@ -278,8 +278,10 @@ export function AnalyzeForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canAnalyze) return; // exige ativo + timeframe
-    setPending(true);
-    router.push(`/analise?symbol=${encodeURIComponent(cleanSym)}&type=${at}&tf=${tf}`);
+    // useTransition: `pending` volta a false sozinho quando a navegação/render termina.
+    startTransition(() => {
+      router.push(`/analise?symbol=${encodeURIComponent(cleanSym)}&type=${at}&tf=${tf}`);
+    });
   }
 
   return (
