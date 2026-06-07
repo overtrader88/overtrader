@@ -223,9 +223,12 @@ export function AnalyzeForm({
   timeframe: Timeframe;
 }) {
   const router = useRouter();
-  const [sym, setSym] = useState(symbol);
+  // Começa SEM seleção — o usuário precisa escolher ativo e timeframe (evita
+  // analisar o padrão por engano). `at` é só a classe de navegação do dropdown.
+  void symbol; void timeframe;
+  const [sym, setSym] = useState("");
   const [at, setAt] = useState<AssetType>(assetType);
-  const [tf, setTf] = useState<Timeframe>(timeframe);
+  const [tf, setTf] = useState<Timeframe | "">("");
   const [pending, setPending] = useState(false);
   const [openDD, setOpenDD] = useState<null | "ativo" | "tipo" | "tf">(null);
   const [query, setQuery] = useState("");
@@ -270,9 +273,10 @@ export function AnalyzeForm({
     if (matched?.assetType !== next) setSym(byClass[next][0]?.symbol ?? sym);
   }
 
+  const canAnalyze = !!cleanSym && !!tf;
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!cleanSym) return;
+    if (!canAnalyze) return; // exige ativo + timeframe
     setPending(true);
     router.push(`/analise?symbol=${encodeURIComponent(cleanSym)}&type=${at}&tf=${tf}`);
   }
@@ -416,8 +420,8 @@ export function AnalyzeForm({
           >
             <span className="cfg-avatar soft"><ClockIcon /></span>
             <span className="cfg-main">
-              <span className="cfg-value">{tfMeta?.label}</span>
-              <span className="cfg-meta">{tfMeta ? `${tf.toUpperCase()} · ${tfMeta.hint}` : null}</span>
+              <span className="cfg-value">{tfMeta?.label ?? "Selecione"}</span>
+              <span className="cfg-meta">{tfMeta ? `${tf.toUpperCase()} · ${tfMeta.hint}` : "Escolha o timeframe"}</span>
             </span>
             <span className={`cfg-chev${openDD === "tf" ? " open" : ""}`}><ChevronIcon /></span>
           </button>
@@ -444,10 +448,10 @@ export function AnalyzeForm({
         </div>
       </div>
 
-      <button type="submit" className="cfg-go" disabled={pending}>
+      <button type="submit" className="cfg-go" disabled={pending || !canAnalyze} title={!canAnalyze ? "Escolha o ativo e o timeframe" : undefined}>
         <span className="cfg-go-ico"><CrownIcon /></span>
-        {pending ? "Analisando…" : "Analisar agora"}
-        {pending ? null : <ArrowIcon />}
+        {pending ? "Analisando…" : !canAnalyze ? "Escolha ativo e timeframe" : "Analisar agora"}
+        {pending || !canAnalyze ? null : <ArrowIcon />}
       </button>
 
       <div className="cfg-trust">

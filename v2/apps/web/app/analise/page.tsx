@@ -4,6 +4,7 @@ import { analyzeSymbol } from "@/lib/analysis/service";
 import { findAsset } from "@/lib/market/catalog";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
 import { recordAnalysisView, getAnalysisById, recentAnalyses } from "@/lib/history";
+import { LastAnalysisBanner } from "@/components/last-analysis-banner";
 import { checkAnalysisCredit, chargeAnalysis } from "@/lib/credits";
 import { AiNarrative } from "@/components/ai-narrative";
 import { NewsCard } from "@/components/news-card";
@@ -619,6 +620,7 @@ export default async function AnalisePage({
 }) {
   const sp = await searchParams;
   const explicit = typeof sp.symbol === "string"; // veio do form/link com um ativo
+  const fromId = typeof sp.id === "string";
   let savedId = typeof sp.id === "string" ? sp.id : null;
   let symbol = (explicit ? (sp.symbol as string) : "BTCUSDT").toUpperCase();
   let timeframe = resolveTf(sp.tf);
@@ -681,6 +683,9 @@ export default async function AnalisePage({
     }
   }
 
+  // Landing mostrando a última análise salva → exibe minimizada (com data/hora).
+  const isLastSaved = !explicit && !fromId && !!dto && !blocked && !landingEmpty;
+
   return (
     <>
       <AppBar
@@ -723,6 +728,7 @@ export default async function AnalisePage({
             </p>
           </Panel>
         ) : !dto ? null : (
+          <LastAnalysisBanner enabled={isLastSaved} generatedAt={dto.generatedAt}>
           <>
             <ReportActions dto={dto} symbol={symbol} assetType={assetType} timeframe={timeframe} />
             <Verdict dto={dto} />
@@ -773,6 +779,7 @@ export default async function AnalisePage({
             ) : null}
             <div style={{ height: 60 }} />
           </>
+          </LastAnalysisBanner>
         )}
       </AnalysisShell>
     </>

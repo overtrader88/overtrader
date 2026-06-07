@@ -1340,6 +1340,17 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 /* Tela de créditos */
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 
+/* Banner da última análise (minimizada) */
+.last-an { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line-2); border-radius: 12px; padding: 12px 16px; margin: 4px 0 6px; transition: .15s; }
+.last-an:hover { border-color: var(--cyan); }
+.last-an.open { border-color: var(--cyan); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.last-an-l { display: flex; align-items: center; gap: 10px; }
+.last-an-tag { font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink); }
+.last-an-dt { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+.last-an-btn { font-family: var(--font-mono); font-size: 12px; color: var(--cyan); white-space: nowrap; }
+.last-an-body { animation: fadeIn .2s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
 /* Gerenciador de watchlist */
 .wm-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
 .wm-sel { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
