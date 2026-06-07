@@ -53,10 +53,14 @@ export async function POST(req: Request): Promise<NextResponse> {
     });
 
     const preset = riskPresetById(riskPresetId);
-    // Sobrepõe SÓ os multiplicadores de risco (R:R); o resto da config fica padrão.
+    // Sobrepõe os multiplicadores de risco (R:R). Como o usuário ESCOLHEU este
+    // perfil, baixamos o gate de R:R mínimo para não rejeitar o próprio perfil:
+    // "Alvo curto · R:R 1:1" tem rr1=1.0, abaixo do minRr1 padrão (1.5), o que
+    // antes zerava TODAS as entradas. Math.min nunca AUMENTA o gate.
     const config: EngineConfig = {
       ...DEFAULT_ENGINE_CONFIG,
       risk: { slMult: preset.slMult, tp1Mult: preset.tp1Mult, tp2Mult: preset.tp2Mult, tp3Mult: preset.tp3Mult },
+      gates: { ...DEFAULT_ENGINE_CONFIG.gates, minRr1: Math.min(DEFAULT_ENGINE_CONFIG.gates.minRr1, preset.rr) },
     };
 
     const bt = runBacktest(
