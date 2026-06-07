@@ -636,6 +636,7 @@ export default async function AnalisePage({
   const sp = await searchParams;
   const explicit = typeof sp.symbol === "string"; // veio do form/link com um ativo
   const fromId = typeof sp.id === "string";
+  const wantNew = sp.new === "1"; // pediu uma análise nova → mostra o formulário
   let savedId = typeof sp.id === "string" ? sp.id : null;
   let symbol = (explicit ? (sp.symbol as string) : "BTCUSDT").toUpperCase();
   let timeframe = resolveTf(sp.tf);
@@ -657,11 +658,13 @@ export default async function AnalisePage({
 
   if (!user) {
     blocked = true;
+  } else if (wantNew) {
+    // modo formulário: não gera nem carrega nada (o usuário vai escolher).
   } else {
     if (!savedId && !explicit) {
       const recents = await recentAnalyses(1);
       savedId = recents[0]?.id ?? null;
-      if (!savedId) landingEmpty = true; // sem histórico → prompt, sem cobrar
+      if (!savedId) landingEmpty = true; // sem histórico → mostra o formulário
     }
     if (!landingEmpty && savedId) {
       const saved = await getAnalysisById(savedId);
@@ -700,6 +703,8 @@ export default async function AnalisePage({
 
   // Landing mostrando a última análise salva → exibe minimizada (com data/hora).
   const isLastSaved = !explicit && !fromId && !!dto && !blocked && !landingEmpty;
+  // Modo formulário: sem análise pra mostrar (pediu nova OU não tem histórico).
+  const showForm = !!user && !blocked && (wantNew || landingEmpty);
 
   return (
     <>
@@ -716,16 +721,9 @@ export default async function AnalisePage({
         assetType={assetType}
         regime={dto?.analysis.meta.regime}
         adx={dto?.analysis.meta.adxValue}
+        showForm={showForm}
       >
-        {landingEmpty ? (
-          <Panel>
-            <PanelLabel>Escolha um ativo para analisar</PanelLabel>
-            <p className="note" style={{ maxWidth: "70ch" }}>
-              Selecione o ativo e o timeframe no seletor acima e clique em <b>Analisar</b>. Cada análise nova consome
-              <b> 1 crédito</b> — e fica salva no seu histórico para reabrir quando quiser, de graça. Abrir esta aba não consome nada.
-            </p>
-          </Panel>
-        ) : blocked ? (
+        {blocked ? (
           <Panel>
             <PanelLabel>Créditos esgotados</PanelLabel>
             <p className="note" style={{ marginBottom: 14 }}>

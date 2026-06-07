@@ -274,15 +274,21 @@ export function AnalyzeForm({
     setSym(""); // troca de classe → limpa o ativo (usuário escolhe de novo)
   }
 
-  const canAnalyze = !!cleanSym && !!tf;
+  const [showErrors, setShowErrors] = useState(false);
+  const canAnalyze = !!at && !!cleanSym && !!tf;
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canAnalyze) return; // exige ativo + timeframe
+    if (!canAnalyze) { setShowErrors(true); return; } // sinaliza os campos faltantes
+    setShowErrors(false);
     // useTransition: `pending` volta a false sozinho quando a navegação/render termina.
     startTransition(() => {
       router.push(`/analise?symbol=${encodeURIComponent(cleanSym)}&type=${at}&tf=${tf}`);
     });
   }
+  // campos ainda vazios (p/ destaque em vermelho ao tentar analisar)
+  const errType = showErrors && !at;
+  const errAsset = showErrors && !cleanSym;
+  const errTf = showErrors && !tf;
 
   return (
     <form className="configurator" onSubmit={submit}>
@@ -308,7 +314,7 @@ export function AnalyzeForm({
           <span className="cfg-label">Tipo de Ativo</span>
           <button
             type="button"
-            className={`cfg-control as-button${openDD === "tipo" ? " open" : ""}`}
+            className={`cfg-control as-button${openDD === "tipo" ? " open" : ""}${errType ? " err" : ""}`}
             onClick={() => toggleDD("tipo")}
             aria-haspopup="listbox"
             aria-expanded={openDD === "tipo"}
@@ -346,7 +352,7 @@ export function AnalyzeForm({
           <span className="cfg-label">Ativo</span>
           <button
             type="button"
-            className={`cfg-control as-button${openDD === "ativo" ? " open" : ""}`}
+            className={`cfg-control as-button${openDD === "ativo" ? " open" : ""}${errAsset ? " err" : ""}`}
             onClick={() => { if (at) toggleDD("ativo"); }}
             disabled={!at}
             aria-haspopup="listbox"
@@ -417,7 +423,7 @@ export function AnalyzeForm({
           <span className="cfg-label">Timeframe</span>
           <button
             type="button"
-            className={`cfg-control as-button${openDD === "tf" ? " open" : ""}`}
+            className={`cfg-control as-button${openDD === "tf" ? " open" : ""}${errTf ? " err" : ""}`}
             onClick={() => toggleDD("tf")}
             aria-haspopup="listbox"
             aria-expanded={openDD === "tf"}
@@ -452,11 +458,12 @@ export function AnalyzeForm({
         </div>
       </div>
 
-      <button type="submit" className="cfg-go" disabled={pending || !canAnalyze} title={!canAnalyze ? "Escolha o ativo e o timeframe" : undefined}>
+      <button type="submit" className="cfg-go" disabled={pending}>
         <span className="cfg-go-ico"><CrownIcon /></span>
-        {pending ? "Analisando…" : !canAnalyze ? "Escolha ativo e timeframe" : "Analisar agora"}
-        {pending || !canAnalyze ? null : <ArrowIcon />}
+        {pending ? "Analisando…" : "Analisar (1 crédito)"}
+        {pending ? null : <ArrowIcon />}
       </button>
+      {showErrors && !canAnalyze ? <p className="cfg-err-msg">Selecione os campos destacados em vermelho para analisar.</p> : null}
 
       <div className="cfg-trust">
         {TRUST.map((x) => (

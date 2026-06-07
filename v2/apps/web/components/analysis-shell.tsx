@@ -29,6 +29,7 @@ export function AnalysisShell({
   assetType,
   regime,
   adx,
+  showForm = false,
   children,
 }: {
   symbol: string;
@@ -36,6 +37,7 @@ export function AnalysisShell({
   assetType: AssetType;
   regime?: string;
   adx?: number;
+  showForm?: boolean;
   children: ReactNode;
 }) {
   const [mode, setMode] = useState<Mode>("avancado");
@@ -58,6 +60,18 @@ export function AnalysisShell({
     }
   }
 
+  if (showForm) {
+    // Modo formulário: só o configurador (sem statusbar de uma análise inexistente).
+    return (
+      <div className={`analysis-page${mode === "simples" ? " mode-simples" : ""}`}>
+        <div className="wrap">
+          <AnalyzeForm symbol={symbol} assetType={assetType} timeframe={timeframe} />
+        </div>
+      </div>
+    );
+  }
+
+  // Modo relatório: ativo/TF no topo + botão "Nova análise" (filtros somem).
   return (
     <div className={`analysis-page${mode === "simples" ? " mode-simples" : ""}`}>
       <div className="wrap">
@@ -70,6 +84,7 @@ export function AnalysisShell({
           ) : null}
           {typeof adx === "number" ? <span className="seg">ADX <b>{adx.toFixed(1)}</b></span> : null}
           <span className="spacer" />
+          <a href="/analise?new=1" className="statusbar-new">+ Nova análise</a>
           <span className="seg last">ENGINE <b>{ENGINE_VERSION}</b></span>
           <WatchlistButton symbol={symbol} timeframe={timeframe} />
           <div className="mode-switch" role="group" aria-label="Modo de exibição">
@@ -81,7 +96,6 @@ export function AnalysisShell({
             </button>
           </div>
         </div>
-        <AnalyzeForm symbol={symbol} assetType={assetType} timeframe={timeframe} />
         {children}
       </div>
     </div>

@@ -365,6 +365,8 @@ body::after {
 .analysis-page .statusbar .live { color: var(--bull); }
 .analysis-page .statusbar .live .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--bull); margin-right: 6px; box-shadow: 0 0 8px var(--bull); vertical-align: middle; }
 .analysis-page .statusbar .spacer { flex: 1; border: none; }
+.analysis-page .statusbar-new { margin-right: 12px; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--cyan); color: var(--cyan); font-family: var(--font-mono); font-size: 11px; font-weight: 700; white-space: nowrap; transition: .15s; }
+.analysis-page .statusbar-new:hover { background: var(--cyan-soft); }
 
 .analysis-page .hero2 { display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; }
 @media (max-width: 680px) { .analysis-page .hero2 { grid-template-columns: 1fr; } }
@@ -880,6 +882,9 @@ input:focus-visible,
 .analysis-page .cfg-control.as-button { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .analysis-page .cfg-control.as-button.open { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-soft); }
 .analysis-page .cfg-control.as-button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+.analysis-page .cfg-control.err { border-color: var(--bear); box-shadow: 0 0 0 3px var(--bear-soft); animation: shake 0.25s; }
+@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.analysis-page .cfg-err-msg { color: var(--bear); font-size: 13px; margin-top: 10px; text-align: center; }
 .analysis-page .cfg-value { font-family: var(--font-mono); font-size: 15.5px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .analysis-page .cfg-control { position: relative; display: flex; align-items: center; gap: 13px; padding: 0 16px; height: 72px; border: 1px solid var(--line-2); border-radius: 15px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)); background-color: var(--bg-2); transition: 0.16s; }
 .analysis-page .cfg-control:hover { border-color: var(--line-3); transform: translateY(-1px); box-shadow: 0 16px 34px -26px rgba(0, 0, 0, 0.9); }

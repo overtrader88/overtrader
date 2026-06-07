@@ -223,7 +223,9 @@
       "Bash(echo \"=== tsc $? ===\")",
       "mcp__Claude_in_Chrome__tabs_context_mcp",
       "Bash(git commit -q -m 'chore: redeploy p/ registrar crons horarios \\(Vercel PRO ativo\\) *)",
-      "Bash(echo \"exit $?\")"
+      "Bash(echo \"exit $?\")",
+      "WebFetch(domain:docs.coinglass.com)",
+      "WebFetch(domain:www.coinglass.com)"
     ]
   }
 }
