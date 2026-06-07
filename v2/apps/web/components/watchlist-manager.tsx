@@ -7,11 +7,16 @@ import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 interface WItem { id: string; symbol: string; timeframe: string; min_signal_strength: string; }
 
 const TFS: Timeframe[] = ["15m", "1h", "4h", "1d", "1w", "1M"];
+// Gatilho do alerta: lado + força mínima (compra OU venda).
 const STRENGTHS = [
-  { v: "WEAK_BUY", label: "Compra fraca ou mais" },
-  { v: "BUY", label: "Compra ou mais" },
-  { v: "STRONG_BUY", label: "Só compra forte" },
+  { v: "WEAK_BUY", label: "↑ Compra fraca ou +", group: "Compra" },
+  { v: "BUY", label: "↑ Compra ou +", group: "Compra" },
+  { v: "STRONG_BUY", label: "↑ Só compra forte", group: "Compra" },
+  { v: "WEAK_SELL", label: "↓ Venda fraca ou +", group: "Venda" },
+  { v: "SELL", label: "↓ Venda ou +", group: "Venda" },
+  { v: "STRONG_SELL", label: "↓ Só venda forte", group: "Venda" },
 ];
+const STRENGTH_GROUPS = ["Compra", "Venda"] as const;
 
 // Catálogo agrupado por classe (mesma ordem do seletor do ao-vivo).
 const GROUPS = (["crypto", "forex", "commodities", "indices", "stocks"] as const).map((cls) => ({
@@ -65,7 +70,11 @@ export function WatchlistManager() {
           {TFS.map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
         </select>
         <select value={strength} onChange={(e) => setStrength(e.target.value)} className="wm-sel">
-          {STRENGTHS.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
+          {STRENGTH_GROUPS.map((g) => (
+            <optgroup key={g} label={g}>
+              {STRENGTHS.filter((s) => s.group === g).map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
+            </optgroup>
+          ))}
         </select>
         <button type="button" className="wm-add-btn" onClick={add} disabled={busy}>{busy ? "…" : "+ Adicionar"}</button>
       </div>
@@ -84,7 +93,11 @@ export function WatchlistManager() {
               <span className="wm-tf">{it.timeframe.toUpperCase()}</span>
               <span>
                 <select className="wm-sel sm" value={it.min_signal_strength} onChange={(e) => setItemStrength(it, e.target.value)}>
-                  {STRENGTHS.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
+                  {STRENGTH_GROUPS.map((g) => (
+                    <optgroup key={g} label={g}>
+                      {STRENGTHS.filter((s) => s.group === g).map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
+                    </optgroup>
+                  ))}
                 </select>
               </span>
               <span className="wm-row-act">

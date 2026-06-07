@@ -8,7 +8,7 @@
  *   (ou header Authorization: Bearer <CRON_SECRET>)
  */
 import { NextResponse } from "next/server";
-import type { AssetType, Timeframe } from "@tradeai/shared";
+import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { signalSide } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import { analyzeSymbol } from "@/lib/analysis/service";
@@ -20,6 +20,16 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const BUY_RANK: Record<string, number> = { WEAK_BUY: 1, BUY: 2, STRONG_BUY: 3 };
+const SELL_RANK: Record<string, number> = { WEAK_SELL: 1, SELL: 2, STRONG_SELL: 3 };
+
+/** O sinal atual atende o gatilho escolhido (mesmo lado + força ≥ mínima)? */
+function meetsTrigger(sig: SignalDirection, want: string): boolean {
+  const side = signalSide(sig);
+  const wantSide = signalSide(want as SignalDirection);
+  if (wantSide === "buy") return side === "buy" && (BUY_RANK[sig] ?? 0) >= (BUY_RANK[want] ?? 99);
+  if (wantSide === "sell") return side === "sell" && (SELL_RANK[sig] ?? 0) >= (SELL_RANK[want] ?? 99);
+  return false;
+}
 
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -60,7 +70,7 @@ async function handle(req: Request): Promise<NextResponse> {
       const dto = await analyzeSymbol(it.symbol, assetType, it.timeframe as Timeframe, "simple");
       checked++;
       const sig = dto.analysis.signal.signal;
-      const meets = signalSide(sig) === "buy" && (BUY_RANK[sig] ?? 0) >= (BUY_RANK[it.min_signal_strength] ?? 99);
+      const meets = meetsTrigger(sig, it.min_signal_strength);
       if (meets) {
         const message = `${it.symbol} ${it.timeframe.toUpperCase()}: ${sig} (força ${dto.analysis.signal.strength})`;
         const { data: fired } = await sb.rpc("process_watchlist_alert", { p_item_id: it.id, p_signal: sig, p_message: message });

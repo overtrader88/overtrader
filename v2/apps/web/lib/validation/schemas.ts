@@ -14,10 +14,10 @@ export const analyzeInputSchema = z.object({
 });
 export type AnalyzeInput = z.infer<typeof analyzeInputSchema>;
 
-/** Força mínima de sinal aceita numa watchlist (só lados de compra/forte). */
+/** Gatilho de alerta da watchlist: qualquer sinal ACIONÁVEL (compra ou venda). */
 export const minSignalStrengthSchema = signalDirectionSchema.refine(
-  (s) => s === "WEAK_BUY" || s === "BUY" || s === "STRONG_BUY",
-  { message: "min_signal_strength deve ser WEAK_BUY, BUY ou STRONG_BUY" },
+  (s) => s !== "NEUTRAL",
+  { message: "min_signal_strength deve ser um sinal acionável (compra ou venda)" },
 );
 
 /** POST /api/watchlist */
