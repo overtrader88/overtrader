@@ -381,7 +381,7 @@ function SmcPanel({ smc, price }: { smc: NonNullable<FullAnalysis["smc"]>; price
               <div className="smc-row lq" key={`lz-${z.type}-${z.formedAt}-${i}`}>
                 <span className="zone">{fmtPrice(z.level)}</span>
                 <span className="str">a {Math.abs(z.pct).toFixed(1)}% do preço</span>
-                <span className={`bdg ${z.swept ? "off" : "on"}`}>{z.swept ? "já varrida" : "intacta"}</span>
+                {z.swept ? null : <span className="bdg on">intacta</span>}
               </div>
             );
             return (
@@ -389,8 +389,7 @@ function SmcPanel({ smc, price }: { smc: NonNullable<FullAnalysis["smc"]>; price
                 <div className="smc-gh">Zonas de liquidez <span>{smc.liquidityZones.length}</span></div>
                 <p className="note smc-hint">
                   Preços com muitas ordens de <b>stop</b> acumuladas — funcionam como <b>ímãs</b> (o preço tende a buscá-las).
-                  <b> Intacta</b> = ainda não foi tocada (alvo provável). <b>Já varrida</b> = o preço já passou e consumiu as ordens.
-                  Distâncias em relação ao <b>preço atual ({fmtPrice(price)})</b>.
+                  <b> Intacta</b> = ainda não foi tocada (alvo provável). Distâncias em relação ao <b>preço atual ({fmtPrice(price)})</b>.
                 </p>
                 <div className="smc-sub">↑ Acima do preço ({above.length})</div>
                 {above.length ? above.map(Row) : <p className="note" style={{ padding: "2px 2px 8px" }}>Nenhuma zona acima{smc.lastSwingHigh ? ` — topo estrutural mais próximo: ${fmtPrice(smc.lastSwingHigh.price)}` : ""}.</p>}
