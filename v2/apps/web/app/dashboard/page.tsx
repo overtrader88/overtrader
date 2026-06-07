@@ -95,7 +95,7 @@ export default async function DashboardPage() {
                 recents.map((r) => {
                   const dir = signalToDir(r.signal);
                   return (
-                    <a className="arow" key={r.id} href={`/analise?symbol=${encodeURIComponent(r.symbol)}&type=${r.assetType}&tf=${r.timeframe}`}>
+                    <a className="arow" key={r.id} href={`/analise?id=${encodeURIComponent(r.id)}`}>
                       <div className="a-sym">
                         <span className="s">{r.symbol}</span>
                         <span className="tf">{r.timeframe.toUpperCase()}</span>

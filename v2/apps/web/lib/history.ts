@@ -58,6 +58,27 @@ export async function recordAnalysisView(dto: FullAnalysis): Promise<void> {
   }
 }
 
+/** Carrega o SNAPSHOT salvo de uma análise (grátis — sem recomputar/cobrar). */
+export async function getAnalysisById(id: string): Promise<{ dto: FullAnalysis; symbol: string; assetType: string; timeframe: string } | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const sb = await supabaseServerSSR();
+  const { data } = await sb
+    .from("analyses")
+    .select("symbol,asset_type,timeframe,result")
+    .eq("user_id", user.id)
+    .eq("id", id)
+    .maybeSingle();
+  const row = data as Record<string, unknown> | null;
+  if (!row?.result) return null;
+  return {
+    dto: row.result as FullAnalysis,
+    symbol: String(row.symbol),
+    assetType: String(row.asset_type),
+    timeframe: String(row.timeframe),
+  };
+}
+
 function mapRow(r: Record<string, unknown>): AnalysisRow {
   return {
     id: String(r.id),

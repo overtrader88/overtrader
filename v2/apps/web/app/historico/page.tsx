@@ -102,7 +102,7 @@ export default async function HistoricoPage({
                   <span className="seal-cell"><QualityDot seal={seal} />{sealText(seal)}</span>
                   <span className="num col-rr"><b>{r.rr != null ? r.rr.toFixed(1) : "—"}</b></span>
                   <span className="num col-pf">{r.pf != null ? r.pf.toFixed(2) : "—"}</span>
-                  <a className="see col-act" href={`/analise?symbol=${encodeURIComponent(r.symbol)}&type=${r.assetType}&tf=${r.timeframe}`}>ver →</a>
+                  <a className="see col-act" href={`/analise?id=${encodeURIComponent(r.id)}`}>ver →</a>
                 </div>
               );
             })}

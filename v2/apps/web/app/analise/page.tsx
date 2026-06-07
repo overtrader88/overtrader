@@ -3,7 +3,7 @@ import { AnalysisShell } from "@/components/analysis-shell";
 import { analyzeSymbol } from "@/lib/analysis/service";
 import { findAsset } from "@/lib/market/catalog";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
-import { recordAnalysisView } from "@/lib/history";
+import { recordAnalysisView, getAnalysisById } from "@/lib/history";
 import { checkAnalysisCredit, chargeAnalysis } from "@/lib/credits";
 import { AiNarrative } from "@/components/ai-narrative";
 import { NewsCard } from "@/components/news-card";
@@ -618,13 +618,16 @@ export default async function AnalisePage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const sp = await searchParams;
-  const symbol = (typeof sp.symbol === "string" ? sp.symbol : "BTCUSDT").toUpperCase();
-  const timeframe = resolveTf(sp.tf);
-  const assetType = resolveAssetType(sp.type, symbol);
+  const savedId = typeof sp.id === "string" ? sp.id : null;
+  let symbol = (typeof sp.symbol === "string" ? sp.symbol : "BTCUSDT").toUpperCase();
+  let timeframe = resolveTf(sp.tf);
+  let assetType = resolveAssetType(sp.type, symbol);
 
   const user = await getCurrentUser();
 
-  // Gate de crédito: 1 crédito por análise nova (re-ver a mesma em ≤10min é grátis).
+  // Regras de crédito:
+  //  - ?id=<id> → abre a análise SALVA do histórico (snapshot): SEMPRE grátis.
+  //  - sem id   → gera análise NOVA: 1 crédito (re-gerar a mesma em ≤10min é grátis).
   // O middleware já exige login aqui; se anônimo escapar, bloqueia.
   let dto: FullAnalysis | null = null;
   let error: string | null = null;
@@ -633,6 +636,16 @@ export default async function AnalisePage({
 
   if (!user) {
     blocked = true;
+  } else if (savedId) {
+    const saved = await getAnalysisById(savedId);
+    if (saved) {
+      dto = saved.dto;
+      symbol = saved.symbol;
+      timeframe = saved.timeframe as Timeframe;
+      assetType = saved.assetType as AssetType;
+    } else {
+      error = "Análise não encontrada no seu histórico.";
+    }
   } else {
     const gate = await checkAnalysisCredit(user.id, symbol, timeframe);
     if (!gate.allowed) {
@@ -649,7 +662,7 @@ export default async function AnalisePage({
           const remaining = await chargeAnalysis(user.id, symbol, timeframe);
           if (remaining != null) displayCredits = remaining;
         }
-        await recordAnalysisView(dto); // histórico (best-effort, deduplicado)
+        await recordAnalysisView(dto); // salva no histórico (best-effort, deduplicado)
       }
     }
   }
