@@ -4,6 +4,7 @@ import { analyzeSymbol } from "@/lib/analysis/service";
 import { findAsset } from "@/lib/market/catalog";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
 import { recordAnalysisView } from "@/lib/history";
+import { checkAnalysisCredit, chargeAnalysis } from "@/lib/credits";
 import { AiNarrative } from "@/components/ai-narrative";
 import { NewsCard } from "@/components/news-card";
 import { FundamentalCard } from "@/components/fundamental-card";
@@ -76,8 +77,9 @@ function voteClass(v: string): string {
   const u = v.toUpperCase();
   return u.includes("BUY") ? "up" : u.includes("SELL") ? "dn" : "";
 }
-function fmtIndicator(value: number | Record<string, number>): string {
+function fmtIndicator(value: number | Record<string, number> | null): string {
   if (typeof value === "number") return value.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  if (value == null || typeof value !== "object") return "—"; // VWMA null em ativo sem volume
   const first = Object.values(value)[0];
   return typeof first === "number" ? first.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—";
 }
@@ -620,24 +622,43 @@ export default async function AnalisePage({
   const timeframe = resolveTf(sp.tf);
   const assetType = resolveAssetType(sp.type, symbol);
 
+  const user = await getCurrentUser();
+
+  // Gate de crédito: 1 crédito por análise nova (re-ver a mesma em ≤10min é grátis).
+  // O middleware já exige login aqui; se anônimo escapar, bloqueia.
   let dto: FullAnalysis | null = null;
   let error: string | null = null;
-  try {
-    dto = await analyzeSymbol(symbol, assetType, timeframe, "complete");
-  } catch (e) {
-    error = e instanceof Error ? e.message : "Falha desconhecida.";
+  let blocked = false;
+  let displayCredits = user?.credits;
+
+  if (!user) {
+    blocked = true;
+  } else {
+    const gate = await checkAnalysisCredit(user.id, symbol, timeframe);
+    if (!gate.allowed) {
+      blocked = true; // créditos esgotados
+      displayCredits = gate.balance;
+    } else {
+      try {
+        dto = await analyzeSymbol(symbol, assetType, timeframe, "complete");
+      } catch (e) {
+        error = e instanceof Error ? e.message : "Falha desconhecida.";
+      }
+      if (dto) {
+        if (gate.needsCharge) {
+          const remaining = await chargeAnalysis(user.id, symbol, timeframe);
+          if (remaining != null) displayCredits = remaining;
+        }
+        await recordAnalysisView(dto); // histórico (best-effort, deduplicado)
+      }
+    }
   }
-
-  // Persiste no histórico do usuário (best-effort, deduplicado; sem cobrança).
-  if (dto) await recordAnalysisView(dto);
-
-  const user = await getCurrentUser();
 
   return (
     <>
       <AppBar
         active="analise"
-        credits={user?.credits}
+        credits={displayCredits}
         plan={user ? planLabel(user.plan) : undefined}
         initials={user ? initialsOf(user) : undefined}
         email={user?.email}
@@ -649,7 +670,16 @@ export default async function AnalisePage({
         regime={dto?.analysis.meta.regime}
         adx={dto?.analysis.meta.adxValue}
       >
-        {error ? (
+        {blocked ? (
+          <Panel>
+            <PanelLabel>Créditos esgotados</PanelLabel>
+            <p className="note" style={{ marginBottom: 14 }}>
+              Você usou todos os seus créditos de análise{user ? ` (saldo: ${displayCredits ?? 0})` : ""}. Cada análise completa
+              consome 1 crédito. Assine um plano para continuar analisando com prova (n · IC · selo).
+            </p>
+            <a href="/planos" className="btn primary" style={{ display: "inline-block" }}>Ver planos →</a>
+          </Panel>
+        ) : error ? (
           <Panel>
             <PanelLabel>Sem análise</PanelLabel>
             <p className="note">
