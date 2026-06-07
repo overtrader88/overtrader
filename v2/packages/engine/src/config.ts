@@ -146,6 +146,9 @@ export interface EngineConfig {
     maxBlocks: number;
     maxFvgs: number;
     maxZones: number;
+    /** Distância máx. (fração do preço atual) p/ uma zona de liquidez ser RELEVANTE.
+     *  Evita surfacing de swings ancestrais (ex.: fundo de anos atrás, ~90% longe). */
+    maxDistPct: number;
   };
 
   /** Padrões harmônicos. Tolerância endurecida vs v1 (0.08 → 0.04). */
@@ -278,6 +281,7 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
     maxBlocks: 5,
     maxFvgs: 8,
     maxZones: 5,
+    maxDistPct: 0.4,
   },
   harmonics: {
     minCandles: 60,

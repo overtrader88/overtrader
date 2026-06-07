@@ -169,7 +169,14 @@ function findLiquidityZones(swings: SwingPoint[], atr: number, candles: Candle[]
       }
     }
   }
-  return zones.sort((a, b) => b.cluster - a.cluster || b.formedAt - a.formedAt).slice(0, cfg.maxZones);
+  // Só zonas RELEVANTES: dentro de maxDistPct do preço atual (último close).
+  // Sem isso, swings ancestrais (ex.: fundo de anos atrás, ~90% longe) dominam.
+  const lastClose = candles[candles.length - 1]?.close ?? 0;
+  const relevant = lastClose > 0 && cfg.maxDistPct > 0
+    ? zones.filter((z) => Math.abs(z.level - lastClose) / lastClose <= cfg.maxDistPct)
+    : zones;
+
+  return relevant.sort((a, b) => b.cluster - a.cluster || b.formedAt - a.formedAt).slice(0, cfg.maxZones);
 }
 
 function determineMarketStructure(candles: Candle[], swings: SwingPoint[]): {
