@@ -18,8 +18,12 @@ describe("watchlistCreateSchema", () => {
   it("default STRONG_BUY", () => {
     expect(watchlistCreateSchema.parse({ symbol: "ETHUSDT", timeframe: "4h" }).min_signal_strength).toBe("STRONG_BUY");
   });
-  it("rejeita lado de venda como min_signal_strength", () => {
-    expect(watchlistCreateSchema.safeParse({ symbol: "ETH", timeframe: "4h", min_signal_strength: "SELL" }).success).toBe(false);
+  it("aceita lado de venda como gatilho (watchlist de venda)", () => {
+    expect(watchlistCreateSchema.safeParse({ symbol: "ETH", timeframe: "4h", min_signal_strength: "SELL" }).success).toBe(true);
+    expect(watchlistCreateSchema.safeParse({ symbol: "ETH", timeframe: "4h", min_signal_strength: "STRONG_SELL" }).success).toBe(true);
+  });
+  it("rejeita NEUTRAL (gatilho precisa ser acionável)", () => {
+    expect(watchlistCreateSchema.safeParse({ symbol: "ETH", timeframe: "4h", min_signal_strength: "NEUTRAL" }).success).toBe(false);
   });
 });
 

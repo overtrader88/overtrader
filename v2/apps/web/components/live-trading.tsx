@@ -9,7 +9,7 @@ import { toNarrativeFacts } from "@/lib/analysis/narrative-facts";
 import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narration";
 import { computeSetupScore } from "@/lib/analysis/setup-score";
 import { computeLiveTrade } from "@/lib/analysis/live-trade";
-import { stepPaperTrading, paperStats, livePnl, EMPTY_PAPER_STATE, type PaperState } from "@/lib/analysis/paper-trading";
+import { stepPaperTrading, paperStats, livePnl, normalizePaperState, EMPTY_PAPER_STATE, type PaperState, type PaperCandle } from "@/lib/analysis/paper-trading";
 import { enablePush, disablePush, pushSupported, notifyReinforced } from "@/lib/push/client";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
@@ -69,7 +69,7 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
     paperLoaded.current = true;
     try {
       const raw = window.localStorage.getItem(PAPER_KEY);
-      if (raw) setPaper(JSON.parse(raw) as PaperState);
+      if (raw) setPaper(normalizePaperState(JSON.parse(raw)));
     } catch { /* ignora histórico corrompido */ }
   }, []);
 
@@ -231,6 +231,22 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
   const setup = dto ? computeSetupScore(dto) : null;
   const trade = dto ? computeLiveTrade(dto, ticker?.price ?? null) : null;
 
+  // Candles do contexto atual (p/ liquidação retroativa do paper-trade ao voltar).
+  const paperCandlesRef = useRef<PaperCandle[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    paperCandlesRef.current = []; // limpa ao trocar de ativo/TF
+    void (async () => {
+      try {
+        const r = await fetch(`/api/candles?symbol=${encodeURIComponent(symbol)}&type=${assetType}&tf=${timeframe}`);
+        if (!r.ok) return;
+        const d = (await r.json()) as { candles?: { time: number; high: number; low: number }[] };
+        if (!cancelled) paperCandlesRef.current = (d.candles ?? []).map((c) => ({ time: c.time, high: c.high, low: c.low }));
+      } catch { /* sem candles → só preço ao vivo */ }
+    })();
+    return () => { cancelled = true; };
+  }, [symbol, timeframe, assetType, dto]);
+
   // Avança o paper-trading a cada tick/setup e persiste no localStorage.
   const livePrice = ticker?.price ?? dto?.montecarlo?.currentPrice ?? null;
   useEffect(() => {
@@ -238,7 +254,7 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
     setPaper((prev) => {
       const next = stepPaperTrading(prev, {
         setup: trade ? { side: trade.side, entry: trade.entry, stop: trade.stop, tp1: trade.tp1 } : null,
-        price: livePrice, now: Date.now(), symbol, timeframe,
+        price: livePrice, now: Date.now(), symbol, timeframe, candles: paperCandlesRef.current,
       });
       if (next !== prev && typeof window !== "undefined") {
         try { window.localStorage.setItem(PAPER_KEY, JSON.stringify(next)); } catch { /* quota */ }
@@ -515,15 +531,23 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
             <div className="lt-pstat"><span>R total</span><b className={pStats.totalR >= 0 ? "bull" : "bear"}>{pStats.totalR >= 0 ? "+" : ""}{pStats.totalR.toFixed(2)}R</b></div>
             <div className="lt-pstat"><span>R médio</span><b className={pStats.avgR >= 0 ? "bull" : "bear"}>{pStats.avgR >= 0 ? "+" : ""}{pStats.avgR.toFixed(2)}R</b></div>
           </div>
-          {paper.open ? (() => { const lp = livePnl(paper.open!, livePrice ?? paper.open!.entry); return (
-            <div className="lt-paper-open">
-              <span className={`lt-side ${paper.open.side}`}>{paper.open.side === "buy" ? "COMPRA" : "VENDA"}</span>
-              <span className="lt-po-sym"><b>{paper.open.symbol}</b> {paper.open.timeframe.toUpperCase()}</span>
-              <span>entrada {fmtPrice(paper.open.entry)}</span>
-              <span className={lp.pnlPct >= 0 ? "bull" : "bear"}>{lp.pnlPct >= 0 ? "+" : ""}{lp.pnlPct.toFixed(2)}% · {lp.r >= 0 ? "+" : ""}{lp.r.toFixed(2)}R</span>
-              <span className="lt-status open">aberta</span>
-            </div>
-          ); })() : null}
+          {Object.values(paper.open).map((t) => {
+            const isCur = t.symbol === symbol && t.timeframe === timeframe;
+            const lp = isCur && livePrice != null ? livePnl(t, livePrice) : null;
+            return (
+              <div className="lt-paper-open" key={t.id}>
+                <span className={`lt-side ${t.side}`}>{t.side === "buy" ? "COMPRA" : "VENDA"}</span>
+                <span className="lt-po-sym"><b>{t.symbol}</b> {t.timeframe.toUpperCase()}</span>
+                <span>entrada {fmtPrice(t.entry)}</span>
+                {lp ? (
+                  <span className={lp.pnlPct >= 0 ? "bull" : "bear"}>{lp.pnlPct >= 0 ? "+" : ""}{lp.pnlPct.toFixed(2)}% · {lp.r >= 0 ? "+" : ""}{lp.r.toFixed(2)}R</span>
+                ) : (
+                  <span className="note" style={{ fontSize: "0.78rem" }}>acompanhando…</span>
+                )}
+                <span className={`lt-status ${isCur ? "open" : ""}`}>{isCur ? "aberta · ao vivo" : "aberta · pausada"}</span>
+              </div>
+            );
+          })}
           {recentPaper.length > 0 ? (
             <div className="lt-trades-tbl">
               <table>

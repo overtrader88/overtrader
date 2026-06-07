@@ -9,6 +9,12 @@ interface WItem {
   min_signal_strength: string;
 }
 
+/** Gatilho em PT (≥ aquele lado/força). */
+const SIG_PT: Record<string, string> = {
+  STRONG_BUY: "↑ Compra forte", BUY: "↑ Compra+", WEAK_BUY: "↑ Compra fraca+",
+  WEAK_SELL: "↓ Venda fraca+", SELL: "↓ Venda+", STRONG_SELL: "↓ Venda forte",
+};
+
 /** Painel de watchlist do dashboard — lista/remove itens reais via /api/watchlist. */
 export function WatchlistPanel() {
   const [items, setItems] = useState<WItem[] | null>(null);
@@ -47,8 +53,7 @@ export function WatchlistPanel() {
             <span className="s">{w.symbol}</span>
             <span className="tf">{w.timeframe.toUpperCase()}</span>
           </div>
-          <span className="chip" style={{ fontSize: 10 }}>≥ {w.min_signal_strength.replace(/_/g, " ")}</span>
-          <a className="see" href={`/analise?symbol=${encodeURIComponent(w.symbol)}&tf=${w.timeframe}`}>analisar →</a>
+          <span className="chip" style={{ fontSize: 10 }}>{SIG_PT[w.min_signal_strength] ?? w.min_signal_strength}</span>
           <button type="button" className="wl-x" onClick={() => remove(w.id)} aria-label={`Remover ${w.symbol}`}>×</button>
         </div>
       ))}
