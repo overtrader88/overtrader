@@ -76,8 +76,8 @@ export interface GroupStat {
 export interface BreakdownRow {
   key: string;
   label: string;
-  padrao: GroupStat;
-  classe: GroupStat;
+  /** GroupStat por motor (chaveado pelo id do motor: padrao | padrao_b | classe | classe_b | llm). */
+  stats: Record<string, GroupStat>;
 }
 
 export interface EquityPoint {

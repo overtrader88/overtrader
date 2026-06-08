@@ -520,29 +520,38 @@ function EquityChart({ equity }: { equity: EquityPoint[] }) {
 }
 
 /** Tabela de recorte (classe ou TF) × motor. */
+const BREAKDOWN_ENGINES = ["padrao", "padrao_b", "classe", "classe_b", "llm"] as const;
+const BREAKDOWN_SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM" };
+
 function BreakdownTable({ title, rows }: { title: string; rows: BreakdownRow[] }) {
-  const cell = (g: BreakdownRow["padrao"]) =>
-    g.n === 0 ? <span className="note">—</span> : (
+  const cell = (g: { n: number; winRatePct: number; totalR: number } | undefined) =>
+    !g || g.n === 0 ? <span style={{ color: "#64748b" }}>—</span> : (
       <>
         n={g.n} · {g.winRatePct.toFixed(0)}% · <b style={{ color: g.totalR >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{sgn(g.totalR, 1)}R</b>
       </>
     );
   return (
-    <div style={{ flex: "1 1 320px" }}>
+    <div style={{ width: "100%" }}>
       <h3 style={{ margin: "0 0 8px", fontSize: "0.9rem" }}>{title}</h3>
       {rows.length === 0 ? <p className="note">Sem desfechos resolvidos ainda.</p> : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-          <thead><tr style={ROW}><th style={{ ...TH, textAlign: "left" }}>Grupo</th><th style={{ ...TH, textAlign: "left" }}>Padrão</th><th style={{ ...TH, textAlign: "left" }}>Por classe</th></tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.key} style={ROW}>
-                <td style={TD}><b>{r.label}</b></td>
-                <td style={TD}>{cell(r.padrao)}</td>
-                <td style={TD}>{cell(r.classe)}</td>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", minWidth: 640 }}>
+            <thead>
+              <tr style={ROW}>
+                <th style={{ ...TH, textAlign: "left" }}>Grupo</th>
+                {BREAKDOWN_ENGINES.map((e) => <th key={e} style={{ ...TH, textAlign: "left" }}>{BREAKDOWN_SHORT[e]}</th>)}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.key} style={ROW}>
+                  <td style={TD}><b>{r.label}</b></td>
+                  {BREAKDOWN_ENGINES.map((e) => <td key={e} style={TD}>{cell(r.stats[e])}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
@@ -636,7 +645,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }
       <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Curva de R acumulado (realizado, forward)</h3>
       <EquityChart equity={equity} />
 
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 24 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 24 }}>
         <BreakdownTable title="Por classe de ativo" rows={byClass} />
         <BreakdownTable title="Por timeframe" rows={byTimeframe} />
       </div>

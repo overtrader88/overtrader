@@ -44,19 +44,25 @@ function groupStat(resolved: { outcome: SignalOutcome; pnlR: number }[]): GroupS
   return { n: resolved.length, winRatePct: decisive > 0 ? (wins / decisive) * 100 : 0, totalR };
 }
 
-/** Recorte por chave (classe ou TF) × motor, ordenado por amostra total. */
+/** Recorte por chave (classe ou TF) × TODOS os motores, ordenado por amostra total. */
 function breakdownBy(rows: Row[], keyOf: (r: Row) => string, labelOf: (k: string) => string): BreakdownRow[] {
-  const byKey = new Map<string, { padrao: { outcome: SignalOutcome; pnlR: number }[]; classe: { outcome: SignalOutcome; pnlR: number }[] }>();
+  const byKey = new Map<string, Map<string, { outcome: SignalOutcome; pnlR: number }[]>>();
   for (const r of rows) {
     if (r.outcome == null || r.pnl_r == null) continue;
     const k = keyOf(r);
-    const g = byKey.get(k) ?? byKey.set(k, { padrao: [], classe: [] }).get(k)!;
-    const rec = { outcome: r.outcome, pnlR: Number(r.pnl_r) };
-    (r.engine === "classe" ? g.classe : g.padrao).push(rec);
+    const eng = r.engine ?? "padrao";
+    let em = byKey.get(k);
+    if (!em) { em = new Map(); byKey.set(k, em); }
+    const arr = em.get(eng) ?? em.set(eng, []).get(eng)!;
+    arr.push({ outcome: r.outcome, pnlR: Number(r.pnl_r) });
   }
   return [...byKey.entries()]
-    .map(([k, g]) => ({ key: k, label: labelOf(k), padrao: groupStat(g.padrao), classe: groupStat(g.classe) }))
-    .sort((a, b) => b.padrao.n + b.classe.n - (a.padrao.n + a.classe.n));
+    .map(([k, em]) => {
+      const stats: Record<string, GroupStat> = {};
+      for (const [eng, recs] of em) stats[eng] = groupStat(recs);
+      return { key: k, label: labelOf(k), stats };
+    })
+    .sort((a, b) => Object.values(b.stats).reduce((s, g) => s + g.n, 0) - Object.values(a.stats).reduce((s, g) => s + g.n, 0));
 }
 
 const ENGINE_LABELS: Record<string, string> = {
