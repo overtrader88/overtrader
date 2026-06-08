@@ -54,7 +54,7 @@ async function handle(req: Request): Promise<NextResponse> {
   const limit = Math.min(50, Math.max(1, Number(new URL(req.url).searchParams.get("limit") ?? "25") || 25));
   const { data: items, error } = await sb
     .from("watchlist")
-    .select("id, user_id, symbol, timeframe, min_signal_strength, engine")
+    .select("*") // select("*") tolera a coluna `engine` ausente antes da migration
     .order("last_checked_at", { ascending: true, nullsFirst: true })
     .limit(limit);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

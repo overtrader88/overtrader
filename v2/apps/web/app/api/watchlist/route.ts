@@ -19,7 +19,7 @@ export async function GET(): Promise<NextResponse> {
   const sb = await supabaseServerSSR();
   const { data, error } = await sb
     .from("watchlist")
-    .select("id,symbol,timeframe,min_signal_strength,engine,created_at")
+    .select("*") // select("*") tolera a coluna `engine` ausente antes da migration
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
   if (error || !data) return NextResponse.json({ items: [] });
@@ -45,17 +45,19 @@ export async function POST(req: Request): Promise<NextResponse> {
   const sb = await supabaseServerSSR();
   // Lado do gatilho — permite acompanhar compra E venda do mesmo ativo+TF.
   const side = parsed.data.min_signal_strength.includes("SELL") ? "sell" : "buy";
-  const { error } = await sb.from("watchlist").upsert(
-    {
-      user_id: user.id,
-      symbol: parsed.data.symbol,
-      timeframe: parsed.data.timeframe,
-      min_signal_strength: parsed.data.min_signal_strength,
-      side,
-      engine: parsed.data.engine,
-    },
-    { onConflict: "user_id,symbol,timeframe,side" },
-  );
+  const base = {
+    user_id: user.id,
+    symbol: parsed.data.symbol,
+    timeframe: parsed.data.timeframe,
+    min_signal_strength: parsed.data.min_signal_strength,
+    side,
+  };
+  const conflict = { onConflict: "user_id,symbol,timeframe,side" };
+  let { error } = await sb.from("watchlist").upsert({ ...base, engine: parsed.data.engine }, conflict);
+  // Antes da migration 0012 a coluna `engine` não existe → refaz sem ela.
+  if (error && /engine/i.test(error.message)) {
+    ({ error } = await sb.from("watchlist").upsert(base, conflict));
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
