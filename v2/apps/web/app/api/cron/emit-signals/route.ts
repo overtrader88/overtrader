@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { signalSide } from "@tradeai/shared";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { emitSignal, emitClassSignal, type EmitReason } from "@/lib/signals/emit";
+import { emitSignal, emitClassSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
 import { broadcastSignal } from "@/lib/notify/dispatch";
@@ -30,6 +30,9 @@ async function handle(req: Request): Promise<NextResponse> {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const tally: Record<EmitReason, number> = { emitted: 0, neutral: 0, "low-seal": 0, "open-exists": 0, "no-db": 0, error: 0 };
+  const classTally: Record<ClassEmitReason, number> = {
+    emitted: 0, neutral: 0, "low-seal": 0, "open-exists": 0, "no-db": 0, error: 0, "low-conviction": 0, "no-geometry": 0,
+  };
   let broadcast = 0;
   let classEmitted = 0;
   for (const m of TRACKED_MARKETS) {
@@ -58,15 +61,16 @@ async function handle(req: Request): Promise<NextResponse> {
       try {
         const extras = await loadServerExtras(m.symbol, m.assetType);
         const cls = await emitClassSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
+        classTally[cls.reason]++;
         if (cls.reason === "emitted") classEmitted++;
       } catch {
-        // ignora: Motor 2 nunca compromete o track record do Motor 1.
+        classTally.error++; // erro no Motor 2 nunca compromete o Motor 1.
       }
     } catch {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, ...tally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, motor1: tally, motor2: classTally });
 }
 
 export const GET = handle;
