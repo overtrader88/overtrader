@@ -1537,3 +1537,20 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .cls-deriv .cd-cell .v.bull { color: var(--bull); }
 .cls-deriv .cd-cell .v.bear { color: var(--bear); }
 .cls-deriv .cd-cell .s { font-size: 10.5px; color: var(--ink-faint); margin-top: 2px; }
+
+/* ===== Motor 2 — heatmap de liquidação estimada ===== */
+.cls-deriv.est { border-color: color-mix(in srgb, var(--amber) 35%, var(--hair)); background: color-mix(in srgb, var(--amber) 4%, transparent); }
+.cls-deriv.est .cd-h { color: var(--amber); }
+.est-badge { font-size: 8px; padding: 2px 6px; border: 1px solid currentColor; border-radius: 5px; opacity: .9; }
+.liqz { display: flex; flex-direction: column; gap: 3px; }
+.liqz-row { display: grid; grid-template-columns: 96px 1fr 52px; align-items: center; gap: 8px; font-size: 11.5px; }
+.liqz-row .px { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+.liqz-row .dist { text-align: right; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.liqz-bar { height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
+.liqz-bar i { display: block; height: 100%; border-radius: 5px; }
+.liqz-row.long .liqz-bar i { background: var(--bear); }
+.liqz-row.short .liqz-bar i { background: var(--bull); }
+.liqz-sub { font: 600 9px/1 var(--mono, monospace); letter-spacing: .1em; text-transform: uppercase; margin: 8px 0 5px; }
+.liqz-sub.up { color: var(--bull); }
+.liqz-sub.dn { color: var(--bear); }
+.liqz-now { text-align: center; font: 600 10px/1 var(--mono, monospace); color: var(--cyan); padding: 7px 0; letter-spacing: .04em; }

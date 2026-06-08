@@ -7,6 +7,7 @@ import { fetchFundamental } from "@/lib/market/defillama";
 import { getBreadthProxy } from "@/lib/market/breadth-yahoo";
 import { getOilInventory } from "@/lib/market/eia";
 import { DerivativesLive } from "@/components/derivatives-live";
+import { LiquidationHeatmap } from "@/components/liquidation-heatmap";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import type { AssetType } from "@tradeai/shared";
 
@@ -84,6 +85,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
       </div>
 
       {assetType === "crypto" && <DerivativesLive symbol={dto.analysis.meta.asset} />}
+      {assetType === "crypto" && <LiquidationHeatmap symbol={dto.analysis.meta.asset} />}
 
       {oc && oc.applicability !== "not_applicable" && oc.tvlUsd != null && (
         <div className="cls-deriv">
