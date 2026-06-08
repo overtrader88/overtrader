@@ -10,7 +10,7 @@ import type { AssetType, Timeframe } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
-import type { EngineComparison, EngineStat, OpenPosition, GroupStat, BreakdownRow, EquityPoint } from "@/components/admin-shared";
+import type { EngineComparison, EngineStat, OpenPosition, GroupStat, BreakdownRow, EquityPoint, ClosedOpRow } from "@/components/admin-shared";
 
 interface Row {
   engine: string | null;
@@ -168,5 +168,15 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
     return { t: r.resolved_at!, padrao: Math.round(cumP * 100) / 100, classe: Math.round(cumC * 100) / 100 };
   });
 
-  return { engines, open, byClass, byTimeframe, equity };
+  // Operações FECHADAS (resolvidas) recentes, todos os motores.
+  const closed: ClosedOpRow[] = rows
+    .filter((r) => r.outcome != null && r.resolved_at)
+    .sort((a, b) => new Date(b.resolved_at!).getTime() - new Date(a.resolved_at!).getTime())
+    .slice(0, 60)
+    .map((r) => ({
+      engine: r.engine ?? "padrao", symbol: r.symbol, timeframe: r.timeframe, side: r.side,
+      direction: r.direction, outcome: r.outcome as string, pnlR: r.pnl_r != null ? Number(r.pnl_r) : 0, resolvedAt: r.resolved_at,
+    }));
+
+  return { engines, open, byClass, byTimeframe, equity, closed };
 }

@@ -85,12 +85,24 @@ export interface EquityPoint {
   classe: number;  // R acumulado do Motor 2 até aqui
 }
 
+export interface ClosedOpRow {
+  engine: string;
+  symbol: string;
+  timeframe: string;
+  side: string;
+  direction: string;
+  outcome: string; // TP1/TP2/TP3/SL/EXPIRED
+  pnlR: number;
+  resolvedAt: string | null;
+}
+
 export interface EngineComparison {
   engines: EngineStat[];
   open: OpenPosition[];
   byClass: BreakdownRow[];
   byTimeframe: BreakdownRow[];
   equity: EquityPoint[];
+  closed: ClosedOpRow[];
 }
 
 // Preço mensal-equivalente por plano×período (R$). PRO anual = 600/12=50; PRO+ anual = 936/12=78.

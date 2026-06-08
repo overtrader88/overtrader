@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { NotifyButton } from "./admin-notify-button";
-import { type AdminExtra, type EngineStat, type OpenPosition, type BreakdownRow, type EquityPoint, MRR_PRICE } from "./admin-shared";
+import { type AdminExtra, type EngineStat, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, MRR_PRICE } from "./admin-shared";
 
 const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
 
@@ -474,6 +474,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
           byClass={extra.engines?.byClass ?? []}
           byTimeframe={extra.engines?.byTimeframe ?? []}
           equity={extra.engines?.equity ?? []}
+          closed={extra.engines?.closed ?? []}
           now={now}
         />
       ) : null}
@@ -547,7 +548,9 @@ function BreakdownTable({ title, rows }: { title: string; rows: BreakdownRow[] }
   );
 }
 
-function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; equity: EquityPoint[]; now: number }) {
+const ENGINE_TAG: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 LLM" };
+
+function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   if (engines.every((e) => e.emittedTotal === 0)) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
@@ -681,6 +684,44 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
         entrada e o stop. Atualiza a cada carregamento do painel. As estatísticas realizadas só consolidam quando o cron
         <b> resolve-signals</b> fecha o desfecho contra os candles seguintes.
       </p>
+
+      <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Operações fechadas · recentes</h3>
+      {closed.length === 0 ? (
+        <p className="note">Nenhuma operação fechada ainda. Aparecem aqui quando o cron resolve TP/SL/expiração.</p>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 620 }}>
+            <thead>
+              <tr style={ROW}>
+                <th style={{ ...TH, textAlign: "left" }}>Motor</th>
+                <th style={{ ...TH, textAlign: "left" }}>Ativo</th>
+                <th style={{ ...TH, textAlign: "left" }}>Lado</th>
+                <th style={{ ...TH, textAlign: "left" }}>Desfecho</th>
+                <th style={{ ...TH, textAlign: "right" }}>R</th>
+                <th style={{ ...TH, textAlign: "right" }}>Fechado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {closed.map((o, i) => {
+                const win = /^TP/.test(o.outcome);
+                const oc = win
+                  ? { label: `Take (${o.outcome})`, color: GREEN }
+                  : o.outcome === "SL" ? { label: "Stop", color: RED } : { label: "Expirou", color: "#94a3b8" };
+                return (
+                  <tr key={i} style={ROW}>
+                    <td style={TD}>{ENGINE_TAG[o.engine] ?? o.engine}</td>
+                    <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
+                    <td style={{ ...TD, color: o.side === "sell" ? RED : GREEN }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
+                    <td style={{ ...TD, color: oc.color, fontWeight: 600 }}>{oc.label}</td>
+                    <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: o.pnlR >= 0 ? GREEN : RED }}>{sgn(o.pnlR)}</td>
+                    <td style={{ ...TD, textAlign: "right" }}>{ago(o.resolvedAt, now)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
