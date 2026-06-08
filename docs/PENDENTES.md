@@ -100,3 +100,7 @@ Para ativar:
 ## 🔵 Web push (C2) — feature adiada
 
 - [ ] Notificações web push (VAPID + service worker) — não iniciado; canais de Telegram + e-mail cobrem o C2 por ora.
+
+## ⚙️ Motor 2 (leitura por classe) — pendências
+
+- [ ] **Motor 2 atualizar sozinho na live (polling client-side).** Hoje, no Ao vivo, o Motor 2 é um snapshot 4h renderizado no servidor (recalcula só ao recarregar a página). O Motor padrão faz streaming contínuo via LiveTrading. Pendente: um componente client que faz polling da leitura por classe (veredito + plano + dados) e atualiza ao vivo, como o Motor padrão. Onda maior (novo endpoint de leitura por classe + componente client de polling).
