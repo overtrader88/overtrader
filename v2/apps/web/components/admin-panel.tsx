@@ -577,10 +577,10 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
     { label: "Stop loss (% dos decisivos)", get: (e) => (e.decisive > 0 ? `${((e.losses / e.decisive) * 100).toFixed(0)}%` : "—"), raw: (e) => (e.decisive > 0 ? (e.losses / e.decisive) * 100 : null), dir: "none", tone: (v) => (v == null ? null : RED) },
     { label: "Stops por take", get: (e) => (e.wins > 0 ? `${(e.losses / e.wins).toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 ? e.losses / e.wins : null), dir: "none", tone: (v) => (v == null ? null : v > 1 ? RED : v < 1 ? GREEN : null) },
     { label: "Profit factor", get: (e) => e.profitFactor.toFixed(2), raw: (e) => e.profitFactor, dir: "higher" },
-    { label: "R médio / sinal", get: (e) => sgn(e.avgR), raw: (e) => e.avgR, dir: "higher", tone: (v) => (v != null && v < 0 ? RED : null) },
-    { label: "R acumulado (realizado)", get: (e) => sgn(e.totalR, 1), raw: (e) => e.totalR, dir: "higher", tone: (v) => (v != null && v < 0 ? RED : null) },
+    { label: "R médio / sinal", get: (e) => sgn(e.avgR), raw: (e) => e.avgR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
+    { label: "R acumulado (realizado)", get: (e) => sgn(e.totalR, 1), raw: (e) => e.totalR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
     { label: "Abertos em lucro / prejuízo", get: (e) => `${e.openInProfit} / ${e.openInLoss}`, raw: () => null, dir: "none" },
-    { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, dir: "higher", tone: (v) => (v != null && v < 0 ? RED : null) },
+    { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
   ];
 
   return (
