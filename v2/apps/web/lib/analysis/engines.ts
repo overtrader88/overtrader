@@ -14,6 +14,7 @@ import type { MacroContext } from "@/lib/market/macro-yahoo";
 import type { FmpFundamental } from "@/lib/market/fmp";
 import type { CotPositioning } from "@/lib/market/cot-cftc";
 import type { FundamentalResult } from "@/lib/market/defillama";
+import type { BreadthProxy } from "@/lib/market/breadth-yahoo";
 
 /** Dados externos reais já buscados (por onda) que o Motor 2 pode usar. */
 export interface ClassExtras {
@@ -22,6 +23,7 @@ export interface ClassExtras {
   fundamental?: FmpFundamental | null;
   cot?: CotPositioning | null;
   onchain?: FundamentalResult | null;
+  breadth?: BreadthProxy | null;
 }
 
 export type EngineId = "padrao" | "classe";
@@ -90,7 +92,7 @@ export const CLASS_METHODOLOGY: Record<AssetType, ClassMethodology> = {
     cruzamentos: "Tendência + VIX (medo); breadth confirma topo/fundo",
     cuidados: "Sem 24/7; gap de abertura; risco de evento macro",
     weights: W({ Tendência: 1.6, mtf: 1.4, "Médias Móveis": 1.3, Volatilidade: 1.2 }),
-    pending: ["VIX (Yahoo — onda índices)", "Breadth / advance-decline (proxy por amostra)", "Macro (juros)"],
+    pending: ["VIX (Yahoo — onda índices)", "Breadth / advance-decline (proxy por amostra)", "Macro (juros/Fed)"],
   },
   stocks: {
     label: "Ações",
@@ -239,6 +241,14 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType, ext
   if (oc && assetType === "crypto" && (oc.applicability === "chain" || oc.applicability === "limited") && oc.tvlTrend && oc.tvlTrend !== "stable") {
     const weak = oc.applicability === "limited";
     factors.push({ label: `TVL on-chain ${oc.tvlTrend === "rising" ? "subindo" : "caindo"}${oc.tvlChange30dPct != null ? ` (${oc.tvlChange30dPct >= 0 ? "+" : ""}${oc.tvlChange30dPct}% 30d)` : ""}`, side: oc.tvlTrend === "rising" ? "bull" : "bear", weight: weak ? 0.3 : 0.5 });
+  }
+
+  // 2g) Breadth (índices) — participação dos setores (proxy aproximado).
+  const br = extras?.breadth;
+  if (br && assetType === "indices") {
+    integrated.add("Breadth / advance-decline (proxy por amostra)");
+    if (br.pctAbove50 >= 60) factors.push({ label: `Breadth amplo (${br.pctAbove50}% setores > MM50)`, side: "bull", weight: 0.8 });
+    else if (br.pctAbove50 <= 40) factors.push({ label: `Breadth fraco (${br.pctAbove50}% setores > MM50)`, side: "bear", weight: 0.8 });
   }
 
   // 3) Score ponderado.

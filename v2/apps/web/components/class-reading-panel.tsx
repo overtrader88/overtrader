@@ -4,6 +4,7 @@ import { getMacroContext } from "@/lib/market/macro-yahoo";
 import { fetchFmpFundamental } from "@/lib/market/fmp";
 import { getCotPositioning } from "@/lib/market/cot-cftc";
 import { fetchFundamental } from "@/lib/market/defillama";
+import { getBreadthProxy } from "@/lib/market/breadth-yahoo";
 import { DerivativesLive } from "@/components/derivatives-live";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import type { AssetType } from "@tradeai/shared";
@@ -25,18 +26,20 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   // é bloqueada por IP de cloud. Macro (Yahoo) funciona server-side.
   const extras: ClassExtras = {};
   const asset = dto.analysis.meta.asset;
-  const [macro, cot, fundamental, onchain] = await Promise.all([
+  const [macro, cot, fundamental, onchain, breadth] = await Promise.all([
     assetType === "forex" || assetType === "commodities" || assetType === "indices"
       ? getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices" })
       : Promise.resolve(null),
     assetType === "forex" || assetType === "commodities" ? getCotPositioning(asset) : Promise.resolve(null),
     assetType === "stocks" && process.env.FMP_API_KEY ? fetchFmpFundamental(asset, process.env.FMP_API_KEY) : Promise.resolve(null),
     assetType === "crypto" ? fetchFundamental(asset) : Promise.resolve(null),
+    assetType === "indices" ? getBreadthProxy() : Promise.resolve(null),
   ]);
   extras.macro = macro;
   extras.cot = cot;
   extras.fundamental = fundamental;
   extras.onchain = onchain;
+  extras.breadth = breadth;
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
@@ -44,6 +47,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   const fnd = extras.fundamental;
   const ct = extras.cot;
   const oc = extras.onchain;
+  const br = extras.breadth;
 
   return (
     <Panel style={{ ["--gc" as string]: side.color }}>
@@ -152,6 +156,30 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
           <p className="note" style={{ margin: "6px 0 0" }}>
             Posição dos grandes especuladores no contrato <b>{ct.contract}</b> ({new Date(ct.reportDate).toLocaleDateString("pt-BR")}).
             Net comprado = viés de alta; <b>esticado</b> perto da máx/mín de 6 meses sinaliza risco de reversão.
+          </p>
+        </div>
+      )}
+
+      {br && (
+        <div className="cls-deriv">
+          <div className="cd-h">Breadth · setores S&amp;P <span>proxy aproximado</span></div>
+          <div className="cd-grid">
+            <div className="cd-cell">
+              <div className={`v ${br.pctAbove50 >= 60 ? "bull" : br.pctAbove50 <= 40 ? "bear" : ""}`} style={{ fontSize: 17, fontWeight: 700 }}>{br.pctAbove50}%</div>
+              <div className="k" style={{ marginTop: 4 }}>setores &gt; MM50</div>
+            </div>
+            <div className="cd-cell">
+              <div className={`v ${br.pctAbove200 >= 60 ? "bull" : br.pctAbove200 <= 40 ? "bear" : ""}`} style={{ fontSize: 17, fontWeight: 700 }}>{br.pctAbove200}%</div>
+              <div className="k" style={{ marginTop: 4 }}>setores &gt; MM200</div>
+            </div>
+            <div className="cd-cell">
+              <div className="v" style={{ fontSize: 17, fontWeight: 700 }}>{br.sampleSize}/11</div>
+              <div className="k" style={{ marginTop: 4 }}>setores lidos</div>
+            </div>
+          </div>
+          <p className="note" style={{ margin: "6px 0 0" }}>
+            <b>Proxy aproximado</b> (11 ETFs setoriais SPDR), não o advance-decline oficial. Muitos setores acima da MM = participação
+            ampla (saudável); poucos = alta concentrada (frágil).
           </p>
         </div>
       )}
