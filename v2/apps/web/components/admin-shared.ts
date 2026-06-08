@@ -50,6 +50,7 @@ export interface EngineStat {
   perDay: number;
   openInProfit: number;
   openInLoss: number;
+  openNeutral: number;
   openUnrealizedR: number;
 }
 

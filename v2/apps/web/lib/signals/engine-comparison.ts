@@ -150,6 +150,7 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
       perDay: list.length / spanDays,
       openInProfit: openList.filter((o) => o.status === "profit").length,
       openInLoss: openList.filter((o) => o.status === "loss").length,
+      openNeutral: openList.filter((o) => o.status === "flat" || o.status === "unknown").length,
       openUnrealizedR: openList.reduce((s, o) => s + (o.unrealizedR ?? 0), 0),
     };
   });

@@ -583,7 +583,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }
     { label: "Profit factor", get: (e) => e.profitFactor.toFixed(2), raw: (e) => e.profitFactor, dir: "higher" },
     { label: "R médio / sinal", get: (e) => sgn(e.avgR), raw: (e) => e.avgR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
     { label: "R acumulado (realizado)", get: (e) => sgn(e.totalR, 1), raw: (e) => e.totalR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
-    { label: "Abertos em lucro / prejuízo", get: (e) => `${e.openInProfit} / ${e.openInLoss}`, raw: () => null, dir: "none", node: (e) => (<><span style={{ color: GREEN, fontWeight: 700 }}>{e.openInProfit}</span> / <span style={{ color: RED, fontWeight: 700 }}>{e.openInLoss}</span></>) },
+    { label: "Abertos em lucro / prejuízo / neutro", get: (e) => `${e.openInProfit} / ${e.openInLoss} / ${e.openNeutral}`, raw: () => null, dir: "none", node: (e) => (<><span style={{ color: GREEN, fontWeight: 700 }}>{e.openInProfit}</span> / <span style={{ color: RED, fontWeight: 700 }}>{e.openInLoss}</span> / <span style={{ color: "#94a3b8", fontWeight: 700 }}>{e.openNeutral}</span></>) },
     { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
   ];
 
