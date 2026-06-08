@@ -571,6 +571,8 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
     { label: "Abertos agora", get: (e) => String(e.open), raw: (e) => e.open, dir: "none" },
     { label: "Resolvidos", get: (e) => String(e.resolved), raw: (e) => e.resolved, dir: "none" },
     { label: "Decisivos (TP+SL)", get: (e) => String(e.decisive), raw: (e) => e.decisive, dir: "none" },
+    { label: "Operações TP (take)", get: (e) => String(e.wins), raw: (e) => e.wins, dir: "none", tone: (v) => (v && v > 0 ? GREEN : null) },
+    { label: "Operações SL (stop)", get: (e) => String(e.losses), raw: (e) => e.losses, dir: "none", tone: (v) => (v && v > 0 ? RED : null) },
     { label: "Assertividade (win rate)", get: (e) => `${e.winRatePct.toFixed(1)}%`, raw: (e) => e.winRatePct, dir: "higher" },
     { label: "Stop loss (% dos decisivos)", get: (e) => (e.decisive > 0 ? `${((e.losses / e.decisive) * 100).toFixed(0)}%` : "—"), raw: (e) => (e.decisive > 0 ? (e.losses / e.decisive) * 100 : null), dir: "none", tone: (v) => (v == null ? null : RED) },
     { label: "Stops por take", get: (e) => (e.wins > 0 ? `${(e.losses / e.wins).toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 ? e.losses / e.wins : null), dir: "none", tone: (v) => (v == null ? null : v > 1 ? RED : v < 1 ? GREEN : null) },
