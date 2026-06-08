@@ -10,10 +10,12 @@ export function AiNarrative({
   symbol,
   assetType,
   timeframe,
+  engine = "padrao",
 }: {
   symbol: string;
   assetType: AssetType;
   timeframe: Timeframe;
+  engine?: string;
 }) {
   const [state, setState] = useState<State>("idle");
   const [text, setText] = useState("");
@@ -24,7 +26,7 @@ export function AiNarrative({
       const res = await fetch("/api/narrative", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, assetType, timeframe }),
+        body: JSON.stringify({ symbol, assetType, timeframe, engine }),
       });
       if (res.status === 503) return setState("unconfigured");
       const d: { narrative?: string } = await res.json();

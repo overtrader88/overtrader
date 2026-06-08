@@ -8,7 +8,8 @@ import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/http/limit";
 import { analyzeInputSchema } from "@/lib/validation/schemas";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { generateNarrative } from "@/lib/analysis/narrative";
+import { generateNarrative, generateClassNarrative } from "@/lib/analysis/narrative";
+import { loadServerExtras } from "@/lib/analysis/class-extras";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,10 +32,16 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Parâmetros inválidos." }, { status: 400 });
   }
 
+  const engine = (raw as { engine?: string })?.engine === "classe" ? "classe" : "padrao";
   let narrative: string | null;
   try {
     const dto = await analyzeSymbol(parsed.data.symbol, parsed.data.assetType, parsed.data.timeframe, "complete");
-    narrative = await generateNarrative(dto);
+    if (engine === "classe") {
+      const extras = await loadServerExtras(parsed.data.symbol, parsed.data.assetType);
+      narrative = await generateClassNarrative(dto, parsed.data.assetType, extras);
+    } else {
+      narrative = await generateNarrative(dto);
+    }
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Falha ao computar a análise." }, { status: 502 });
   }

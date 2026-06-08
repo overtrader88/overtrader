@@ -773,12 +773,10 @@ export default async function AnalisePage({
               <PanelLabel>Gráfico · {symbol} · {timeframe.toUpperCase()} · {isClasse ? "plano do Motor 2" : "níveis + zonas"}</PanelLabel>
               <PriceChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={isClasse ? (classLines ?? []) : buildPriceLines(dto)} />
             </Panel>
-            {!isClasse ? (
-              <Panel>
-                <PanelLabel>Leitura do analista · IA</PanelLabel>
-                <AiNarrative symbol={symbol} assetType={assetType} timeframe={timeframe} />
-              </Panel>
-            ) : null}
+            <Panel>
+              <PanelLabel>Leitura do analista · IA{isClasse ? " · Motor 2 (por classe)" : ""}</PanelLabel>
+              <AiNarrative symbol={symbol} assetType={assetType} timeframe={timeframe} engine={engine} />
+            </Panel>
             {!isClasse ? <LevelsAndSeal dto={dto} /> : null}
             {dto.backtest && dto.equityCurve && dto.quality ? (
               <Panel className="adv-only">
