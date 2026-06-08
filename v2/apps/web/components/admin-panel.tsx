@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { NotifyButton } from "./admin-notify-button";
 import { type AdminExtra, type EngineStat, type OpenPosition, type BreakdownRow, type EquityPoint, MRR_PRICE } from "./admin-shared";
@@ -547,6 +548,8 @@ function BreakdownTable({ title, rows }: { title: string; rows: BreakdownRow[] }
 }
 
 function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; equity: EquityPoint[]; now: number }) {
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
   const p = engines.find((e) => e.engine === "padrao");
   const c = engines.find((e) => e.engine === "classe");
   if (!p && !c) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
@@ -571,6 +574,16 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
 
   return (
     <div className="motores-tab" style={{ color: "#e8edf5" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <button
+          type="button"
+          onClick={() => startRefresh(() => router.refresh())}
+          disabled={refreshing}
+          style={{ ...FIELD, cursor: refreshing ? "wait" : "pointer", fontWeight: 600, background: "var(--accent,#2563eb)", color: "#fff", borderColor: "var(--accent,#2563eb)", opacity: refreshing ? 0.7 : 1 }}
+        >
+          {refreshing ? "Atualizando…" : "↻ Atualizar dados"}
+        </button>
+      </div>
       <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "78ch" }}>
         Comparação <b>forward</b> entre os dois motores nos mercados curados. <b>Realizado</b> = desfechos fechados pelo cron
         (TP/SL). <b>Não-realizado</b> = posições abertas marcadas a mercado AGORA (fecharia em lucro ou prejuízo). Win rate / PF / R
