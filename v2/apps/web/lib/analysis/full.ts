@@ -47,6 +47,8 @@ export interface FullAnalysis {
   volumeProfile?: VolumeProfile;
   /** Eventos Wyckoff (Spring/UTAD) detectados por varredura+reclaim. */
   wyckoffEvents?: WyckoffEvent[];
+  /** ATR(14) absoluto — usado p/ derivar o plano do Motor 2 quando o motor principal é neutro. */
+  atr?: number;
 }
 
 export interface RunFullOptions {
@@ -113,5 +115,5 @@ export function runFullAnalysis(input: AnalysisInput, options: RunFullOptions): 
   const volumeProfile = computeVolumeProfile(candles) ?? undefined;
   const wyckoffEvents = detectWyckoffEvents(candles);
 
-  return { generatedAt, type, period, analysis, montecarlo, scenarios, smc, harmonics, wegd, seasonality, sessions, multiTimeframe, backtest, quality, equityCurve: equityFromTrades(bt.trades), volumeProfile, wyckoffEvents };
+  return { generatedAt, type, period, analysis, montecarlo, scenarios, smc, harmonics, wegd, seasonality, sessions, multiTimeframe, backtest, quality, equityCurve: equityFromTrades(bt.trades), volumeProfile, wyckoffEvents, atr: atr14 };
 }

@@ -15,11 +15,13 @@ export function ReportActions({
   symbol,
   assetType,
   timeframe,
+  engine = "padrao",
 }: {
   dto: FullAnalysis;
   symbol: string;
   assetType: AssetType;
   timeframe: Timeframe;
+  engine?: string;
 }) {
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
 
@@ -29,7 +31,7 @@ export function ReportActions({
       const res = await fetch("/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dto, symbol, assetType, timeframe }),
+        body: JSON.stringify({ dto, symbol, assetType, timeframe, engine }),
       });
       if (!res.ok) throw new Error("falha");
       const blob = await res.blob();

@@ -7,12 +7,32 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/http/limit";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { AnalysisReport, type ReportCandle } from "@/lib/report/report-document";
+import { AnalysisReport, type ReportCandle, type Motor2Report } from "@/lib/report/report-document";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
 import { generateNarrative } from "@/lib/analysis/narrative";
+import { computeClassReading, buildClassPlan } from "@/lib/analysis/engines";
+import { loadServerExtras } from "@/lib/analysis/class-extras";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import type { AssetType, Timeframe } from "@tradeai/shared";
+
+const SIDE_LABEL = { buy: "COMPRA", sell: "VENDA", neutral: "NEUTRO" } as const;
+
+/** Constrói o bloco do Motor 2 para o relatório (mesma leitura por classe da tela). */
+async function buildMotor2(dto: FullAnalysis, symbol: string, assetType: AssetType): Promise<Motor2Report | null> {
+  try {
+    const extras = await loadServerExtras(symbol, assetType);
+    const r = computeClassReading(dto, assetType, extras);
+    const plan = buildClassPlan(dto, r.side);
+    return {
+      label: r.methodology.label, side: r.side, sideLabel: SIDE_LABEL[r.side], score: r.score,
+      plan: plan ? { entry: plan.entry, stopLoss: plan.stopLoss, takeProfit1: plan.takeProfit1, takeProfit2: plan.takeProfit2, takeProfit3: plan.takeProfit3, rr1: plan.rr1 } : null,
+      agree: r.agree, against: r.against, manda: r.methodology.manda, cuidados: r.methodology.cuidados,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,14 +63,14 @@ async function loadCandles(symbol: string, assetType: AssetType, timeframe: Time
 export async function POST(req: Request): Promise<NextResponse> {
   const limited = await rateLimit(req, "report", 10);
   if (limited) return limited;
-  let body: { dto?: FullAnalysis; symbol?: string; assetType?: string; timeframe?: string };
+  let body: { dto?: FullAnalysis; symbol?: string; assetType?: string; timeframe?: string; engine?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const { dto, symbol, assetType, timeframe } = body;
+  const { dto, symbol, assetType, timeframe, engine } = body;
   if (
     !dto || typeof dto !== "object" || !dto.analysis?.signal?.signal ||
     typeof symbol !== "string" || !symbol ||
@@ -61,14 +81,15 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   try {
-    // gráfico + narrativa em paralelo; cada falha degrada gracioso.
-    const [candles, narrative] = await Promise.all([
+    // gráfico + narrativa + Motor 2 (se aplicável) em paralelo; cada falha degrada gracioso.
+    const [candles, narrative, motor2] = await Promise.all([
       loadCandles(symbol, assetType as AssetType, timeframe as Timeframe),
       generateNarrative(dto).catch(() => null),
+      engine === "classe" ? buildMotor2(dto, symbol, assetType as AssetType) : Promise.resolve(null),
     ]);
 
     const buffer = await renderToBuffer(
-      AnalysisReport({ dto, symbol, assetType: assetType as AssetType, timeframe: timeframe as Timeframe, candles, narrative }),
+      AnalysisReport({ dto, symbol, assetType: assetType as AssetType, timeframe: timeframe as Timeframe, candles, narrative, motor2 }),
     );
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,

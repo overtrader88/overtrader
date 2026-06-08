@@ -29,7 +29,7 @@ export {
   type WalkForwardResult,
 } from "./cross-sectional";
 export { computeMarketRegime, type RegimeInfo } from "./regime";
-export { computeRisk, neutralRisk } from "./risk";
+export { computeRisk, computeRiskFrom, neutralRisk } from "./risk";
 export { computeGates, CRITICAL_GATE_IDS } from "./gates";
 
 // Camadas probabilísticas (M2) — funções puras compostas pela borda.

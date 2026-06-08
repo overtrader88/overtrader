@@ -745,7 +745,7 @@ export default async function AnalisePage({
         ) : !dto ? null : (
           <LastAnalysisBanner enabled={isLastSaved} generatedAt={dto.generatedAt} symbol={symbol} timeframe={timeframe}>
           <>
-            <ReportActions dto={dto} symbol={symbol} assetType={assetType} timeframe={timeframe} />
+            <ReportActions dto={dto} symbol={symbol} assetType={assetType} timeframe={timeframe} engine={engine} />
             <div className="engine-bar">
               <span className="eb-k">Motor de análise</span>
               <EngineSelector active={engine} />

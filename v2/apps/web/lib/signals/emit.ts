@@ -9,7 +9,7 @@ import { ENGINE_VERSION } from "@tradeai/engine";
 import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
-import { computeClassReading, type ClassExtras } from "@/lib/analysis/engines";
+import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
 
 export type EmitReason = "emitted" | "neutral" | "low-seal" | "open-exists" | "no-db" | "error";
 export type ClassEmitReason = EmitReason | "low-conviction" | "no-geometry";
@@ -85,20 +85,10 @@ export async function emitClassSignal(
   const seal = dto.quality?.status;
   if (seal !== "green" && seal !== "yellow") return { reason: "low-seal", id: null };
 
-  const r = dto.analysis.risk;
-  if (!(r.distSL > 0)) return { reason: "no-geometry", id: null }; // sem plano-base (Motor 1 neutro)
-
-  // Espelha as distâncias do plano principal para o lado do Motor 2.
-  const dSL = r.distSL;
-  const d1 = Math.abs(r.takeProfit1 - r.entry);
-  const d2 = Math.abs(r.takeProfit2 - r.entry);
-  const d3 = Math.abs(r.takeProfit3 - r.entry);
-  const buy = reading.side === "buy";
-  const stop = buy ? r.entry - dSL : r.entry + dSL;
-  const tp1 = buy ? r.entry + d1 : r.entry - d1;
-  const tp2 = buy ? r.entry + d2 : r.entry - d2;
-  const tp3 = buy ? r.entry + d3 : r.entry - d3;
-  const direction: SignalDirection = buy
+  const plan = buildClassPlan(dto, reading.side);
+  if (!plan) return { reason: "no-geometry", id: null }; // sem entrada/ATR p/ montar o plano
+  const { entry, stopLoss: stop, takeProfit1: tp1, takeProfit2: tp2, takeProfit3: tp3 } = plan;
+  const direction: SignalDirection = reading.side === "buy"
     ? (reading.score >= 70 ? "STRONG_BUY" : "BUY")
     : (reading.score <= 30 ? "STRONG_SELL" : "SELL");
 
@@ -112,7 +102,7 @@ export async function emitClassSignal(
       p_direction: direction,
       p_seal: seal,
       p_side: reading.side,
-      p_entry: r.entry,
+      p_entry: entry,
       p_stop: stop,
       p_tp1: tp1,
       p_tp2: tp2,

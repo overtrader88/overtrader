@@ -8,7 +8,55 @@
  * a classe pede e ainda não integramos aparece em `pending` (próximas ondas).
  */
 import type { AssetType, SignalDirection } from "@tradeai/shared";
+import { computeRiskFrom, DEFAULT_ENGINE_CONFIG } from "@tradeai/engine";
 import type { FullAnalysis } from "./full";
+
+export interface ClassPlan {
+  entry: number;
+  stopLoss: number;
+  takeProfit1: number;
+  takeProfit2: number;
+  takeProfit3: number;
+  rr1: number;
+}
+
+/**
+ * Plano operacional do MOTOR 2, orientado ao lado da leitura por classe. Quando o
+ * motor principal tem plano (não-neutro), ESPELHA as distâncias (ATR simétrico);
+ * quando o principal está neutro, deriva os níveis do ATR(14) — assim o Motor 2
+ * sempre entrega Entrada/Stop/Alvos, mesmo quando o Motor 1 não aponta direção.
+ */
+export function buildClassPlan(dto: FullAnalysis, side: "buy" | "sell" | "neutral"): ClassPlan | null {
+  if (side === "neutral") return null;
+  const r = dto.analysis?.risk;
+  const entry = r?.entry;
+  if (!entry || !(entry > 0)) return null;
+  const buy = side === "buy";
+
+  if (r.distSL > 0) {
+    const d1 = Math.abs(r.takeProfit1 - entry);
+    const d2 = Math.abs(r.takeProfit2 - entry);
+    const d3 = Math.abs(r.takeProfit3 - entry);
+    return {
+      entry,
+      stopLoss: buy ? entry - r.distSL : entry + r.distSL,
+      takeProfit1: buy ? entry + d1 : entry - d1,
+      takeProfit2: buy ? entry + d2 : entry - d2,
+      takeProfit3: buy ? entry + d3 : entry - d3,
+      rr1: r.distSL > 0 ? d1 / r.distSL : 0,
+    };
+  }
+
+  // Motor 1 neutro → deriva do ATR (mesma geometria do motor, lado do Motor 2).
+  const atrVal = dto.atr && dto.atr > 0 ? dto.atr : dto.analysis.meta?.atrRatio ? dto.analysis.meta.atrRatio * entry : 0;
+  if (!(atrVal > 0)) return null;
+  const dir: SignalDirection = buy ? "BUY" : "SELL";
+  const out = computeRiskFrom(entry, atrVal, dir, DEFAULT_ENGINE_CONFIG);
+  return {
+    entry: out.entry, stopLoss: out.stopLoss,
+    takeProfit1: out.takeProfit1, takeProfit2: out.takeProfit2, takeProfit3: out.takeProfit3, rr1: out.rr1,
+  };
+}
 import type { BinanceDerivatives } from "@/lib/market/derivatives-binance";
 import type { MacroContext } from "@/lib/market/macro-yahoo";
 import type { FmpFundamental, FmpEarnings } from "@/lib/market/fmp";

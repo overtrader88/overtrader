@@ -232,6 +232,60 @@ function Chip({ k, v }: { k: string; v: string }) {
   );
 }
 
+export interface Motor2Report {
+  label: string;
+  side: "buy" | "sell" | "neutral";
+  sideLabel: string;
+  score: number;
+  plan: { entry: number; stopLoss: number; takeProfit1: number; takeProfit2: number; takeProfit3: number; rr1: number } | null;
+  agree: string[];
+  against: string[];
+  manda: string;
+  cuidados: string;
+}
+
+/** Bloco do MOTOR 2 (leitura por classe) na capa do relatório. */
+function Motor2Block({ m }: { m: Motor2Report }) {
+  const col = dirColor(m.side);
+  const r = m.plan;
+  const dSL = r ? Math.abs(r.entry - r.stopLoss) : 0;
+  const rOf = (px: number) => (dSL > 0 ? Math.abs(px - r!.entry) / dSL : 0);
+  const rows: [string, number, string, string][] = r
+    ? [
+        ["TP3", r.takeProfit3, `R ${fnum(rOf(r.takeProfit3), 1)}`, C.bull],
+        ["TP2", r.takeProfit2, `R ${fnum(rOf(r.takeProfit2), 1)}`, C.bull],
+        ["TP1", r.takeProfit1, `R ${fnum(r.rr1 || rOf(r.takeProfit1), 1)}`, C.bull],
+        ["Entrada", r.entry, "agora", C.ink],
+        ["Stop", r.stopLoss, "R −1.0", C.bear],
+      ]
+    : [];
+  return (
+    <View style={{ marginTop: 14, borderWidth: 1, borderColor: col, borderRadius: 8, padding: 13, backgroundColor: C.panel }} wrap={false}>
+      <Text style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, color: col, marginBottom: 6 }}>MOTOR 2 · LEITURA POR CLASSE ({m.label.toUpperCase()})</Text>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: r ? 9 : 4 }}>
+        <Text style={{ fontSize: 20, fontWeight: 700, color: col }}>{m.sideLabel}</Text>
+        <Text style={{ fontSize: 12, color: C.inkFaint }}>convicção {Math.round(m.score)}/100</Text>
+      </View>
+      {r ? (
+        <View style={{ marginBottom: 4 }}>
+          {rows.map(([tag, px, rr, c], i) => (
+            <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2.5, borderBottomWidth: i < rows.length - 1 ? 1 : 0, borderBottomColor: C.line }}>
+              <Text style={{ fontSize: 8.5, fontWeight: 700, color: c, width: 60 }}>{tag}</Text>
+              <Text style={{ fontSize: 8.5, color: C.ink, flex: 1, textAlign: "right" }}>{fmtPrice(px)}</Text>
+              <Text style={{ fontSize: 8, color: C.inkFaint, width: 52, textAlign: "right" }}>{rr}</Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text style={{ fontSize: 8.5, color: C.inkSoft }}>Sem plano operacional (leitura neutra).</Text>
+      )}
+      <Text style={{ fontSize: 8.5, color: C.inkSoft, marginTop: 5 }}><Text style={{ color: C.bull, fontWeight: 700 }}>A favor: </Text>{m.agree.join(", ") || "—"}</Text>
+      <Text style={{ fontSize: 8.5, color: C.inkSoft }}><Text style={{ color: C.bear, fontWeight: 700 }}>Contra: </Text>{m.against.join(", ") || "—"}</Text>
+      <Text style={{ fontSize: 7.5, color: C.inkFaint, marginTop: 5, lineHeight: 1.45 }}>Manda: {m.manda}. Cuidados: {m.cuidados}. Níveis por ATR orientados ao lado do Motor 2; sem backtest próprio — calibração medida no track record forward por motor.</Text>
+    </View>
+  );
+}
+
 function Section({ n, title, children, note }: { n: number; title: string; children?: React.ReactNode; note?: string }) {
   // Cola o título à PRIMEIRA fileira de conteúdo (wrap={false} juntos), e deixa o
   // resto fluir. Assim o título nunca fica órfão no rodapé, sem criar vãos nem
@@ -641,7 +695,7 @@ function timeframeMeta(dto: FullAnalysis): string {
 }
 
 export function AnalysisReport({
-  dto, symbol, assetType, timeframe, candles, narrative,
+  dto, symbol, assetType, timeframe, candles, narrative, motor2,
 }: {
   dto: FullAnalysis;
   symbol: string;
@@ -649,6 +703,7 @@ export function AnalysisReport({
   timeframe: Timeframe;
   candles?: ReportCandle[];
   narrative?: string | null;
+  motor2?: Motor2Report | null;
 }) {
   const a = dto.analysis;
   const side = signalSide(a.signal.signal);
@@ -714,6 +769,8 @@ export function AnalysisReport({
           </View>
           {dto.quality?.reason ? <Text style={s.sealReason}>{dto.quality.reason}</Text> : null}
         </View>
+
+        {motor2 ? <Motor2Block m={motor2} /> : null}
 
         {/* ---- seções numeradas ---- */}
         {sections.map((sec, i) => (

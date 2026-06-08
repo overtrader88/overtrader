@@ -1,5 +1,5 @@
 import { Panel, PanelLabel, RadialGauge } from "@/components/ui";
-import { computeClassReading } from "@/lib/analysis/engines";
+import { computeClassReading, buildClassPlan } from "@/lib/analysis/engines";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { DerivativesLive } from "@/components/derivatives-live";
 import { LiquidationHeatmap } from "@/components/liquidation-heatmap";
@@ -11,6 +11,8 @@ const SIDE_PT = {
   sell: { label: "VENDA", cls: "bear", color: "var(--bear)" },
   neutral: { label: "NEUTRO", cls: "neu", color: "var(--ink-soft)" },
 } as const;
+
+const fmtPx = (p: number) => p.toLocaleString("pt-BR", { maximumFractionDigits: p >= 100 ? 2 : p >= 1 ? 4 : 6 });
 
 /**
  * MOTOR 2 — leitura "por classe de ativo". Re-pondera os MESMOS dados reais do
@@ -25,6 +27,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
+  const plan = buildClassPlan(dto, r.side); // plano próprio do Motor 2 (orientado ao lado da classe)
   const mc = extras.macro;
   const fnd = extras.fundamental;
   const ct = extras.cot;
@@ -58,6 +61,30 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
         <div className="cm-cell"><div className="k">Cruzamentos-chave</div><div className="v">{m.cruzamentos}</div></div>
         <div className="cm-cell warn"><div className="k">Cuidados</div><div className="v">{m.cuidados}</div></div>
       </div>
+
+      {plan ? (() => {
+        const dSL = Math.abs(plan.entry - plan.stopLoss);
+        const rOf = (px: number) => (dSL > 0 ? Math.abs(px - plan.entry) / dSL : 0);
+        const r1 = plan.rr1 || rOf(plan.takeProfit1), r2 = rOf(plan.takeProfit2), r3 = rOf(plan.takeProfit3);
+        const maxR = Math.max(r1, r2, r3, 1);
+        const w = (rr: number) => `${Math.max(6, (rr / maxR) * 100)}%`;
+        return (
+          <div className="cls-plan">
+            <div className="cls-plan-h">Plano operacional · Motor 2 ({side.label.toLowerCase()})</div>
+            <div className="ladder">
+              <div className="rung tp"><span className="tag">TP3</span><div className="dist"><i style={{ width: w(r3) }} /></div><span className="px">{fmtPx(plan.takeProfit3)}</span><span className="rr">R {r3.toFixed(1)}</span></div>
+              <div className="rung tp"><span className="tag">TP2</span><div className="dist"><i style={{ width: w(r2) }} /></div><span className="px">{fmtPx(plan.takeProfit2)}</span><span className="rr">R {r2.toFixed(1)}</span></div>
+              <div className="rung tp"><span className="tag">TP1</span><div className="dist"><i style={{ width: w(r1) }} /></div><span className="px">{fmtPx(plan.takeProfit1)}</span><span className="rr">R {r1.toFixed(1)}</span></div>
+              <div className="rung entry"><span className="tag">ENTRADA</span><div className="dist"><i style={{ width: "50%" }} /></div><span className="px">{fmtPx(plan.entry)}</span><span className="rr">agora</span></div>
+              <div className="rung sl"><span className="tag">STOP</span><div className="dist"><i style={{ width: w(1) }} /></div><span className="px">{fmtPx(plan.stopLoss)}</span><span className="rr">R −1.0</span></div>
+            </div>
+            <p className="note" style={{ margin: "6px 0 0" }}>
+              Níveis por ATR orientados ao lado do <b>Motor 2</b>{dto.analysis.risk.distSL > 0 ? " (mesma geometria do plano principal)" : " (Motor 1 neutro — derivado do ATR)"}.
+              Sem backtest próprio ainda; o track record forward por motor é que mede a calibração.
+            </p>
+          </div>
+        );
+      })() : null}
 
       {assetType === "crypto" && <DerivativesLive symbol={dto.analysis.meta.asset} />}
       {assetType === "crypto" && <LiquidationHeatmap symbol={dto.analysis.meta.asset} />}
