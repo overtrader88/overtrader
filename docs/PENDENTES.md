@@ -104,3 +104,12 @@ Para ativar:
 ## ⚙️ Motor 2 (leitura por classe) — pendências
 
 - [ ] **Motor 2 atualizar sozinho na live (polling client-side).** Hoje, no Ao vivo, o Motor 2 é um snapshot 4h renderizado no servidor (recalcula só ao recarregar a página). O Motor padrão faz streaming contínuo via LiveTrading. Pendente: um componente client que faz polling da leitura por classe (veredito + plano + dados) e atualiza ao vivo, como o Motor padrão. Onda maior (novo endpoint de leitura por classe + componente client de polling).
+
+## 🧠 IA de insights sobre os motores — aguardando amostra (decisão 08/06)
+
+Objetivo: a IA analisar os resultados forward dos motores e propor ajustes na
+lógica para melhorar resultados — SEM overfitting.
+
+- [ ] **Aguardar ~5 dias de amostra forward** (sinais resolvidos por motor) antes de construir. Com amostra muito pequena qualquer "insight" é ruído.
+- [ ] **Depois:** painel **"Insights da IA"** (read-only) no admin — lê os agregados por motor × classe × TF × regime (com n e IC), aponta padrões só onde a amostra é suficiente, marca o resto como ruído, e propõe hipóteses testáveis ranqueadas.
+- [ ] **Harness de "Motor candidato" (A/B forward):** hipóteses viram uma variante que roda em paralelo só no track record; só promove a lógica viva se o desempenho **out-of-sample** vencer com amostra ≥ limiar + IC. Nunca auto-aplica; o forward decide.
