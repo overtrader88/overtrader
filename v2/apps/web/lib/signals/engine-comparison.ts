@@ -10,7 +10,7 @@ import type { AssetType, Timeframe } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
-import type { EngineComparison, EngineStat, OpenPosition, GroupStat, BreakdownRow, EquityPoint, ClosedOpRow } from "@/components/admin-shared";
+import type { EngineComparison, EngineStat, OpenPosition, GroupStat, BreakdownRow, EquityPoint, ClosedOpRow, DailyRow, DailyCell } from "@/components/admin-shared";
 
 interface Row {
   engine: string | null;
@@ -187,5 +187,22 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
       direction: r.direction, outcome: r.outcome as string, pnlR: r.pnl_r != null ? Number(r.pnl_r) : 0, resolvedAt: r.resolved_at,
     }));
 
-  return { engines, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed };
+  // Resultado DIÁRIO das finalizadas (por dia × motor), mais recentes primeiro.
+  const dmap = new Map<string, Record<string, DailyCell>>();
+  for (const r of rows) {
+    if (r.outcome == null || !r.resolved_at) continue;
+    const day = r.resolved_at.slice(0, 10);
+    const eng = r.engine ?? "padrao";
+    let pe = dmap.get(day);
+    if (!pe) { pe = {}; dmap.set(day, pe); }
+    const c = pe[eng] ?? (pe[eng] = { wins: 0, stops: 0, expired: 0, totalR: 0, n: 0 });
+    c.n++; c.totalR += Number(r.pnl_r ?? 0);
+    if (isWin(r.outcome)) c.wins++; else if (r.outcome === "SL") c.stops++; else c.expired++;
+  }
+  const daily: DailyRow[] = [...dmap.entries()]
+    .map(([date, perEngine]) => ({ date, perEngine }))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 30);
+
+  return { engines, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily };
 }

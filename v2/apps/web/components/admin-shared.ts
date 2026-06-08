@@ -108,7 +108,11 @@ export interface EngineComparison {
   bySymbolTf: BreakdownRow[];
   equity: EquityPoint[];
   closed: ClosedOpRow[];
+  daily: DailyRow[];
 }
+
+export interface DailyCell { wins: number; stops: number; expired: number; totalR: number; n: number }
+export interface DailyRow { date: string; perEngine: Record<string, DailyCell> }
 
 // Preço mensal-equivalente por plano×período (R$). PRO anual = 600/12=50; PRO+ anual = 936/12=78.
 export const MRR_PRICE: Record<string, Record<string, number>> = {

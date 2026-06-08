@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { NotifyButton } from "./admin-notify-button";
-import { type AdminExtra, type EngineStat, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, MRR_PRICE } from "./admin-shared";
+import { type AdminExtra, type EngineStat, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, type DailyRow, type DailyCell, MRR_PRICE } from "./admin-shared";
 
 const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
 
@@ -477,6 +477,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
           bySymbolTf={extra.engines?.bySymbolTf ?? []}
           equity={extra.engines?.equity ?? []}
           closed={extra.engines?.closed ?? []}
+          daily={extra.engines?.daily ?? []}
           now={now}
         />
       ) : null}
@@ -646,6 +647,64 @@ const FILTER_BAR: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wr
 const C_GREEN = "var(--bull,#16a34a)";
 const C_RED = "var(--bear,#dc2626)";
 
+// ===================== Quadro de resultado diário (finalizadas + abertas) =====================
+function DailyBoard({ daily, engines, engineIds }: { daily: DailyRow[]; engines: EngineStat[]; engineIds: string[] }) {
+  const fmtDay = (d: string) => { const [, m, dd] = d.split("-"); return `${dd}/${m}`; };
+  const openByEngine: Record<string, EngineStat> = Object.fromEntries(engines.map((e) => [e.engine, e]));
+  const totals: Record<string, { wins: number; stops: number; totalR: number }> = {};
+  for (const id of engineIds) {
+    let wins = 0, stops = 0, totalR = 0;
+    for (const d of daily) { const c = d.perEngine[id]; if (c) { wins += c.wins; stops += c.stops; totalR += c.totalR; } }
+    totals[id] = { wins, stops, totalR };
+  }
+  const dayCell = (c: DailyCell | undefined) =>
+    !c || c.n === 0 ? <span style={{ color: "#64748b" }}>—</span> : (
+      <><span style={{ color: C_GREEN }}>✅{c.wins}</span> <span style={{ color: C_RED }}>❌{c.stops}</span> <b style={{ color: c.totalR >= 0 ? C_GREEN : C_RED }}>{sgn(c.totalR, 1)}R</b></>
+    );
+  const hasAnyOpen = engines.some((e) => e.open > 0);
+  return (
+    <div style={{ width: "100%" }}>
+      <h3 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>Resultado diário · finalizadas + abertas</h3>
+      {daily.length === 0 && !hasAnyOpen ? <p className="note">Sem operações ainda.</p> : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", minWidth: 200 + engineIds.length * 130 }}>
+            <thead>
+              <tr style={ROW}>
+                <th style={{ ...TH, textAlign: "left" }}>Dia</th>
+                {engineIds.map((e) => <th key={e} style={{ ...TH, textAlign: "right" }}>{ENGINE_LABEL[e] ?? e}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ ...ROW, background: "rgba(96,165,250,0.10)" }}>
+                <td style={{ ...TD, fontWeight: 700 }}>Abertas (agora)</td>
+                {engineIds.map((id) => {
+                  const e = openByEngine[id];
+                  return <td key={id} style={{ ...TD, textAlign: "right" }}>{e && e.open > 0 ? <>{e.open} ab · <b style={{ color: e.openUnrealizedR >= 0 ? C_GREEN : C_RED }}>{sgn(e.openUnrealizedR, 1)}R</b></> : <span style={{ color: "#64748b" }}>—</span>}</td>;
+                })}
+              </tr>
+              {daily.map((d) => (
+                <tr key={d.date} style={ROW}>
+                  <td style={{ ...TD, fontWeight: 600 }}>{fmtDay(d.date)}</td>
+                  {engineIds.map((id) => <td key={id} style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{dayCell(d.perEngine[id])}</td>)}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ ...ROW, borderTop: "2px solid var(--border-faint,#475569)" }}>
+                <td style={{ ...TD, fontWeight: 700 }}>Total finalizadas</td>
+                {engineIds.map((id) => {
+                  const t = totals[id] ?? { wins: 0, stops: 0, totalR: 0 };
+                  return <td key={id} style={{ ...TD, textAlign: "right", fontWeight: 700 }}>{t.wins + t.stops === 0 ? <span style={{ color: "#64748b" }}>—</span> : <><span style={{ color: C_GREEN }}>✅{t.wins}</span> <span style={{ color: C_RED }}>❌{t.stops}</span> <b style={{ color: t.totalR >= 0 ? C_GREEN : C_RED }}>{sgn(t.totalR, 1)}R</b></>}</td>;
+                })}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ===================== Ranking dos motores (ordenável por métrica) =====================
 type RankMetric = { key: string; label: string; value: (e: EngineStat) => number | null; dir: "higher" | "lower"; fmt: (v: number) => string; tone?: (v: number) => string | null };
 const RANK_METRICS: RankMetric[] = [
@@ -718,7 +777,7 @@ function RankingTable({ engines }: { engines: EngineStat[] }) {
   );
 }
 
-function EnginesTab({ engines, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; now: number }) {
+function EnginesTab({ engines, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; daily: DailyRow[]; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   // Motores visíveis (colunas do comparativo + recortes).
@@ -868,6 +927,10 @@ function EnginesTab({ engines, open, byClass, byTimeframe, byAsset, bySymbolTf, 
 
       <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Curva de R acumulado (realizado, forward)</h3>
       <EquityChart equity={equity} />
+
+      <div style={{ marginTop: 24 }}>
+        <DailyBoard daily={daily} engines={cols} engineIds={visibleIds} />
+      </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 24 }}>
         <BreakdownTable title="Por classe de ativo" rows={byClass} engineIds={visibleIds} />
