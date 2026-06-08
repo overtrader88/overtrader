@@ -554,22 +554,28 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
   const c = engines.find((e) => e.engine === "classe");
   if (!p && !c) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
 
-  // melhor valor (maior = melhor) destacado em verde.
-  const better = (a: number | undefined, b: number | undefined): [boolean, boolean] =>
-    a == null || b == null ? [false, false] : a === b ? [false, false] : a > b ? [true, false] : [false, true];
+  // destaca o melhor valor (verde) conforme a direção da métrica.
+  const pick = (a: number | null | undefined, b: number | null | undefined, dir: "higher" | "lower" | "none"): [boolean, boolean] => {
+    if (dir === "none" || a == null || b == null || a === b) return [false, false];
+    const pWins = dir === "higher" ? a > b : a < b;
+    return pWins ? [true, false] : [false, true];
+  };
 
-  const ROWS: { label: string; get: (e: EngineStat) => string; raw: (e: EngineStat) => number; higher: boolean; sub?: string }[] = [
-    { label: "Sinais emitidos (total)", get: (e) => String(e.emittedTotal), raw: (e) => e.emittedTotal, higher: false },
-    { label: "Frequência", get: (e) => `${e.perDay.toFixed(1)}/dia`, raw: (e) => e.perDay, higher: false },
-    { label: "Abertos agora", get: (e) => String(e.open), raw: (e) => e.open, higher: false },
-    { label: "Resolvidos", get: (e) => String(e.resolved), raw: (e) => e.resolved, higher: false },
-    { label: "Decisivos (TP+SL)", get: (e) => String(e.decisive), raw: (e) => e.decisive, higher: false },
-    { label: "Assertividade (win rate)", get: (e) => `${e.winRatePct.toFixed(1)}%`, raw: (e) => e.winRatePct, higher: true },
-    { label: "Profit factor", get: (e) => e.profitFactor.toFixed(2), raw: (e) => e.profitFactor, higher: true },
-    { label: "R médio / sinal", get: (e) => sgn(e.avgR), raw: (e) => e.avgR, higher: true },
-    { label: "R acumulado (realizado)", get: (e) => sgn(e.totalR, 1), raw: (e) => e.totalR, higher: true },
-    { label: "Abertos em lucro / prejuízo", get: (e) => `${e.openInProfit} / ${e.openInLoss}`, raw: () => 0, higher: false },
-    { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, higher: true },
+  type Dir = "higher" | "lower" | "none";
+  const ROWS: { label: string; get: (e: EngineStat) => string; raw: (e: EngineStat) => number | null; dir: Dir }[] = [
+    { label: "Sinais emitidos (total)", get: (e) => String(e.emittedTotal), raw: (e) => e.emittedTotal, dir: "none" },
+    { label: "Frequência", get: (e) => `${e.perDay.toFixed(1)}/dia`, raw: (e) => e.perDay, dir: "none" },
+    { label: "Abertos agora", get: (e) => String(e.open), raw: (e) => e.open, dir: "none" },
+    { label: "Resolvidos", get: (e) => String(e.resolved), raw: (e) => e.resolved, dir: "none" },
+    { label: "Decisivos (TP+SL)", get: (e) => String(e.decisive), raw: (e) => e.decisive, dir: "none" },
+    { label: "Assertividade (win rate)", get: (e) => `${e.winRatePct.toFixed(1)}%`, raw: (e) => e.winRatePct, dir: "higher" },
+    { label: "Stop loss (% dos decisivos)", get: (e) => (e.decisive > 0 ? `${((e.losses / e.decisive) * 100).toFixed(0)}%` : "—"), raw: (e) => (e.decisive > 0 ? (e.losses / e.decisive) * 100 : null), dir: "lower" },
+    { label: "Stops por take", get: (e) => (e.wins > 0 ? `${(e.losses / e.wins).toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 ? e.losses / e.wins : null), dir: "lower" },
+    { label: "Profit factor", get: (e) => e.profitFactor.toFixed(2), raw: (e) => e.profitFactor, dir: "higher" },
+    { label: "R médio / sinal", get: (e) => sgn(e.avgR), raw: (e) => e.avgR, dir: "higher" },
+    { label: "R acumulado (realizado)", get: (e) => sgn(e.totalR, 1), raw: (e) => e.totalR, dir: "higher" },
+    { label: "Abertos em lucro / prejuízo", get: (e) => `${e.openInProfit} / ${e.openInLoss}`, raw: () => null, dir: "none" },
+    { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, dir: "higher" },
   ];
 
   return (
@@ -603,7 +609,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
             {ROWS.map((r, i) => {
               const pv = p ? r.raw(p) : undefined;
               const cv = c ? r.raw(c) : undefined;
-              const [pBest, cBest] = r.higher ? better(pv, cv) : [false, false];
+              const [pBest, cBest] = pick(pv, cv, r.dir);
               const hl = (best: boolean): React.CSSProperties => ({ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: best ? 700 : 500, color: best ? "var(--bull,#16a34a)" : "#e8edf5" });
               return (
                 <tr key={i} style={ROW}>
