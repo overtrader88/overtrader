@@ -520,33 +520,58 @@ function EquityChart({ equity }: { equity: EquityPoint[] }) {
 }
 
 /** Tabela de recorte (classe ou TF) × motor. */
-const BREAKDOWN_ENGINES = ["padrao", "padrao_b", "classe", "classe_b", "llm"] as const;
-const BREAKDOWN_SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM" };
+// Metadados de motor — fonte única (ordem + rótulo curto + tag com ícone p/ listas).
+const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm"] as const;
+const ENGINE_LABEL: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM" };
+const ENGINE_TAG: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 LLM" };
 
-function BreakdownTable({ title, rows }: { title: string; rows: BreakdownRow[] }) {
+type BreakdownSort = "n" | "r" | "wr";
+const BREAKDOWN_SORTS: [BreakdownSort, string][] = [["n", "Amostra (n)"], ["r", "R total"], ["wr", "Win% médio"]];
+
+function BreakdownTable({ title, rows, engineIds }: { title: string; rows: BreakdownRow[]; engineIds: string[] }) {
+  const [sortBy, setSortBy] = useState<BreakdownSort>("n");
   const cell = (g: { n: number; winRatePct: number; totalR: number } | undefined) =>
     !g || g.n === 0 ? <span style={{ color: "#64748b" }}>—</span> : (
       <>
         n={g.n} · {g.winRatePct.toFixed(0)}% · <b style={{ color: g.totalR >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{sgn(g.totalR, 1)}R</b>
       </>
     );
+  // agrega a métrica de ordenação SOBRE os motores visíveis.
+  const score = (r: BreakdownRow): number => {
+    const gs = engineIds.map((e) => r.stats[e]).filter((g): g is NonNullable<typeof g> => !!g && g.n > 0);
+    if (gs.length === 0) return -Infinity;
+    if (sortBy === "r") return gs.reduce((s, g) => s + g.totalR, 0);
+    if (sortBy === "wr") { const n = gs.reduce((s, g) => s + g.n, 0); return n ? gs.reduce((s, g) => s + g.winRatePct * g.n, 0) / n : 0; }
+    return gs.reduce((s, g) => s + g.n, 0);
+  };
+  const sorted = [...rows].sort((a, b) => score(b) - score(a));
   return (
     <div style={{ width: "100%" }}>
-      <h3 style={{ margin: "0 0 8px", fontSize: "0.9rem" }}>{title}</h3>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 8px" }}>
+        <h3 style={{ margin: 0, fontSize: "0.9rem" }}>{title}</h3>
+        {rows.length > 0 ? (
+          <label style={{ fontSize: "0.78rem", color: "#aebccd", display: "flex", alignItems: "center", gap: 6 }}>
+            Ordenar por
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as BreakdownSort)} style={FIELD}>
+              {BREAKDOWN_SORTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+        ) : null}
+      </div>
       {rows.length === 0 ? <p className="note">Sem desfechos resolvidos ainda.</p> : (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", minWidth: 640 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", minWidth: 200 + engineIds.length * 120 }}>
             <thead>
               <tr style={ROW}>
                 <th style={{ ...TH, textAlign: "left" }}>Grupo</th>
-                {BREAKDOWN_ENGINES.map((e) => <th key={e} style={{ ...TH, textAlign: "left" }}>{BREAKDOWN_SHORT[e]}</th>)}
+                {engineIds.map((e) => <th key={e} style={{ ...TH, textAlign: "left" }}>{ENGINE_LABEL[e] ?? e}</th>)}
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {sorted.map((r) => (
                 <tr key={r.key} style={ROW}>
                   <td style={TD}><b>{r.label}</b></td>
-                  {BREAKDOWN_ENGINES.map((e) => <td key={e} style={TD}>{cell(r.stats[e])}</td>)}
+                  {engineIds.map((e) => <td key={e} style={TD}>{cell(r.stats[e])}</td>)}
                 </tr>
               ))}
             </tbody>
@@ -557,14 +582,79 @@ function BreakdownTable({ title, rows }: { title: string; rows: BreakdownRow[] }
   );
 }
 
-const ENGINE_TAG: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 LLM" };
+// Filtros + ordenação das listas.
+type SortDir = "asc" | "desc";
+type SortState = { key: string; dir: SortDir };
+
+function useTableControls(initialKey: string, initialDir: SortDir = "desc") {
+  const [sort, setSort] = useState<SortState>({ key: initialKey, dir: initialDir });
+  const onSort = (key: string) => setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" }));
+  return { sort, onSort };
+}
+
+/** Cabeçalho de coluna clicável (ordena asc/desc; mostra ▲/▼). */
+function SortHeader({ label, k, sort, onSort, align = "left" }: { label: string; k: string; sort: SortState; onSort: (k: string) => void; align?: "left" | "right" }) {
+  const active = sort.key === k;
+  return (
+    <th onClick={() => onSort(k)} style={{ ...TH, textAlign: align, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }} title="Ordenar">
+      {label}{active ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
+    </th>
+  );
+}
+
+/** Ordena por uma chave usando um accessor (numérico ou string). Nulos por último. */
+function applySort<T>(rows: T[], sort: SortState, accessor: (r: T, key: string) => string | number | null): T[] {
+  const sign = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const va = accessor(a, sort.key), vb = accessor(b, sort.key);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === "number" && typeof vb === "number") return (va - vb) * sign;
+    return String(va).localeCompare(String(vb)) * sign;
+  });
+}
+
+/** Select de filtro compacto (estilo claro do admin). */
+function FilterSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: [string, string][] }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...FIELD, fontSize: "0.8rem" }}>
+      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+    </select>
+  );
+}
+const ENGINE_FILTER_OPTS: [string, string][] = [["all", "Todos os motores"], ...ENGINE_ORDER.map((e) => [e, ENGINE_LABEL[e]!] as [string, string])];
+const SIDE_OPTS: [string, string][] = [["all", "Compra e venda"], ["buy", "Só compra"], ["sell", "Só venda"]];
+const OPEN_STATUS_OPTS: [string, string][] = [["all", "Todas situações"], ["lucro", "Lucro"], ["prejuizo", "Prejuízo"], ["neutro", "Neutro"]];
+const CLOSED_OUTCOME_OPTS: [string, string][] = [["all", "Todos desfechos"], ["take", "Take"], ["stop", "Stop"], ["exp", "Expirou"]];
+const FILTER_BAR: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 8px" };
 
 function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
+  // Motores visíveis (colunas do comparativo + recortes).
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  // Filtros das listas.
+  const [openEng, setOpenEng] = useState("all");
+  const [openSide, setOpenSide] = useState("all");
+  const [openStatus, setOpenStatus] = useState("all");
+  const [closedEng, setClosedEng] = useState("all");
+  const [closedSide, setClosedSide] = useState("all");
+  const [closedOutcome, setClosedOutcome] = useState("all");
+  const openCtl = useTableControls("unrealizedR");
+  const closedCtl = useTableControls("resolvedAt");
+
   if (engines.every((e) => e.emittedTotal === 0)) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
 
-  const SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM" };
+  const SHORT = ENGINE_LABEL;
+  const visibleIds = ENGINE_ORDER.filter((e) => !hidden.has(e));
+  const cols = engines.filter((e) => !hidden.has(e.engine));
+  const toggleEngine = (id: string) => setHidden((h) => {
+    const n = new Set(h);
+    if (n.has(id)) n.delete(id); else if (ENGINE_ORDER.length - n.size > 1) n.add(id); // garante ≥1 visível
+    return n;
+  });
+
   // índice do melhor valor (verde) conforme a direção; -1 se empate/insuficiente.
   const bestIdx = (vals: (number | null | undefined)[], dir: "higher" | "lower" | "none"): number => {
     if (dir === "none") return -1;
@@ -596,9 +686,50 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }
     { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
   ];
 
+  // ---- listas: filtro + ordenação (client-side) ----
+  const openAcc = (o: OpenPosition, k: string): string | number | null => {
+    switch (k) {
+      case "engine": return o.engine; case "symbol": return o.symbol; case "side": return o.side;
+      case "entry": return o.entry; case "currentPrice": return o.currentPrice; case "unrealizedR": return o.unrealizedR;
+      case "status": return o.status; case "emittedAt": return o.emittedAt ? new Date(o.emittedAt).getTime() : null;
+      default: return null;
+    }
+  };
+  const statusMatch = (s: OpenPosition["status"]) => openStatus === "all" || (openStatus === "lucro" ? s === "profit" : openStatus === "prejuizo" ? s === "loss" : s === "flat" || s === "unknown");
+  const openRows = applySort(
+    open.filter((o) => (openEng === "all" || o.engine === openEng) && (openSide === "all" || o.side === openSide) && statusMatch(o.status)),
+    openCtl.sort, openAcc,
+  );
+
+  const closedAcc = (o: ClosedOpRow, k: string): string | number | null => {
+    switch (k) {
+      case "engine": return o.engine; case "symbol": return o.symbol; case "side": return o.side;
+      case "outcome": return o.outcome; case "pnlR": return o.pnlR;
+      case "resolvedAt": return o.resolvedAt ? new Date(o.resolvedAt).getTime() : null;
+      default: return null;
+    }
+  };
+  const outcomeMatch = (oc: string) => closedOutcome === "all" || (closedOutcome === "take" ? /^TP/.test(oc) : closedOutcome === "stop" ? oc === "SL" : oc === "EXPIRED");
+  const closedRows = applySort(
+    closed.filter((o) => (closedEng === "all" || o.engine === closedEng) && (closedSide === "all" || o.side === closedSide) && outcomeMatch(o.outcome)),
+    closedCtl.sort, closedAcc,
+  );
+
   return (
     <div className="motores-tab" style={{ color: "#e8edf5" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.78rem", color: "#aebccd" }}>Motores visíveis:</span>
+          {ENGINE_ORDER.map((id) => {
+            const on = !hidden.has(id);
+            return (
+              <button key={id} type="button" onClick={() => toggleEngine(id)}
+                style={{ ...FIELD, cursor: "pointer", fontSize: "0.78rem", fontWeight: on ? 700 : 500, padding: "5px 10px", background: on ? "var(--accent,#2563eb)" : "#fff", color: on ? "#fff" : "#64748b", borderColor: on ? "var(--accent,#2563eb)" : "var(--border,#cbd5e1)" }}>
+                {ENGINE_LABEL[id]}
+              </button>
+            );
+          })}
+        </div>
         <button
           type="button"
           onClick={() => startRefresh(() => router.refresh())}
@@ -619,19 +750,19 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }
           <thead>
             <tr style={ROW}>
               <th style={{ ...TH, textAlign: "left" }}>Métrica</th>
-              {engines.map((e) => <th key={e.engine} style={{ ...TH, textAlign: "right" }}>{SHORT[e.engine] ?? e.label}</th>)}
+              {cols.map((e) => <th key={e.engine} style={{ ...TH, textAlign: "right" }}>{SHORT[e.engine] ?? e.label}</th>)}
             </tr>
           </thead>
           <tbody>
             {ROWS.map((r, i) => {
-              const vals = engines.map((e) => r.raw(e));
+              const vals = cols.map((e) => r.raw(e));
               const bi = bestIdx(vals, r.dir);
               // tone (cor por valor) tem prioridade; senão, verde no melhor; senão, claro.
               const hl = (best: boolean, tone: string | null): React.CSSProperties => ({ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: best || tone ? 700 : 500, color: tone ?? (best ? "var(--bull,#16a34a)" : "#e8edf5") });
               return (
                 <tr key={i} style={ROW}>
                   <td style={{ ...TD, color: "#aebccd" }}>{r.label}</td>
-                  {engines.map((e, j) => {
+                  {cols.map((e, j) => {
                     const tone = r.tone ? r.tone(vals[j] ?? null) : null;
                     return <td key={e.engine} style={hl(j === bi, tone)}>{r.node ? r.node(e) : r.get(e)}</td>;
                   })}
@@ -646,30 +777,37 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }
       <EquityChart equity={equity} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 24 }}>
-        <BreakdownTable title="Por classe de ativo" rows={byClass} />
-        <BreakdownTable title="Por timeframe" rows={byTimeframe} />
+        <BreakdownTable title="Por classe de ativo" rows={byClass} engineIds={visibleIds} />
+        <BreakdownTable title="Por timeframe" rows={byTimeframe} engineIds={visibleIds} />
       </div>
 
       <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Posições abertas · marcadas a mercado agora</h3>
       {open.length === 0 ? (
         <p className="note">Nenhuma posição aberta no momento.</p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <>
+          <div style={FILTER_BAR}>
+            <FilterSelect value={openEng} onChange={setOpenEng} options={ENGINE_FILTER_OPTS} />
+            <FilterSelect value={openSide} onChange={setOpenSide} options={SIDE_OPTS} />
+            <FilterSelect value={openStatus} onChange={setOpenStatus} options={OPEN_STATUS_OPTS} />
+          </div>
+          {openRows.length === 0 ? <p className="note">Nenhuma posição aberta com esses filtros.</p> : (
+          <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 620 }}>
             <thead>
               <tr style={ROW}>
-                <th style={{ ...TH, textAlign: "left" }}>Motor</th>
-                <th style={{ ...TH, textAlign: "left" }}>Ativo</th>
-                <th style={{ ...TH, textAlign: "left" }}>Lado</th>
-                <th style={{ ...TH, textAlign: "right" }}>Entrada</th>
-                <th style={{ ...TH, textAlign: "right" }}>Preço atual</th>
-                <th style={{ ...TH, textAlign: "right" }}>R atual</th>
-                <th style={{ ...TH, textAlign: "left" }}>Situação</th>
-                <th style={{ ...TH, textAlign: "right" }}>Aberto há</th>
+                <SortHeader label="Motor" k="engine" sort={openCtl.sort} onSort={openCtl.onSort} />
+                <SortHeader label="Ativo" k="symbol" sort={openCtl.sort} onSort={openCtl.onSort} />
+                <SortHeader label="Lado" k="side" sort={openCtl.sort} onSort={openCtl.onSort} />
+                <SortHeader label="Entrada" k="entry" sort={openCtl.sort} onSort={openCtl.onSort} align="right" />
+                <SortHeader label="Preço atual" k="currentPrice" sort={openCtl.sort} onSort={openCtl.onSort} align="right" />
+                <SortHeader label="R atual" k="unrealizedR" sort={openCtl.sort} onSort={openCtl.onSort} align="right" />
+                <SortHeader label="Situação" k="status" sort={openCtl.sort} onSort={openCtl.onSort} />
+                <SortHeader label="Aberto há" k="emittedAt" sort={openCtl.sort} onSort={openCtl.onSort} align="right" />
               </tr>
             </thead>
             <tbody>
-              {open.map((o, i) => {
+              {openRows.map((o, i) => {
                 const st = STATUS_PT[o.status];
                 return (
                   <tr key={i} style={ROW}>
@@ -686,7 +824,9 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+          )}
+        </>
       )}
       <p className="note" style={{ fontSize: "0.76rem", marginTop: 12, maxWidth: "78ch" }}>
         "R atual" = quanto a operação renderia (em múltiplos de risco) se fechasse agora, marcando o preço de mercado contra a
@@ -698,20 +838,27 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }
       {closed.length === 0 ? (
         <p className="note">Nenhuma operação fechada ainda. Aparecem aqui quando o cron resolve TP/SL/expiração.</p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <>
+          <div style={FILTER_BAR}>
+            <FilterSelect value={closedEng} onChange={setClosedEng} options={ENGINE_FILTER_OPTS} />
+            <FilterSelect value={closedSide} onChange={setClosedSide} options={SIDE_OPTS} />
+            <FilterSelect value={closedOutcome} onChange={setClosedOutcome} options={CLOSED_OUTCOME_OPTS} />
+          </div>
+          {closedRows.length === 0 ? <p className="note">Nenhuma operação fechada com esses filtros.</p> : (
+          <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 620 }}>
             <thead>
               <tr style={ROW}>
-                <th style={{ ...TH, textAlign: "left" }}>Motor</th>
-                <th style={{ ...TH, textAlign: "left" }}>Ativo</th>
-                <th style={{ ...TH, textAlign: "left" }}>Lado</th>
-                <th style={{ ...TH, textAlign: "left" }}>Desfecho</th>
-                <th style={{ ...TH, textAlign: "right" }}>R</th>
-                <th style={{ ...TH, textAlign: "right" }}>Fechado</th>
+                <SortHeader label="Motor" k="engine" sort={closedCtl.sort} onSort={closedCtl.onSort} />
+                <SortHeader label="Ativo" k="symbol" sort={closedCtl.sort} onSort={closedCtl.onSort} />
+                <SortHeader label="Lado" k="side" sort={closedCtl.sort} onSort={closedCtl.onSort} />
+                <SortHeader label="Desfecho" k="outcome" sort={closedCtl.sort} onSort={closedCtl.onSort} />
+                <SortHeader label="R" k="pnlR" sort={closedCtl.sort} onSort={closedCtl.onSort} align="right" />
+                <SortHeader label="Fechado" k="resolvedAt" sort={closedCtl.sort} onSort={closedCtl.onSort} align="right" />
               </tr>
             </thead>
             <tbody>
-              {closed.map((o, i) => {
+              {closedRows.map((o, i) => {
                 const win = /^TP/.test(o.outcome);
                 const oc = win
                   ? { label: `Take (${o.outcome})`, color: GREEN }
@@ -729,7 +876,9 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+          )}
+        </>
       )}
     </div>
   );
