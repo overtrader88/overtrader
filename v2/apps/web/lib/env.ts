@@ -32,6 +32,7 @@ const serverSchema = z.object({
   // Market data (opcional — cripto via Binance não precisa)
   TWELVEDATA_API_KEY: z.string().optional(),
   FMP_API_KEY: z.string().optional(),
+  EIA_API_KEY: z.string().optional(), // estoques de petróleo (Motor 2 commodities; grátis c/ registro)
 
   // Notícias (opcional) — provedor ativo via NEWS_PROVIDER (default "newsdata")
   WORLDNEWS_API_KEY: z.string().optional(),

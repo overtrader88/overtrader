@@ -5,6 +5,7 @@ import { fetchFmpFundamental, fetchNextEarnings } from "@/lib/market/fmp";
 import { getCotPositioning } from "@/lib/market/cot-cftc";
 import { fetchFundamental } from "@/lib/market/defillama";
 import { getBreadthProxy } from "@/lib/market/breadth-yahoo";
+import { getOilInventory } from "@/lib/market/eia";
 import { DerivativesLive } from "@/components/derivatives-live";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import type { AssetType } from "@tradeai/shared";
@@ -27,7 +28,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   const extras: ClassExtras = {};
   const asset = dto.analysis.meta.asset;
   const fmpKey = process.env.FMP_API_KEY;
-  const [macro, cot, fundamental, onchain, breadth, earnings] = await Promise.all([
+  const [macro, cot, fundamental, onchain, breadth, earnings, oilInv] = await Promise.all([
     assetType === "forex" || assetType === "commodities" || assetType === "indices"
       ? getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices", us10y: assetType === "indices" })
       : Promise.resolve(null),
@@ -36,6 +37,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
     assetType === "crypto" ? fetchFundamental(asset) : Promise.resolve(null),
     assetType === "indices" ? getBreadthProxy() : Promise.resolve(null),
     assetType === "stocks" && fmpKey ? fetchNextEarnings(asset, fmpKey) : Promise.resolve(null),
+    assetType === "commodities" ? getOilInventory(asset) : Promise.resolve(null),
   ]);
   extras.macro = macro;
   extras.cot = cot;
@@ -43,6 +45,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   extras.onchain = onchain;
   extras.breadth = breadth;
   extras.earnings = earnings;
+  extras.oil = oilInv;
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
@@ -52,6 +55,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   const oc = extras.onchain;
   const br = extras.breadth;
   const ern = extras.earnings;
+  const oil = extras.oil;
 
   return (
     <Panel style={{ ["--gc" as string]: side.color }}>
@@ -133,6 +137,27 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
           <p className="note" style={{ margin: "6px 0 0" }}>
             {fnd.companyName}{fnd.sector ? ` · ${fnd.sector}` : ""}. Fundamentos pesam pouco no curtíssimo prazo, mas dão viés;
             <b> evite TA pura perto de earnings</b>.
+          </p>
+        </div>
+      )}
+
+      {oil && (
+        <div className="cls-deriv">
+          <div className="cd-h">Estoques de petróleo · EIA <span>dados reais · semanal</span></div>
+          <div className="cd-grid">
+            <div className="cd-cell">
+              <div className="k">Estoque atual</div>
+              <div className="v">{(oil.latestKb / 1000).toFixed(1)}M</div>
+              <div className="s">barris</div>
+            </div>
+            <div className="cd-cell">
+              <div className="k">Variação semanal</div>
+              <div className={`v ${oil.weekChangeKb > 0 ? "bear" : "bull"}`}>{oil.weekChangePct >= 0 ? "+" : ""}{oil.weekChangePct.toFixed(1)}%</div>
+              <div className="s">{oil.weekChangeKb > 0 ? "estoque subindo" : "estoque caindo"}</div>
+            </div>
+          </div>
+          <p className="note" style={{ margin: "6px 0 0" }}>
+            Estoque <b>subindo</b> = oferta folgada (vento contra o petróleo); <b>caindo</b> = aperto (a favor). Semana de {new Date(oil.period).toLocaleDateString("pt-BR")}.
           </p>
         </div>
       )}

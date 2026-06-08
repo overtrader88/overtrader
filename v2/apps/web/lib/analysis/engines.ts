@@ -15,6 +15,7 @@ import type { FmpFundamental, FmpEarnings } from "@/lib/market/fmp";
 import type { CotPositioning } from "@/lib/market/cot-cftc";
 import type { FundamentalResult } from "@/lib/market/defillama";
 import type { BreadthProxy } from "@/lib/market/breadth-yahoo";
+import type { OilInventory } from "@/lib/market/eia";
 
 /** Dados externos reais já buscados (por onda) que o Motor 2 pode usar. */
 export interface ClassExtras {
@@ -25,6 +26,7 @@ export interface ClassExtras {
   onchain?: FundamentalResult | null;
   breadth?: BreadthProxy | null;
   earnings?: FmpEarnings | null;
+  oil?: OilInventory | null;
 }
 
 export type EngineId = "padrao" | "classe";
@@ -250,6 +252,13 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType, ext
   if (oc && assetType === "crypto" && (oc.applicability === "chain" || oc.applicability === "limited") && oc.tvlTrend && oc.tvlTrend !== "stable") {
     const weak = oc.applicability === "limited";
     factors.push({ label: `TVL on-chain ${oc.tvlTrend === "rising" ? "subindo" : "caindo"}${oc.tvlChange30dPct != null ? ` (${oc.tvlChange30dPct >= 0 ? "+" : ""}${oc.tvlChange30dPct}% 30d)` : ""}`, side: oc.tvlTrend === "rising" ? "bull" : "bear", weight: weak ? 0.3 : 0.5 });
+  }
+
+  // 2h) Estoques de petróleo (commodities de energia) — EIA.
+  const oil = extras?.oil;
+  if (oil && assetType === "commodities") {
+    integrated.add("Estoques (EIA — petróleo/gás)");
+    if (oil.bias !== "neutral") factors.push({ label: `Estoques EIA ${oil.weekChangePct >= 0 ? "+" : ""}${oil.weekChangePct.toFixed(1)}% (${oil.weekChangeKb > 0 ? "subindo" : "caindo"})`, side: oil.bias === "bull" ? "bull" : "bear", weight: 0.7 });
   }
 
   // 2g) Breadth (índices) — participação dos setores (proxy aproximado).
