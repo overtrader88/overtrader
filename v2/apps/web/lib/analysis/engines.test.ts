@@ -37,27 +37,33 @@ describe("computeClassReading", () => {
   });
 });
 
-describe("buildClassPlan", () => {
-  it("espelha o plano principal para o lado do Motor 2 (venda)", () => {
-    const d = dto({ analysis: { risk: { entry: 100, stopLoss: 95, takeProfit1: 110, takeProfit2: 120, takeProfit3: 130, distSL: 5, rr1: 2 }, meta: {} } });
+describe("buildClassPlan (independente do Motor 1, derivado do ATR)", () => {
+  it("venda: stop acima e alvos abaixo do preço (orientação correta)", () => {
+    const d = dto({ atr: 5, analysis: { risk: { entry: 100, distSL: 0 }, meta: {} } });
     const p = buildClassPlan(d, "sell")!;
     expect(p.entry).toBe(100);
-    expect(p.stopLoss).toBe(105);   // venda: stop acima
-    expect(p.takeProfit1).toBe(90); // alvos abaixo
-    expect(p.takeProfit3).toBe(70);
+    expect(p.stopLoss).toBeGreaterThan(100);
+    expect(p.takeProfit1).toBeLessThan(100);
+    expect(p.takeProfit3).toBeLessThan(p.takeProfit1);
+    expect(p.rr1).toBeGreaterThan(0);
   });
 
-  it("deriva do ATR quando o motor principal está neutro (distSL=0)", () => {
-    const d = dto({ atr: 4, analysis: { risk: { entry: 100, stopLoss: 100, takeProfit1: 100, takeProfit2: 100, takeProfit3: 100, distSL: 0, rr1: 0 }, meta: { atrRatio: 0.04 } } });
-    const p = buildClassPlan(d, "buy");
-    expect(p).not.toBeNull();
-    expect(p!.entry).toBe(100);
-    expect(p!.stopLoss).toBeLessThan(100); // compra: stop abaixo
-    expect(p!.takeProfit1).toBeGreaterThan(100);
+  it("compra: stop abaixo e alvos acima — usa ATR mesmo SEM plano do Motor 1", () => {
+    const d = dto({ atr: 4, analysis: { risk: { entry: 100, distSL: 0 }, meta: { atrRatio: 0.04 } } });
+    const p = buildClassPlan(d, "buy")!;
+    expect(p.stopLoss).toBeLessThan(100);
+    expect(p.takeProfit1).toBeGreaterThan(100);
   });
 
-  it("retorna null quando neutro", () => {
-    const d = dto({ analysis: { risk: { entry: 100, distSL: 5 }, meta: {} } });
-    expect(buildClassPlan(d, "neutral")).toBeNull();
+  it("não usa as distâncias do Motor 1 (ignora distSL/TPs do plano principal)", () => {
+    // Motor 1 com distSL gigante; o plano do Motor 2 deve seguir o ATR, não o Motor 1.
+    const d = dto({ atr: 2, analysis: { risk: { entry: 100, stopLoss: 50, takeProfit1: 200, distSL: 50 }, meta: {} } });
+    const p = buildClassPlan(d, "buy")!;
+    expect(Math.abs(p.entry - p.stopLoss)).toBeLessThan(20); // ~ATR*mult, não 50
+  });
+
+  it("retorna null quando neutro ou sem ATR", () => {
+    expect(buildClassPlan(dto({ atr: 5, analysis: { risk: { entry: 100 }, meta: {} } }), "neutral")).toBeNull();
+    expect(buildClassPlan(dto({ analysis: { risk: { entry: 100, distSL: 0 }, meta: {} } }), "buy")).toBeNull();
   });
 });

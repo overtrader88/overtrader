@@ -1118,8 +1118,12 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .mon-row .mr-star { color: var(--amber); margin-right: 5px; font-size: 11px; }
 
 /* ===== Aviso de risco (faixa) + páginas legais (Fase E) ===== */
-.risk-strip { border-bottom: 1px solid var(--line); background: rgba(255, 176, 32, 0.05); font-size: 10.5px; color: var(--ink-faint); }
+/* Faixa de aviso legal — RODAPÉ fixo (transferida do topo). Só aparece nas páginas
+   com AppBar; a landing tem rodapé próprio. */
+.risk-strip { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; border-top: 1px solid var(--line); background: rgba(12, 16, 22, 0.94); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font-size: 10.5px; color: var(--ink-faint); text-align: center; }
 .risk-strip .wrap { padding-top: 6px; padding-bottom: 6px; }
+/* reserva espaço p/ o rodapé fixo não cobrir o conteúdo */
+body { padding-bottom: 34px; }
 .risk-strip b { color: var(--ink-soft); font-weight: 600; }
 .risk-strip a { color: var(--cyan); text-decoration: none; }
 .risk-strip a:hover { text-decoration: underline; }

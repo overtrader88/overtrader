@@ -79,7 +79,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
               <div className="rung sl"><span className="tag">STOP</span><div className="dist"><i style={{ width: w(1) }} /></div><span className="px">{fmtPx(plan.stopLoss)}</span><span className="rr">R −1.0</span></div>
             </div>
             <p className="note" style={{ margin: "6px 0 0" }}>
-              Níveis por ATR orientados ao lado do <b>Motor 2</b>{dto.analysis.risk.distSL > 0 ? " (mesma geometria do plano principal)" : " (Motor 1 neutro — derivado do ATR)"}.
+              Níveis por ATR orientados ao lado do <b>Motor 2</b> — cálculo <b>independente</b> do Motor 1 (não usa a direção nem o plano dele).
               Sem backtest próprio ainda; o track record forward por motor é que mede a calibração.
             </p>
           </div>

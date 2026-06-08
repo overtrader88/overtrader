@@ -21,36 +21,20 @@ export interface ClassPlan {
 }
 
 /**
- * Plano operacional do MOTOR 2, orientado ao lado da leitura por classe. Quando o
- * motor principal tem plano (não-neutro), ESPELHA as distâncias (ATR simétrico);
- * quando o principal está neutro, deriva os níveis do ATR(14) — assim o Motor 2
- * sempre entrega Entrada/Stop/Alvos, mesmo quando o Motor 1 não aponta direção.
+ * Plano operacional do MOTOR 2 — INDEPENDENTE do Motor 1. Deriva os níveis
+ * (Entrada/Stop/Alvos) puramente do ATR(14) + preço atual, orientados ao lado da
+ * leitura por classe. NÃO usa o plano, a direção nem o sinal do Motor 1: só dados
+ * de mercado compartilhados (ATR e último preço) + os múltiplos do motor. Assim
+ * um motor jamais influencia a decisão/direção do outro.
  */
 export function buildClassPlan(dto: FullAnalysis, side: "buy" | "sell" | "neutral"): ClassPlan | null {
   if (side === "neutral") return null;
-  const r = dto.analysis?.risk;
-  const entry = r?.entry;
+  // entry = último preço (dado de mercado, não a decisão do Motor 1).
+  const entry = dto.analysis?.risk?.entry;
   if (!entry || !(entry > 0)) return null;
-  const buy = side === "buy";
-
-  if (r.distSL > 0) {
-    const d1 = Math.abs(r.takeProfit1 - entry);
-    const d2 = Math.abs(r.takeProfit2 - entry);
-    const d3 = Math.abs(r.takeProfit3 - entry);
-    return {
-      entry,
-      stopLoss: buy ? entry - r.distSL : entry + r.distSL,
-      takeProfit1: buy ? entry + d1 : entry - d1,
-      takeProfit2: buy ? entry + d2 : entry - d2,
-      takeProfit3: buy ? entry + d3 : entry - d3,
-      rr1: r.distSL > 0 ? d1 / r.distSL : 0,
-    };
-  }
-
-  // Motor 1 neutro → deriva do ATR (mesma geometria do motor, lado do Motor 2).
   const atrVal = dto.atr && dto.atr > 0 ? dto.atr : dto.analysis.meta?.atrRatio ? dto.analysis.meta.atrRatio * entry : 0;
   if (!(atrVal > 0)) return null;
-  const dir: SignalDirection = buy ? "BUY" : "SELL";
+  const dir: SignalDirection = side === "buy" ? "BUY" : "SELL";
   const out = computeRiskFrom(entry, atrVal, dir, DEFAULT_ENGINE_CONFIG);
   return {
     entry: out.entry, stopLoss: out.stopLoss,

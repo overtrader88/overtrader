@@ -64,12 +64,12 @@ export async function emitSignal(
 }
 
 /**
- * Emissão do MOTOR 2 ("por classe"). A leitura por classe dá lado + convicção; o
- * plano operacional (entrada/stop/TPs) reusa a geometria ATR do motor principal
- * ESPELHADA para o lado do Motor 2 (as distâncias são simétricas por construção).
- * Carimba só quando: lado acionável + convicção ≥ 15pts + selo técnico verde/
- * amarelo (mesma régua de qualidade) + há geometria de risco (Motor 1 direcional).
- * Motor 2 não tem backtest próprio → bt_* ficam nulos (o forward é que vai medir).
+ * Emissão do MOTOR 2 ("por classe") — TOTALMENTE INDEPENDENTE do Motor 1. A
+ * decisão (lado, convicção) e o plano (ATR) são do próprio Motor 2; nada vem da
+ * direção, do plano ou do selo do Motor 1. Carimba quando: lado acionável +
+ * convicção ≥ 15pts + há ATR p/ montar o plano. Motor 2 não tem backtest próprio,
+ * então `seal='yellow'` (ressalva, não verde) e bt_* nulos — o track record
+ * forward por motor é que mede a calibração.
  */
 export async function emitClassSignal(
   dto: FullAnalysis,
@@ -82,11 +82,12 @@ export async function emitClassSignal(
   if (reading.side === "neutral") return { reason: "neutral", id: null };
   if (Math.abs(reading.score - 50) < 15) return { reason: "low-conviction", id: null };
 
-  const seal = dto.quality?.status;
-  if (seal !== "green" && seal !== "yellow") return { reason: "low-seal", id: null };
+  // Motor 2 não usa o selo do Motor 1 — decide pela própria convicção. Selo
+  // próprio = 'yellow' (sem backtest dedicado; honesto, não-verde).
+  const seal = "yellow";
 
   const plan = buildClassPlan(dto, reading.side);
-  if (!plan) return { reason: "no-geometry", id: null }; // sem entrada/ATR p/ montar o plano
+  if (!plan) return { reason: "no-geometry", id: null }; // sem ATR/preço p/ montar o plano
   const { entry, stopLoss: stop, takeProfit1: tp1, takeProfit2: tp2, takeProfit3: tp3 } = plan;
   const direction: SignalDirection = reading.side === "buy"
     ? (reading.score >= 70 ? "STRONG_BUY" : "BUY")
