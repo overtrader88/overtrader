@@ -110,6 +110,7 @@ Para ativar:
 Objetivo: a IA analisar os resultados forward dos motores e propor ajustes na
 lógica para melhorar resultados — SEM overfitting.
 
-- [ ] **Aguardar ~5 dias de amostra forward** (sinais resolvidos por motor) antes de construir. Com amostra muito pequena qualquer "insight" é ruído.
-- [ ] **Depois:** painel **"Insights da IA"** (read-only) no admin — lê os agregados por motor × classe × TF × regime (com n e IC), aponta padrões só onde a amostra é suficiente, marca o resto como ruído, e propõe hipóteses testáveis ranqueadas.
-- [ ] **Harness de "Motor candidato" (A/B forward):** hipóteses viram uma variante que roda em paralelo só no track record; só promove a lógica viva se o desempenho **out-of-sample** vencer com amostra ≥ limiar + IC. Nunca auto-aplica; o forward decide.
+- [x] **Harness A/B forward INICIADO (08/06):** o cron emit-signals agora emite, além de Padrão e Classe (vivos), **Padrão-B** (mesma direção do Motor 1 + plano ATR ×1,4 — testa gestão de risco) e **Classe-B** (leitura por classe + convicção ≥20 + ATR ×1,4 — testa seletividade). Em paralelo, só no admin (aba Motores, 4 colunas). Variantes `padrao_b`/`classe_b` NÃO aparecem no público. **Coleta começou — no ~5º dia há amostra dos 4 motores.**
+- [ ] **Aguardar ~5 dias de amostra forward** antes de tirar conclusões. Amostra pequena = ruído.
+- [ ] **Depois (dia ~5):** painel **"Insights da IA"** (read-only) no admin — lê os agregados por motor × classe × TF × regime (com n e IC), aponta padrões só onde a amostra é suficiente, marca o resto como ruído, propõe hipóteses testáveis ranqueadas. (A IA só PROPÕE; o forward decide. Lembrar: a IA não decide sinais — só narra; trocar de LLM não muda win rate.)
+- [ ] **Promoção de variante:** só troca a lógica viva por uma B se o desempenho **out-of-sample** vencer com amostra ≥ limiar + IC. Nunca auto-aplica.
