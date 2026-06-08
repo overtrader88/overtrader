@@ -77,7 +77,7 @@ export const CLASS_METHODOLOGY: Record<AssetType, ClassMethodology> = {
     cruzamentos: "Estrutura + rompimento; funding+OI p/ exaustão; on-chain p/ viés macro",
     cuidados: "On-chain é ruim pra timing curto; alta alavancagem amplifica erro",
     weights: W({ Tendência: 1.6, Volume: 1.5, smc: 1.5, "Médias Móveis": 1.3, montecarlo: 0.8 }),
-    pending: ["Fluxos de exchange / MVRV (on-chain avançado)", "Mapa de liquidações (CoinGlass, pago)"],
+    pending: ["Fluxos de exchange / MVRV (on-chain avançado — Glassnode, pago)", "Mapa de liquidações (CoinGlass, pago)"],
   },
   forex: {
     label: "Forex",
@@ -86,7 +86,7 @@ export const CLASS_METHODOLOGY: Record<AssetType, ClassMethodology> = {
     cruzamentos: "TA + calendário macro (não operar contra notícia); sessão define volatilidade",
     cuidados: "Sem funding; gap de fim de semana; spread ruim fora das sessões",
     weights: W({ Tendência: 1.6, "Médias Móveis": 1.4, mtf: 1.4, Volume: 0.5, smc: 1.1 }),
-    pending: ["DXY (Yahoo — onda forex/índices)", "COT (CFTC — onda forex)", "Calendário macro (juros/CPI/NFP)"],
+    pending: ["DXY (Yahoo — onda forex/índices)", "COT (CFTC — onda forex)", "Calendário macro (CPI/NFP — sem API grátis confiável)"],
   },
   indices: {
     label: "Índices",
@@ -104,7 +104,7 @@ export const CLASS_METHODOLOGY: Record<AssetType, ClassMethodology> = {
     cruzamentos: "Tendência + volume institucional; evitar TA pura perto de earnings",
     cuidados: "Earnings quebra TA; liquidez varia; risco idiossincrático",
     weights: W({ Tendência: 1.4, Volume: 1.4, "Médias Móveis": 1.2 }),
-    pending: ["Fundamentos & earnings (FMP — onda ações)", "Insider / fluxo institucional", "Calendário de earnings"],
+    pending: ["Fundamentos & earnings (FMP — onda ações)", "Insider / fluxo institucional (FMP, plano pago)", "Calendário de earnings"],
   },
   commodities: {
     label: "Commodities",
