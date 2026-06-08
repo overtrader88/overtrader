@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { NotifyButton } from "./admin-notify-button";
-import { type AdminExtra, MRR_PRICE } from "./admin-shared";
+import { type AdminExtra, type EngineStat, type OpenPosition, MRR_PRICE } from "./admin-shared";
 
 const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
 
-type Tab = "users" | "risk" | "expiring" | "growth" | "revenue" | "funnel" | "consumption" | "cohort" | "hubla" | "audit" | "ops";
+type Tab = "users" | "risk" | "expiring" | "growth" | "revenue" | "funnel" | "consumption" | "cohort" | "hubla" | "audit" | "ops" | "motores";
 type Bucket = "day" | "week" | "month";
 
 const FIELD: React.CSSProperties = {
@@ -184,6 +184,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
     ["hubla", "Hubla"],
     ["audit", "Auditoria"],
     ["ops", "Saúde"],
+    ["motores", "Motores"],
   ];
   const hasFilter = q || planF || monthF;
   const stageStyle: React.CSSProperties = { ...CARD, flex: "1 1 140px", textAlign: "center" };
@@ -463,6 +464,123 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
           </p>
         </>
       ) : null}
+
+      {/* ---- MOTORES (comparação de performance) ---- */}
+      {tab === "motores" ? <EnginesTab engines={extra.engines?.engines ?? []} open={extra.engines?.open ?? []} now={now} /> : null}
+    </>
+  );
+}
+
+// =================== Aba Motores ===================
+const sgn = (x: number, d = 2) => `${x > 0 ? "+" : ""}${x.toLocaleString("pt-BR", { maximumFractionDigits: d })}`;
+const STATUS_PT: Record<OpenPosition["status"], { label: string; color: string }> = {
+  profit: { label: "lucro", color: "var(--bull,#16a34a)" },
+  loss: { label: "prejuízo", color: "var(--bear,#dc2626)" },
+  flat: { label: "neutro", color: "#94a3b8" },
+  unknown: { label: "—", color: "#94a3b8" },
+};
+
+function EnginesTab({ engines, open, now }: { engines: EngineStat[]; open: OpenPosition[]; now: number }) {
+  const p = engines.find((e) => e.engine === "padrao");
+  const c = engines.find((e) => e.engine === "classe");
+  if (!p && !c) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
+
+  // melhor valor (maior = melhor) destacado em verde.
+  const better = (a: number | undefined, b: number | undefined): [boolean, boolean] =>
+    a == null || b == null ? [false, false] : a === b ? [false, false] : a > b ? [true, false] : [false, true];
+
+  const ROWS: { label: string; get: (e: EngineStat) => string; raw: (e: EngineStat) => number; higher: boolean; sub?: string }[] = [
+    { label: "Sinais emitidos (total)", get: (e) => String(e.emittedTotal), raw: (e) => e.emittedTotal, higher: false },
+    { label: "Frequência", get: (e) => `${e.perDay.toFixed(1)}/dia`, raw: (e) => e.perDay, higher: false },
+    { label: "Abertos agora", get: (e) => String(e.open), raw: (e) => e.open, higher: false },
+    { label: "Resolvidos", get: (e) => String(e.resolved), raw: (e) => e.resolved, higher: false },
+    { label: "Decisivos (TP+SL)", get: (e) => String(e.decisive), raw: (e) => e.decisive, higher: false },
+    { label: "Assertividade (win rate)", get: (e) => `${e.winRatePct.toFixed(1)}%`, raw: (e) => e.winRatePct, higher: true },
+    { label: "Profit factor", get: (e) => e.profitFactor.toFixed(2), raw: (e) => e.profitFactor, higher: true },
+    { label: "R médio / sinal", get: (e) => sgn(e.avgR), raw: (e) => e.avgR, higher: true },
+    { label: "R acumulado (realizado)", get: (e) => sgn(e.totalR, 1), raw: (e) => e.totalR, higher: true },
+    { label: "Abertos em lucro / prejuízo", get: (e) => `${e.openInProfit} / ${e.openInLoss}`, raw: () => 0, higher: false },
+    { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, higher: true },
+  ];
+
+  return (
+    <>
+      <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "78ch" }}>
+        Comparação <b>forward</b> entre os dois motores nos mercados curados. <b>Realizado</b> = desfechos fechados pelo cron
+        (TP/SL). <b>Não-realizado</b> = posições abertas marcadas a mercado AGORA (fecharia em lucro ou prejuízo). Win rate / PF / R
+        seguem a mesma matemática do track record público (forward, sem reotimização).
+      </p>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.86rem", minWidth: 460 }}>
+          <thead>
+            <tr style={ROW}>
+              <th style={{ ...TH, textAlign: "left" }}>Métrica</th>
+              <th style={{ ...TH, textAlign: "right" }}>Motor padrão</th>
+              <th style={{ ...TH, textAlign: "right" }}>Motor por classe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ROWS.map((r, i) => {
+              const pv = p ? r.raw(p) : undefined;
+              const cv = c ? r.raw(c) : undefined;
+              const [pBest, cBest] = r.higher ? better(pv, cv) : [false, false];
+              const hl = (best: boolean): React.CSSProperties => ({ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: best ? 700 : 500, color: best ? "var(--bull,#16a34a)" : "#0f172a" });
+              return (
+                <tr key={i} style={ROW}>
+                  <td style={{ ...TD, color: "#475569" }}>{r.label}</td>
+                  <td style={hl(pBest)}>{p ? r.get(p) : "—"}</td>
+                  <td style={hl(cBest)}>{c ? r.get(c) : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style={{ margin: "22px 0 8px", fontSize: "0.95rem" }}>Posições abertas · marcadas a mercado agora</h3>
+      {open.length === 0 ? (
+        <p className="note">Nenhuma posição aberta no momento.</p>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 620 }}>
+            <thead>
+              <tr style={ROW}>
+                <th style={{ ...TH, textAlign: "left" }}>Motor</th>
+                <th style={{ ...TH, textAlign: "left" }}>Ativo</th>
+                <th style={{ ...TH, textAlign: "left" }}>Lado</th>
+                <th style={{ ...TH, textAlign: "right" }}>Entrada</th>
+                <th style={{ ...TH, textAlign: "right" }}>Preço atual</th>
+                <th style={{ ...TH, textAlign: "right" }}>R atual</th>
+                <th style={{ ...TH, textAlign: "left" }}>Situação</th>
+                <th style={{ ...TH, textAlign: "right" }}>Aberto há</th>
+              </tr>
+            </thead>
+            <tbody>
+              {open.map((o, i) => {
+                const st = STATUS_PT[o.status];
+                return (
+                  <tr key={i} style={ROW}>
+                    <td style={TD}>{o.engine === "classe" ? "⚙ Classe" : "Padrão"}</td>
+                    <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
+                    <td style={{ ...TD, color: o.side === "sell" ? "var(--bear,#dc2626)" : "var(--bull,#16a34a)" }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
+                    <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{o.entry.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}</td>
+                    <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{o.currentPrice != null ? o.currentPrice.toLocaleString("pt-BR", { maximumFractionDigits: 4 }) : "—"}</td>
+                    <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: st.color }}>{o.unrealizedR != null ? sgn(o.unrealizedR) : "—"}</td>
+                    <td style={{ ...TD, color: st.color, fontWeight: 600 }}>{st.label}</td>
+                    <td style={{ ...TD, textAlign: "right" }}>{ago(o.emittedAt, now)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="note" style={{ fontSize: "0.76rem", marginTop: 12, maxWidth: "78ch" }}>
+        "R atual" = quanto a operação renderia (em múltiplos de risco) se fechasse agora, marcando o preço de mercado contra a
+        entrada e o stop. Atualiza a cada carregamento do painel. As estatísticas realizadas só consolidam quando o cron
+        <b> resolve-signals</b> fecha o desfecho contra os candles seguintes.
+      </p>
     </>
   );
 }

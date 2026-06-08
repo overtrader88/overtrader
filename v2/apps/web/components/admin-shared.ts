@@ -27,6 +27,48 @@ export interface AdminExtra {
     lastHublaAt: string | null;
     lastAnalysisAt: string | null;
   };
+  engines?: EngineComparison | null;
+}
+
+/** Comparação de performance entre motores (aba "Motores" do admin). */
+export interface EngineStat {
+  engine: "padrao" | "classe";
+  label: string;
+  resolved: number;
+  decisive: number;
+  wins: number;
+  losses: number;
+  expired: number;
+  winRatePct: number;
+  profitFactor: number;
+  avgR: number;
+  totalR: number;
+  open: number;
+  emittedTotal: number;
+  firstEmittedAt: string | null;
+  lastEmittedAt: string | null;
+  perDay: number;
+  openInProfit: number;
+  openInLoss: number;
+  openUnrealizedR: number;
+}
+
+export interface OpenPosition {
+  engine: string;
+  symbol: string;
+  timeframe: string;
+  side: string;
+  direction: string;
+  entry: number;
+  emittedAt: string;
+  currentPrice: number | null;
+  unrealizedR: number | null;
+  status: "profit" | "loss" | "flat" | "unknown";
+}
+
+export interface EngineComparison {
+  engines: EngineStat[];
+  open: OpenPosition[];
 }
 
 // Preço mensal-equivalente por plano×período (R$). PRO anual = 600/12=50; PRO+ anual = 936/12=78.

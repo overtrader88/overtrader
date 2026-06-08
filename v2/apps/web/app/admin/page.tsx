@@ -5,6 +5,7 @@ import { supabaseService } from "@/lib/supabase/server";
 import { type AdminUser } from "@/components/admin-user-row";
 import { AdminPanel } from "@/components/admin-panel";
 import { type AdminExtra, mrrFromSubs } from "@/components/admin-shared";
+import { getEngineComparison } from "@/lib/signals/engine-comparison";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,7 @@ export default async function AdminPage() {
         lastHublaAt: lastHubla?.created_at ?? null,
         lastAnalysisAt: ((analyses ?? [])[0] as { created_at: string } | undefined)?.created_at ?? null,
       },
+      engines: await getEngineComparison(),
     };
   }
 
