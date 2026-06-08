@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { signalSide } from "@tradeai/shared";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
+import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
 import { broadcastSignal } from "@/lib/notify/dispatch";
@@ -17,7 +17,7 @@ import { supabaseService } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300; // +1 chamada LLM por mercado (Motor LLM)
 
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -37,6 +37,7 @@ async function handle(req: Request): Promise<NextResponse> {
   let classEmitted = 0;
   let padraoBEmitted = 0;
   let classeBEmitted = 0;
+  let llmEmitted = 0;
   for (const m of TRACKED_MARKETS) {
     try {
       const dto = await analyzeSymbol(m.symbol, m.assetType, m.timeframe, "complete");
@@ -70,6 +71,8 @@ async function handle(req: Request): Promise<NextResponse> {
         if (b1.reason === "emitted") padraoBEmitted++;
         const b2 = await emitClassSignalB(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (b2.reason === "emitted") classeBEmitted++;
+        const llm = await emitLlmSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
+        if (llm.reason === "emitted") llmEmitted++;
       } catch {
         classTally.error++; // erro no Motor 2/variantes nunca compromete o Motor 1.
       }
@@ -77,7 +80,7 @@ async function handle(req: Request): Promise<NextResponse> {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, motor1: tally, motor2: classTally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, motor1: tally, motor2: classTally });
 }
 
 export const GET = handle;

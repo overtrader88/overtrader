@@ -552,7 +552,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
   const [refreshing, startRefresh] = useTransition();
   if (engines.every((e) => e.emittedTotal === 0)) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
 
-  const SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B" };
+  const SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM" };
   // índice do melhor valor (verde) conforme a direção; -1 se empate/insuficiente.
   const bestIdx = (vals: (number | null | undefined)[], dir: "higher" | "lower" | "none"): number => {
     if (dir === "none") return -1;
@@ -597,13 +597,13 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
         </button>
       </div>
       <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "82ch" }}>
-        Comparação <b>forward</b> entre os motores. <b>Padrão</b> e <b>Classe</b> = motores vivos. <b>Padrão-B</b> (stop/alvos
-        ATR ×1,4) e <b>Classe-B</b> (convicção ≥20 + ATR ×1,4) = variantes experimentais A/B, emitidas em paralelo só aqui (não
-        aparecem no track record público). <b>Realizado</b> = fechados pelo cron; <b>Não-realizado</b> = abertos marcados a mercado.
+        Comparação <b>forward</b> entre os motores. <b>Padrão</b> e <b>Classe</b> = motores vivos. <b>Padrão-B</b> (ATR ×1,4),
+        <b> Classe-B</b> (convicção ≥20 + ATR ×1,4) e <b>LLM</b> (decisão da IA + plano ATR) = variantes experimentais, emitidas em
+        paralelo só aqui (não aparecem no track record público). <b>Realizado</b> = fechados pelo cron; <b>Não-realizado</b> = abertos a mercado.
       </p>
 
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 620 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", minWidth: 720 }}>
           <thead>
             <tr style={ROW}>
               <th style={{ ...TH, textAlign: "left" }}>Métrica</th>
@@ -661,7 +661,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
                 const st = STATUS_PT[o.status];
                 return (
                   <tr key={i} style={ROW}>
-                    <td style={TD}>{o.engine === "classe" ? "⚙ Classe" : o.engine === "padrao_b" ? "Padrão-B" : o.engine === "classe_b" ? "⚙ Classe-B" : "Padrão"}</td>
+                    <td style={TD}>{o.engine === "classe" ? "⚙ Classe" : o.engine === "padrao_b" ? "Padrão-B" : o.engine === "classe_b" ? "⚙ Classe-B" : o.engine === "llm" ? "🤖 LLM" : "Padrão"}</td>
                     <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
                     <td style={{ ...TD, color: o.side === "sell" ? "var(--bear,#dc2626)" : "var(--bull,#16a34a)" }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
                     <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{o.entry.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}</td>

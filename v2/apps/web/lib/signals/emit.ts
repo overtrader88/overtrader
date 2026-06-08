@@ -10,6 +10,7 @@ import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
+import { generateLlmDecision } from "@/lib/analysis/narrative";
 
 export type EmitReason = "emitted" | "neutral" | "low-seal" | "open-exists" | "no-db" | "error";
 export type ClassEmitReason = EmitReason | "low-conviction" | "no-geometry";
@@ -184,5 +185,28 @@ export async function emitClassSignalB(
   return recordVariant({
     symbol, assetType, timeframe, direction, side: reading.side, seal: "yellow", plan,
     regime: dto.analysis.meta?.regime ?? null, engine: "classe_b", engineVersion: `${ENGINE_VERSION}+classe-B`,
+  });
+}
+
+/**
+ * MOTOR LLM (experimental, forward): a DECISÃO (direção + convicção) é da LLM, a
+ * partir dos dados brutos (independente do Motor 1). Plano por ATR (determinístico).
+ * Carimba quando: lado acionável + convicção ≥ 60. Sem backtest (seal 'yellow').
+ */
+export async function emitLlmSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  const dec = await generateLlmDecision(dto, assetType, extras);
+  if (!dec) return { reason: "error", id: null }; // IA indisponível/falha
+  if (dec.side === "neutral") return { reason: "neutral", id: null };
+  if (dec.conviction < 60) return { reason: "low-conviction", id: null };
+  const plan = buildClassPlan(dto, dec.side);
+  if (!plan) return { reason: "no-geometry", id: null };
+  const direction: SignalDirection = dec.side === "buy"
+    ? (dec.conviction >= 80 ? "STRONG_BUY" : "BUY")
+    : (dec.conviction >= 80 ? "STRONG_SELL" : "SELL");
+  return recordVariant({
+    symbol, assetType, timeframe, direction, side: dec.side, seal: "yellow", plan,
+    regime: dto.analysis.meta?.regime ?? null, engine: "llm", engineVersion: `${ENGINE_VERSION}+llm`,
   });
 }
