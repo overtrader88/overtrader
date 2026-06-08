@@ -1,16 +1,20 @@
-import { AppBar } from "@/components/ui";
+import { AppBar, Panel, PanelLabel } from "@/components/ui";
 import { redirect } from "next/navigation";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
 import { LiveTrading } from "@/components/live-trading";
 import { LiveGrid, type LiveAsset } from "@/components/live-grid";
 import { EngineSelector } from "@/components/engine-selector";
 import { ClassReadingPanel } from "@/components/class-reading-panel";
-import { isEngine, type EngineId } from "@/lib/analysis/engines";
+import { PriceChart } from "@/components/price-chart";
+import { AiNarrative } from "@/components/ai-narrative";
+import { isEngine, computeClassReading, buildClassPlan, type EngineId } from "@/lib/analysis/engines";
+import { loadServerExtras } from "@/lib/analysis/class-extras";
+import { buildClassPlanLines } from "@/lib/analysis/chart-overlays";
 import { analyzeSymbol } from "@/lib/analysis/service";
 import { listActiveLive } from "@/lib/live/session";
 import { findAsset } from "@/lib/market/catalog";
 import { marketState } from "@/lib/market/hours";
-import type { AssetType } from "@tradeai/shared";
+import type { AssetType, Timeframe } from "@tradeai/shared";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +25,37 @@ const LIVE_SYMBOLS = [
   "XAUUSD", "DJI", "NDX", "SPX",
 ];
 
-/** Motor 2 na live: computa a leitura por classe (4h) server-side; falha → nada. */
+/**
+ * Motor 2 na live (4h): veredito por classe + plano no gráfico + narração do
+ * Motor 2 — SEM os painéis do Motor 1. Server-side; recalcula ao recarregar.
+ * Falha → cai no Motor padrão (retorna null e a página renderiza o LiveTrading).
+ */
 async function renderLiveClass(symbol: string) {
   try {
     const a = findAsset(symbol);
     const at = (a?.assetType ?? "crypto") as AssetType;
-    const dto = await analyzeSymbol(symbol, at, "4h", "complete");
-    return <ClassReadingPanel dto={dto} assetType={at} />;
+    const tf: Timeframe = "4h";
+    const dto = await analyzeSymbol(symbol, at, tf, "complete");
+    const extras = await loadServerExtras(dto.analysis.meta.asset, at);
+    const reading = computeClassReading(dto, at, extras);
+    const lines = buildClassPlanLines(buildClassPlan(dto, reading.side));
+    return (
+      <>
+        <ClassReadingPanel dto={dto} assetType={at} reading={reading} extras={extras} />
+        <Panel>
+          <PanelLabel>Gráfico · {symbol} · {tf.toUpperCase()} · plano do Motor 2</PanelLabel>
+          <PriceChart symbol={symbol} assetType={at} timeframe={tf} lines={lines} />
+        </Panel>
+        <Panel>
+          <PanelLabel>Leitura do analista · IA · Motor 2 (por classe)</PanelLabel>
+          <AiNarrative symbol={symbol} assetType={at} timeframe={tf} engine="classe" />
+        </Panel>
+        <p className="note" style={{ marginTop: 8 }}>
+          Motor 2 ao vivo: a leitura por classe (4h) é recalculada a cada atualização da página. Para fluxo contínuo em tempo
+          real, use o <b>Motor padrão</b>. A cobrança da live segue por ativo, independente do motor.
+        </p>
+      </>
+    );
   } catch {
     return null;
   }
@@ -80,8 +108,7 @@ export default async function AoVivoPage({
               <span className="eb-k">Motor de análise</span>
               <EngineSelector active={engine} />
             </div>
-            {engine === "classe" ? await renderLiveClass(liveView) : null}
-            <LiveTrading initialSymbol={liveView} />
+            {(engine === "classe" ? await renderLiveClass(liveView) : null) ?? <LiveTrading initialSymbol={liveView} />}
           </>
         ) : (
           <>
