@@ -10,7 +10,7 @@ import type { AssetType, Timeframe } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
-import type { EngineComparison, EngineStat, OpenPosition } from "@/components/admin-shared";
+import type { EngineComparison, EngineStat, OpenPosition, GroupStat, BreakdownRow, EquityPoint } from "@/components/admin-shared";
 
 interface Row {
   engine: string | null;
@@ -24,6 +24,39 @@ interface Row {
   outcome: SignalOutcome | null;
   pnl_r: number | null;
   emitted_at: string;
+  resolved_at: string | null;
+}
+
+const ASSET_PT: Record<string, string> = {
+  crypto: "Cripto", forex: "Forex", commodities: "Commodities", indices: "Índices", stocks: "Ações",
+};
+const isWin = (o: SignalOutcome) => o === "TP1" || o === "TP2" || o === "TP3";
+
+/** Estatística de um grupo de sinais resolvidos. */
+function groupStat(resolved: { outcome: SignalOutcome; pnlR: number }[]): GroupStat {
+  let wins = 0, sl = 0, totalR = 0;
+  for (const r of resolved) {
+    totalR += r.pnlR;
+    if (isWin(r.outcome)) wins++;
+    else if (r.outcome === "SL") sl++;
+  }
+  const decisive = wins + sl;
+  return { n: resolved.length, winRatePct: decisive > 0 ? (wins / decisive) * 100 : 0, totalR };
+}
+
+/** Recorte por chave (classe ou TF) × motor, ordenado por amostra total. */
+function breakdownBy(rows: Row[], keyOf: (r: Row) => string, labelOf: (k: string) => string): BreakdownRow[] {
+  const byKey = new Map<string, { padrao: { outcome: SignalOutcome; pnlR: number }[]; classe: { outcome: SignalOutcome; pnlR: number }[] }>();
+  for (const r of rows) {
+    if (r.outcome == null || r.pnl_r == null) continue;
+    const k = keyOf(r);
+    const g = byKey.get(k) ?? byKey.set(k, { padrao: [], classe: [] }).get(k)!;
+    const rec = { outcome: r.outcome, pnlR: Number(r.pnl_r) };
+    (r.engine === "classe" ? g.classe : g.padrao).push(rec);
+  }
+  return [...byKey.entries()]
+    .map(([k, g]) => ({ key: k, label: labelOf(k), padrao: groupStat(g.padrao), classe: groupStat(g.classe) }))
+    .sort((a, b) => b.padrao.n + b.classe.n - (a.padrao.n + a.classe.n));
 }
 
 const ENGINE_LABELS: Record<string, string> = { padrao: "Motor padrão", classe: "Motor por classe" };
@@ -42,7 +75,7 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
 
   const { data, error } = await sb
     .from("signals")
-    .select("engine, symbol, asset_type, timeframe, side, direction, entry, stop_loss, outcome, pnl_r, emitted_at")
+    .select("engine, symbol, asset_type, timeframe, side, direction, entry, stop_loss, outcome, pnl_r, emitted_at, resolved_at")
     .order("emitted_at", { ascending: false })
     .limit(5000);
   if (error) return null;
@@ -116,5 +149,19 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
     };
   });
 
-  return { engines, open };
+  // Recortes por classe de ativo e por timeframe (onde cada motor é mais forte).
+  const byClass = breakdownBy(rows, (r) => r.asset_type, (k) => ASSET_PT[k] ?? k);
+  const byTimeframe = breakdownBy(rows, (r) => r.timeframe, (k) => k.toUpperCase());
+
+  // Curva de R acumulado por motor: timeline de resolvidos (asc) com running total.
+  const resolvedSorted = rows
+    .filter((r) => r.outcome != null && r.pnl_r != null && r.resolved_at)
+    .sort((a, b) => new Date(a.resolved_at!).getTime() - new Date(b.resolved_at!).getTime());
+  let cumP = 0, cumC = 0;
+  const equity: EquityPoint[] = resolvedSorted.map((r) => {
+    if (r.engine === "classe") cumC += Number(r.pnl_r); else cumP += Number(r.pnl_r);
+    return { t: r.resolved_at!, padrao: Math.round(cumP * 100) / 100, classe: Math.round(cumC * 100) / 100 };
+  });
+
+  return { engines, open, byClass, byTimeframe, equity };
 }

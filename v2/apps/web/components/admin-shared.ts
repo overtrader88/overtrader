@@ -66,9 +66,31 @@ export interface OpenPosition {
   status: "profit" | "loss" | "flat" | "unknown";
 }
 
+export interface GroupStat {
+  n: number;
+  winRatePct: number;
+  totalR: number;
+}
+
+export interface BreakdownRow {
+  key: string;
+  label: string;
+  padrao: GroupStat;
+  classe: GroupStat;
+}
+
+export interface EquityPoint {
+  t: string;       // ISO do resolved_at
+  padrao: number;  // R acumulado do Motor 1 até aqui
+  classe: number;  // R acumulado do Motor 2 até aqui
+}
+
 export interface EngineComparison {
   engines: EngineStat[];
   open: OpenPosition[];
+  byClass: BreakdownRow[];
+  byTimeframe: BreakdownRow[];
+  equity: EquityPoint[];
 }
 
 // Preço mensal-equivalente por plano×período (R$). PRO anual = 600/12=50; PRO+ anual = 936/12=78.

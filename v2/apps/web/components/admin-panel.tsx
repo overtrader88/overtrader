@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { NotifyButton } from "./admin-notify-button";
-import { type AdminExtra, type EngineStat, type OpenPosition, MRR_PRICE } from "./admin-shared";
+import { type AdminExtra, type EngineStat, type OpenPosition, type BreakdownRow, type EquityPoint, MRR_PRICE } from "./admin-shared";
 
 const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
 
@@ -466,7 +466,16 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
       ) : null}
 
       {/* ---- MOTORES (comparação de performance) ---- */}
-      {tab === "motores" ? <EnginesTab engines={extra.engines?.engines ?? []} open={extra.engines?.open ?? []} now={now} /> : null}
+      {tab === "motores" ? (
+        <EnginesTab
+          engines={extra.engines?.engines ?? []}
+          open={extra.engines?.open ?? []}
+          byClass={extra.engines?.byClass ?? []}
+          byTimeframe={extra.engines?.byTimeframe ?? []}
+          equity={extra.engines?.equity ?? []}
+          now={now}
+        />
+      ) : null}
     </>
   );
 }
@@ -480,7 +489,64 @@ const STATUS_PT: Record<OpenPosition["status"], { label: string; color: string }
   unknown: { label: "—", color: "#94a3b8" },
 };
 
-function EnginesTab({ engines, open, now }: { engines: EngineStat[]; open: OpenPosition[]; now: number }) {
+/** Curva de R acumulado por motor (SVG, duas linhas). */
+function EquityChart({ equity }: { equity: EquityPoint[] }) {
+  if (equity.length < 2) return <p className="note">A curva aparece quando houver ≥2 desfechos resolvidos.</p>;
+  const W = 100, H = 40, PAD = 2;
+  const vals = [...equity.map((e) => e.padrao), ...equity.map((e) => e.classe), 0];
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = max - min || 1;
+  const x = (i: number) => (equity.length === 1 ? 0 : (i / (equity.length - 1)) * (W - PAD * 2) + PAD);
+  const y = (v: number) => H - PAD - ((v - min) / range) * (H - PAD * 2);
+  const line = (key: "padrao" | "classe") => equity.map((e, i) => `${x(i).toFixed(2)},${y(e[key]).toFixed(2)}`).join(" ");
+  const y0 = y(0);
+  const lastP = equity[equity.length - 1]!.padrao;
+  const lastC = equity[equity.length - 1]!.classe;
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 160, border: "1px solid var(--border-faint,#e4e8ef)", borderRadius: 10, background: "#fff" }}>
+        <line x1={0} y1={y0} x2={W} y2={y0} stroke="#cbd5e1" strokeWidth={0.3} strokeDasharray="1,1" />
+        <polyline points={line("padrao")} fill="none" stroke="#2563eb" strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
+        <polyline points={line("classe")} fill="none" stroke="#9333ea" strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div style={{ display: "flex", gap: 18, marginTop: 8, fontSize: "0.8rem" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, background: "#2563eb", display: "inline-block" }} /> Motor padrão <b style={{ color: lastP >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{sgn(lastP, 1)} R</b></span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, background: "#9333ea", display: "inline-block" }} /> Motor por classe <b style={{ color: lastC >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{sgn(lastC, 1)} R</b></span>
+      </div>
+    </div>
+  );
+}
+
+/** Tabela de recorte (classe ou TF) × motor. */
+function BreakdownTable({ title, rows }: { title: string; rows: BreakdownRow[] }) {
+  const cell = (g: BreakdownRow["padrao"]) =>
+    g.n === 0 ? <span className="note">—</span> : (
+      <>
+        n={g.n} · {g.winRatePct.toFixed(0)}% · <b style={{ color: g.totalR >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{sgn(g.totalR, 1)}R</b>
+      </>
+    );
+  return (
+    <div style={{ flex: "1 1 320px" }}>
+      <h3 style={{ margin: "0 0 8px", fontSize: "0.9rem" }}>{title}</h3>
+      {rows.length === 0 ? <p className="note">Sem desfechos resolvidos ainda.</p> : (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+          <thead><tr style={ROW}><th style={{ ...TH, textAlign: "left" }}>Grupo</th><th style={{ ...TH, textAlign: "left" }}>Padrão</th><th style={{ ...TH, textAlign: "left" }}>Por classe</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} style={ROW}>
+                <td style={TD}><b>{r.label}</b></td>
+                <td style={TD}>{cell(r.padrao)}</td>
+                <td style={TD}>{cell(r.classe)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; equity: EquityPoint[]; now: number }) {
   const p = engines.find((e) => e.engine === "padrao");
   const c = engines.find((e) => e.engine === "classe");
   if (!p && !c) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
@@ -538,7 +604,15 @@ function EnginesTab({ engines, open, now }: { engines: EngineStat[]; open: OpenP
         </table>
       </div>
 
-      <h3 style={{ margin: "22px 0 8px", fontSize: "0.95rem" }}>Posições abertas · marcadas a mercado agora</h3>
+      <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Curva de R acumulado (realizado, forward)</h3>
+      <EquityChart equity={equity} />
+
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 24 }}>
+        <BreakdownTable title="Por classe de ativo" rows={byClass} />
+        <BreakdownTable title="Por timeframe" rows={byTimeframe} />
+      </div>
+
+      <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Posições abertas · marcadas a mercado agora</h3>
       {open.length === 0 ? (
         <p className="note">Nenhuma posição aberta no momento.</p>
       ) : (
