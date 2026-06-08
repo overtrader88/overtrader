@@ -7,11 +7,18 @@ interface Market {
   side: "buy" | "sell" | "neutral"; regime: string | null; price: number | null;
   watched?: boolean;
 }
+interface LiveLifecycle {
+  tp1Hit: boolean; tp2Hit: boolean; tp3Hit: boolean;
+  stopStage: "initial" | "breakeven" | "tp1";
+  currentStop: number; closedFraction: number;
+  status: "open" | "resolved"; outcome: string | null; pnlR: number | null; price: number | null;
+}
 interface ActiveSignal {
   symbol: string; timeframe: string; direction: string; side: string; seal: string;
   entry: number; stop_loss: number; tp1: number; tp2: number; tp3: number;
   regime: string | null; narrative: string | null; emitted_at: string;
   tp1_hit: boolean; tp2_hit: boolean; tp3_hit: boolean; stop_stage: string;
+  live: LiveLifecycle | null;
 }
 interface MonitorData { markets: Market[]; signals: ActiveSignal[]; ts: number }
 
@@ -24,6 +31,24 @@ const REGIME_PT: Record<string, string> = { trending: "Tendência", ranging: "La
 const SEAL_C: Record<string, string> = { green: "var(--bull)", yellow: "var(--amber)", red: "var(--bear)", grey: "var(--ink-faint)" };
 const sideClass = (s: string) => (s.includes("BUY") || s === "buy" ? "up" : s.includes("SELL") || s === "sell" ? "dn" : "neu");
 const fmt = (p: number | null) => (p == null ? "—" : p.toLocaleString("pt-BR", { maximumFractionDigits: p >= 100 ? 2 : p >= 1 ? 4 : 6 }));
+const fmtR = (r: number) => `${r >= 0 ? "+" : ""}${(Math.round(r * 100) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}R`;
+
+/** Onde o stop está AGORA (após a gestão em terços) — texto curto pro card. */
+function stopLabel(lc: LiveLifecycle, entry: number): { text: string; price: number; moved: boolean } {
+  if (lc.stopStage === "tp1") return { text: "protegido em TP1 (após TP2)", price: lc.currentStop, moved: true };
+  if (lc.stopStage === "breakeven") return { text: "no zero a zero (após TP1)", price: entry, moved: true };
+  return { text: "inicial", price: lc.currentStop, moved: false };
+}
+/** Sinal já encerrado ao vivo (o cron ainda não gravou) — desfecho legível + R realizado. */
+const CLOSED_PT: Record<string, string> = {
+  TP3: "Alvo final (TP3) atingido", TP2: "Encerrada no TP1 após TP2",
+  TP1: "Zerada no zero a zero após TP1", SL: "Stopada", EXPIRED: "Expirada",
+};
+function closedTone(outcome: string | null, pnlR: number | null): string {
+  if (outcome === "SL") return "var(--bear)";
+  if (outcome === "EXPIRED") return "var(--ink-faint)";
+  return (pnlR ?? 0) > 0 ? "var(--bull)" : "var(--ink-faint)";
+}
 
 export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs?: string }) {
   const [data, setData] = useState<MonitorData | null>(null);
@@ -63,8 +88,15 @@ export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs
         <div className="mon-empty">Nenhum setup de qualidade ativo agora — <b>monitorando</b>. Os sinais surgem aqui só quando o selo valida (sem alarme falso).</div>
       ) : (
         <div className="mon-signals">
-          {data.signals.map((s, i) => (
-            <div className="mon-sig" key={i} style={{ ["--sc" as string]: SEAL_C[s.seal] ?? "var(--ink-faint)" }}>
+          {data.signals.map((s, i) => {
+            const lc = s.live;
+            const tp1 = lc?.tp1Hit ?? s.tp1_hit;
+            const tp2 = lc?.tp2Hit ?? s.tp2_hit;
+            const tp3 = lc?.tp3Hit ?? s.tp3_hit;
+            const stop = lc ? stopLabel(lc, s.entry) : null;
+            const closed = lc?.status === "resolved";
+            return (
+            <div className="mon-sig" key={i} style={{ ["--sc" as string]: SEAL_C[s.seal] ?? "var(--ink-faint)", opacity: closed ? 0.78 : 1 }}>
               <div className="ms-head">
                 <span className="ms-sym"><b>{s.symbol}</b> · {s.timeframe.toUpperCase()}</span>
                 <span className={`ms-dir ${sideClass(s.direction)}`}>{SIGNAL_PT[s.direction] ?? s.direction}</span>
@@ -72,17 +104,26 @@ export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs
               </div>
               <div className="ms-levels">
                 <span>Entrada <b>{fmt(s.entry)}</b></span>
-                <span>Stop <b>{fmt(s.stop_loss)}</b></span>
+                <span>
+                  Stop <b>{fmt(stop ? stop.price : s.stop_loss)}</b>
+                  {stop?.moved ? <em style={{ fontStyle: "normal", color: "var(--bull)", marginLeft: 4 }}>↑ {stop.text}</em> : null}
+                </span>
                 <span>Alvos {fmt(s.tp1)} / {fmt(s.tp2)} / {fmt(s.tp3)}</span>
                 <span className="ms-lc">
-                  <i className={s.tp1_hit ? "on" : ""}>TP1</i>
-                  <i className={s.tp2_hit ? "on" : ""}>TP2</i>
-                  <i className={s.tp3_hit ? "on" : ""}>TP3</i>
+                  <i className={tp1 ? "on" : ""}>TP1</i>
+                  <i className={tp2 ? "on" : ""}>TP2</i>
+                  <i className={tp3 ? "on" : ""}>TP3</i>
                 </span>
               </div>
-              {s.narrative ? <p className="ms-narr">{s.narrative}</p> : null}
+              {closed && lc ? (
+                <p className="ms-narr" style={{ color: closedTone(lc.outcome, lc.pnlR), fontWeight: 600 }}>
+                  ● {CLOSED_PT[lc.outcome ?? ""] ?? "Encerrada"}{lc.pnlR != null ? ` · ${fmtR(lc.pnlR)}` : ""}
+                  <span style={{ fontWeight: 400, opacity: 0.8 }}> (aguardando registro)</span>
+                </p>
+              ) : s.narrative ? <p className="ms-narr">{s.narrative}</p> : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
