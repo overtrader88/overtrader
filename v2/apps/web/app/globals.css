@@ -1562,3 +1562,13 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .tr-tab.on { background: var(--cyan); color: #04121a; box-shadow: 0 1px 8px rgba(60,200,255,.3); }
 
 .eng-chip { display: inline-flex; align-items: center; font: 600 9px/1 var(--mono, monospace); letter-spacing: .04em; padding: 3px 6px; border-radius: 5px; color: var(--cyan); border: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent); background: color-mix(in srgb, var(--cyan) 8%, transparent); white-space: nowrap; }
+
+/* Seletor de motor dentro do formulário de Análise */
+.cfg-engine { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 0 4px; }
+.cfg-engine-label { font: 600 11px/1 var(--mono, monospace); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.cfg-engine-hint { font-size: 11.5px; color: var(--ink-faint); flex: 1 1 200px; }
+
+/* Seletor de motor na grade do Ao vivo */
+.lg-engine { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; }
+.lg-engine-label { font: 600 11px/1 var(--mono, monospace); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.lg-engine-hint { font-size: 11.5px; color: var(--ink-faint); }

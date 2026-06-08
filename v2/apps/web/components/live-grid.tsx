@@ -28,6 +28,8 @@ export function LiveGrid({ assets, activeSymbols, plan, credits }: {
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<LiveAsset | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [eng, setEng] = useState<"padrao" | "classe">("padrao"); // motor levado p/ a live
+  const engQs = eng === "classe" ? "&engine=classe" : "";
 
   async function doActivate(sym: string) {
     setConfirm(null); setErr(null); setBusy(sym);
@@ -65,6 +67,15 @@ export function LiveGrid({ assets, activeSymbols, plan, credits }: {
       )}
       {err ? <div className="lg-err">{err}</div> : null}
 
+      <div className="lg-engine">
+        <span className="lg-engine-label">Motor de análise na live</span>
+        <div className="engine-switch" role="group" aria-label="Motor de análise">
+          <button type="button" className={eng === "padrao" ? "on" : undefined} aria-pressed={eng === "padrao"} onClick={() => setEng("padrao")}>Padrão</button>
+          <button type="button" className={eng === "classe" ? "on" : undefined} aria-pressed={eng === "classe"} onClick={() => setEng("classe")} title="Metodologia por família de ativo">⚙ Por classe</button>
+        </div>
+        {eng === "classe" ? <span className="lg-engine-hint">a leitura por classe abre junto com a live</span> : null}
+      </div>
+
       <div className="lg-grid">
         {assets.map((a) => {
           const on = active.has(a.symbol);
@@ -79,7 +90,7 @@ export function LiveGrid({ assets, activeSymbols, plan, credits }: {
                 {!a.open ? (
                   <div className="lg-closed-msg">🔒<span>Mercado Fechado</span><small>Reabre {a.reopenHint ?? "em breve"}</small></div>
                 ) : on ? (
-                  <a className="lg-access" href={`/ao-vivo?symbol=${encodeURIComponent(a.symbol)}`}>▶ Acessar Live Trading</a>
+                  <a className="lg-access" href={`/ao-vivo?symbol=${encodeURIComponent(a.symbol)}${engQs}`}>▶ Acessar Live Trading</a>
                 ) : (
                   <button type="button" className="lg-play" disabled={disabled} onClick={() => setConfirm(a)}>
                     {loading ? "…" : "▶ Clique aqui para ativar"}

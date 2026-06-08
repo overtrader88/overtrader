@@ -231,6 +231,7 @@ export function AnalyzeForm({
   const [sym, setSym] = useState("");
   const [at, setAt] = useState<AssetType | "">("");   // classe — começa sem seleção
   const [tf, setTf] = useState<Timeframe | "">("");
+  const [eng, setEng] = useState<"padrao" | "classe">("padrao"); // motor de análise
   const [pending, startTransition] = useTransition();
   const [openDD, setOpenDD] = useState<null | "ativo" | "tipo" | "tf">(null);
   const [query, setQuery] = useState("");
@@ -283,10 +284,11 @@ export function AnalyzeForm({
     if (!canAnalyze) { setShowErrors(true); return; } // sinaliza os campos faltantes
     setShowErrors(false);
     // useTransition: `pending` volta a false sozinho quando a navegação/render termina.
+    const engQs = eng === "classe" ? "&engine=classe" : "";
     startTransition(() => {
-      router.push(`/analise?symbol=${encodeURIComponent(cleanSym)}&type=${at}&tf=${tf}`);
+      router.push(`/analise?symbol=${encodeURIComponent(cleanSym)}&type=${at}&tf=${tf}${engQs}`);
     });
-    // Zera os filtros após disparar (o "Configurar Análise" continua visível, limpo).
+    // Zera os filtros após disparar (mantém o motor escolhido).
     setSym(""); setAt(""); setTf("");
   }
   // campos ainda vazios (p/ destaque em vermelho ao tentar analisar)
@@ -481,9 +483,18 @@ export function AnalyzeForm({
         </div>
       </div>
 
+      <div className="cfg-engine">
+        <span className="cfg-engine-label">Motor de análise</span>
+        <div className="engine-switch" role="group" aria-label="Motor de análise">
+          <button type="button" className={eng === "padrao" ? "on" : undefined} aria-pressed={eng === "padrao"} onClick={() => setEng("padrao")} title="Ponderação geral (15 camadas)">Padrão</button>
+          <button type="button" className={eng === "classe" ? "on" : undefined} aria-pressed={eng === "classe"} onClick={() => setEng("classe")} title="Metodologia por família de ativo">⚙ Por classe</button>
+        </div>
+        {eng === "classe" ? <span className="cfg-engine-hint">leitura por classe + dados da família (funding, COT, DXY, on-chain…)</span> : null}
+      </div>
+
       <button type="submit" className="cfg-go" disabled={pending}>
         <span className="cfg-go-ico"><CrownIcon /></span>
-        {pending ? "Analisando…" : "Analisar (1 crédito)"}
+        {pending ? "Analisando…" : `Analisar (1 crédito)${eng === "classe" ? " · Motor 2" : ""}`}
         {pending ? null : <ArrowIcon />}
       </button>
       {showErrors && !canAnalyze ? <p className="cfg-err-msg">Selecione os campos destacados em vermelho para analisar.</p> : null}
