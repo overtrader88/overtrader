@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
+import { AdminUserDetail } from "./admin-user-detail";
 import { NotifyButton } from "./admin-notify-button";
 import { type AdminExtra, type EngineStat, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, type DailyRow, type DailyCell, MRR_PRICE } from "./admin-shared";
 
@@ -77,6 +78,7 @@ function Bars({ data }: { data: { label: string; count: number }[] }) {
 export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: number; extra: AdminExtra }) {
   const [tab, setTab] = useState<Tab>("users");
   const [q, setQ] = useState("");
+  const [consumoUser, setConsumoUser] = useState(""); // detalhe de consumo por usuário (aba Consumo)
   const [planF, setPlanF] = useState("");
   const [monthF, setMonthF] = useState("");
   const [bucket, setBucket] = useState<Bucket>("day");
@@ -338,6 +340,16 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
       {/* ---- CONSUMO / CUSTO ---- */}
       {tab === "consumption" ? (
         <>
+          <div style={{ ...CARD, marginBottom: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>Detalhar consumo do usuário:</span>
+            <select value={consumoUser} onChange={(e) => setConsumoUser(e.target.value)} style={{ ...FIELD, minWidth: 260 }}>
+              <option value="">— selecione um usuário —</option>
+              {[...users].sort((a, b) => a.email.localeCompare(b.email)).map((u) => (
+                <option key={u.id} value={u.id}>{u.email} ({planLbl(u.plan)})</option>
+              ))}
+            </select>
+            <span className="note" style={{ fontSize: "0.75rem" }}>data · onde · o quê · quanto + o que está ativo (ao vivo / monitor)</span>
+          </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
             <div style={{ ...CARD, flex: "1 1 140px" }}><div className="note" style={{ fontSize: "0.75rem" }}>Análises (período)</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{consumption.totalAnalyses}</div></div>
             <div style={{ ...CARD, flex: "1 1 140px" }}><div className="note" style={{ fontSize: "0.75rem" }}>Custo estimado</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{brl(consumption.cost)}</div><div className="note" style={{ fontSize: "0.7rem" }}>~R$0,013/análise</div></div>
@@ -350,11 +362,13 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
               <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}><th style={TH}>Top consumidores</th><th style={TH}>Plano</th><th style={TH}>Análises</th></tr></thead>
               <tbody>{consumption.top.map((u) => (
-                <tr key={u.id} style={ROW}><td style={TD}>{u.email}</td><td style={TD}>{planLbl(u.plan)}</td><td style={{ ...TD, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{u.analysisCount}</td></tr>
+                <tr key={u.id} style={{ ...ROW, cursor: "pointer" }} onClick={() => setConsumoUser(u.id)} title="Ver detalhe de consumo">
+                  <td style={{ ...TD, color: "var(--accent,#2563eb)", fontWeight: 600 }}>{u.email}</td><td style={TD}>{planLbl(u.plan)}</td><td style={{ ...TD, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{u.analysisCount}</td></tr>
               ))}</tbody>
             </table>
             {consumption.top.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>Nenhuma análise ainda.</p> : null}
           </div>
+          {consumoUser ? <AdminUserDetail userId={consumoUser} onClose={() => setConsumoUser("")} /> : null}
         </>
       ) : null}
 
