@@ -121,3 +121,68 @@ export async function emitClassSignal(
     return { reason: "error", id: null };
   }
 }
+
+/** Carimba um sinal de VARIANTE experimental (engine custom, sem backtest próprio). */
+async function recordVariant(p: {
+  symbol: string; assetType: AssetType; timeframe: Timeframe;
+  direction: SignalDirection; side: "buy" | "sell"; seal: string;
+  plan: { entry: number; stopLoss: number; takeProfit1: number; takeProfit2: number; takeProfit3: number };
+  regime: string | null; engine: string; engineVersion: string;
+}): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  const sb = supabaseService();
+  if (!sb) return { reason: "no-db", id: null };
+  try {
+    const { data, error } = await sb.rpc("record_signal", {
+      p_symbol: p.symbol, p_asset_type: p.assetType, p_timeframe: p.timeframe,
+      p_direction: p.direction, p_seal: p.seal, p_side: p.side,
+      p_entry: p.plan.entry, p_stop: p.plan.stopLoss, p_tp1: p.plan.takeProfit1, p_tp2: p.plan.takeProfit2, p_tp3: p.plan.takeProfit3,
+      p_regime: p.regime, p_engine_version: p.engineVersion, p_bt_pf: null, p_bt_wr: null, p_bt_n: null, p_engine: p.engine,
+    });
+    if (error) return { reason: "error", id: null };
+    return data == null ? { reason: "open-exists", id: null } : { reason: "emitted", id: String(data) };
+  } catch {
+    return { reason: "error", id: null };
+  }
+}
+
+/**
+ * VARIANTE Padrão-B (experimental, forward A/B): mesma DIREÇÃO do Motor 1, mas
+ * plano com stop/alvos mais largos (ATR ×1.4) — testa gestão de risco. Mesmo gate
+ * do Motor 1 (selo verde/amarelo + direção acionável). Sem backtest do plano novo.
+ */
+export async function emitSignalB(
+  dto: FullAnalysis, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  const side = signalSide(dto.analysis.signal.signal);
+  if (side === "neutral") return { reason: "neutral", id: null };
+  const seal = dto.quality?.status;
+  if (seal !== "green" && seal !== "yellow") return { reason: "low-seal", id: null };
+  const plan = buildClassPlan(dto, side, 1.4);
+  if (!plan) return { reason: "no-geometry", id: null };
+  return recordVariant({
+    symbol, assetType, timeframe, direction: dto.analysis.signal.signal, side, seal, plan,
+    regime: dto.analysis.meta?.regime ?? null, engine: "padrao_b", engineVersion: `${ENGINE_VERSION}+B`,
+  });
+}
+
+/**
+ * VARIANTE Classe-B (experimental, forward A/B): leitura por classe com gate de
+ * convicção mais ALTO (≥20pts) + plano ATR ×1.4 — testa seletividade + espaço pro
+ * trade. Independente do Motor 1; selo próprio 'yellow' (sem backtest).
+ */
+export async function emitClassSignalB(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  const reading = computeClassReading(dto, assetType, extras);
+  if (reading.side === "neutral") return { reason: "neutral", id: null };
+  if (Math.abs(reading.score - 50) < 20) return { reason: "low-conviction", id: null };
+  const plan = buildClassPlan(dto, reading.side, 1.4);
+  if (!plan) return { reason: "no-geometry", id: null };
+  const direction: SignalDirection = reading.side === "buy"
+    ? (reading.score >= 70 ? "STRONG_BUY" : "BUY")
+    : (reading.score <= 30 ? "STRONG_SELL" : "SELL");
+  return recordVariant({
+    symbol, assetType, timeframe, direction, side: reading.side, seal: "yellow", plan,
+    regime: dto.analysis.meta?.regime ?? null, engine: "classe_b", engineVersion: `${ENGINE_VERSION}+classe-B`,
+  });
+}

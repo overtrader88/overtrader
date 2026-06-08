@@ -32,7 +32,7 @@ export interface AdminExtra {
 
 /** Comparação de performance entre motores (aba "Motores" do admin). */
 export interface EngineStat {
-  engine: "padrao" | "classe";
+  engine: string; // padrao | classe | padrao_b | classe_b
   label: string;
   resolved: number;
   decisive: number;

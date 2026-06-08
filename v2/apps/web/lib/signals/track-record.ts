@@ -75,7 +75,9 @@ export async function getTrackRecord(engine?: EngineFilter): Promise<TrackRecord
     .select("symbol, timeframe, direction, seal, outcome, pnl_r, regime, emitted_at, resolved_at")
     .not("outcome", "is", null)
     .order("resolved_at", { ascending: false });
+  // Público: variantes experimentais (padrao_b/classe_b) NUNCA aparecem.
   if (engine) q = q.eq("engine", engine);
+  else q = q.in("engine", ["padrao", "classe"]);
   const { data, error } = await q;
   if (error) return engine ? emptyConfigured : empty;
 
@@ -108,6 +110,7 @@ export async function getTrackRecord(engine?: EngineFilter): Promise<TrackRecord
     .order("emitted_at", { ascending: false })
     .limit(20);
   if (engine) openQ = openQ.eq("engine", engine);
+  else openQ = openQ.in("engine", ["padrao", "classe"]);
   const { data: openData, count } = await openQ;
 
   const live: LiveSignal[] = (openData ?? []).map((r) => {

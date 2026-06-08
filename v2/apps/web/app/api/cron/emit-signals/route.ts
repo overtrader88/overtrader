@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { signalSide } from "@tradeai/shared";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { emitSignal, emitClassSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
+import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
 import { broadcastSignal } from "@/lib/notify/dispatch";
@@ -35,6 +35,8 @@ async function handle(req: Request): Promise<NextResponse> {
   };
   let broadcast = 0;
   let classEmitted = 0;
+  let padraoBEmitted = 0;
+  let classeBEmitted = 0;
   for (const m of TRACKED_MARKETS) {
     try {
       const dto = await analyzeSymbol(m.symbol, m.assetType, m.timeframe, "complete");
@@ -63,14 +65,19 @@ async function handle(req: Request): Promise<NextResponse> {
         const cls = await emitClassSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         classTally[cls.reason]++;
         if (cls.reason === "emitted") classEmitted++;
+        // Variantes experimentais A/B (forward) — Padrão-B e Classe-B. Best-effort.
+        const b1 = await emitSignalB(dto, m.symbol, m.assetType, m.timeframe);
+        if (b1.reason === "emitted") padraoBEmitted++;
+        const b2 = await emitClassSignalB(dto, extras, m.symbol, m.assetType, m.timeframe);
+        if (b2.reason === "emitted") classeBEmitted++;
       } catch {
-        classTally.error++; // erro no Motor 2 nunca compromete o Motor 1.
+        classTally.error++; // erro no Motor 2/variantes nunca compromete o Motor 1.
       }
     } catch {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, motor1: tally, motor2: classTally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, motor1: tally, motor2: classTally });
 }
 
 export const GET = handle;

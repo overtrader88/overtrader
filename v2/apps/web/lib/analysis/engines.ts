@@ -27,12 +27,13 @@ export interface ClassPlan {
  * de mercado compartilhados (ATR e último preço) + os múltiplos do motor. Assim
  * um motor jamais influencia a decisão/direção do outro.
  */
-export function buildClassPlan(dto: FullAnalysis, side: "buy" | "sell" | "neutral"): ClassPlan | null {
+export function buildClassPlan(dto: FullAnalysis, side: "buy" | "sell" | "neutral", atrScale = 1): ClassPlan | null {
   if (side === "neutral") return null;
   // entry = último preço (dado de mercado, não a decisão do Motor 1).
   const entry = dto.analysis?.risk?.entry;
   if (!entry || !(entry > 0)) return null;
-  const atrVal = dto.atr && dto.atr > 0 ? dto.atr : dto.analysis.meta?.atrRatio ? dto.analysis.meta.atrRatio * entry : 0;
+  const atrBase = dto.atr && dto.atr > 0 ? dto.atr : dto.analysis.meta?.atrRatio ? dto.analysis.meta.atrRatio * entry : 0;
+  const atrVal = atrBase * atrScale; // atrScale>1 → stop/alvos mais largos (variante B)
   if (!(atrVal > 0)) return null;
   const dir: SignalDirection = side === "buy" ? "BUY" : "SELL";
   const out = computeRiskFrom(entry, atrVal, dir, DEFAULT_ENGINE_CONFIG);

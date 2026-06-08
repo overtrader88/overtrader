@@ -550,15 +550,16 @@ function BreakdownTable({ title, rows }: { title: string; rows: BreakdownRow[] }
 function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; equity: EquityPoint[]; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
-  const p = engines.find((e) => e.engine === "padrao");
-  const c = engines.find((e) => e.engine === "classe");
-  if (!p && !c) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
+  if (engines.every((e) => e.emittedTotal === 0)) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
 
-  // destaca o melhor valor (verde) conforme a direção da métrica.
-  const pick = (a: number | null | undefined, b: number | null | undefined, dir: "higher" | "lower" | "none"): [boolean, boolean] => {
-    if (dir === "none" || a == null || b == null || a === b) return [false, false];
-    const pWins = dir === "higher" ? a > b : a < b;
-    return pWins ? [true, false] : [false, true];
+  const SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B" };
+  // índice do melhor valor (verde) conforme a direção; -1 se empate/insuficiente.
+  const bestIdx = (vals: (number | null | undefined)[], dir: "higher" | "lower" | "none"): number => {
+    if (dir === "none") return -1;
+    const nums = vals.map((v, i) => ({ v, i })).filter((x): x is { v: number; i: number } => x.v != null);
+    if (nums.length < 2) return -1;
+    const sorted = [...nums].sort((a, b) => (dir === "higher" ? b.v - a.v : a.v - b.v));
+    return sorted[0]!.v === sorted[1]!.v ? -1 : sorted[0]!.i;
   };
 
   type Dir = "higher" | "lower" | "none";
@@ -595,35 +596,33 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
           {refreshing ? "Atualizando…" : "↻ Atualizar dados"}
         </button>
       </div>
-      <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "78ch" }}>
-        Comparação <b>forward</b> entre os dois motores nos mercados curados. <b>Realizado</b> = desfechos fechados pelo cron
-        (TP/SL). <b>Não-realizado</b> = posições abertas marcadas a mercado AGORA (fecharia em lucro ou prejuízo). Win rate / PF / R
-        seguem a mesma matemática do track record público (forward, sem reotimização).
+      <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "82ch" }}>
+        Comparação <b>forward</b> entre os motores. <b>Padrão</b> e <b>Classe</b> = motores vivos. <b>Padrão-B</b> (stop/alvos
+        ATR ×1,4) e <b>Classe-B</b> (convicção ≥20 + ATR ×1,4) = variantes experimentais A/B, emitidas em paralelo só aqui (não
+        aparecem no track record público). <b>Realizado</b> = fechados pelo cron; <b>Não-realizado</b> = abertos marcados a mercado.
       </p>
 
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.86rem", minWidth: 460 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 620 }}>
           <thead>
             <tr style={ROW}>
               <th style={{ ...TH, textAlign: "left" }}>Métrica</th>
-              <th style={{ ...TH, textAlign: "right" }}>Motor padrão</th>
-              <th style={{ ...TH, textAlign: "right" }}>Motor por classe</th>
+              {engines.map((e) => <th key={e.engine} style={{ ...TH, textAlign: "right" }}>{SHORT[e.engine] ?? e.label}</th>)}
             </tr>
           </thead>
           <tbody>
             {ROWS.map((r, i) => {
-              const pv = p ? r.raw(p) : undefined;
-              const cv = c ? r.raw(c) : undefined;
-              const [pBest, cBest] = pick(pv, cv, r.dir);
-              const pTone = r.tone ? r.tone(pv ?? null) : null;
-              const cTone = r.tone ? r.tone(cv ?? null) : null;
+              const vals = engines.map((e) => r.raw(e));
+              const bi = bestIdx(vals, r.dir);
               // tone (cor por valor) tem prioridade; senão, verde no melhor; senão, claro.
               const hl = (best: boolean, tone: string | null): React.CSSProperties => ({ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: best || tone ? 700 : 500, color: tone ?? (best ? "var(--bull,#16a34a)" : "#e8edf5") });
               return (
                 <tr key={i} style={ROW}>
                   <td style={{ ...TD, color: "#aebccd" }}>{r.label}</td>
-                  <td style={hl(pBest, pTone)}>{p ? (r.node ? r.node(p) : r.get(p)) : "—"}</td>
-                  <td style={hl(cBest, cTone)}>{c ? (r.node ? r.node(c) : r.get(c)) : "—"}</td>
+                  {engines.map((e, j) => {
+                    const tone = r.tone ? r.tone(vals[j] ?? null) : null;
+                    return <td key={e.engine} style={hl(j === bi, tone)}>{r.node ? r.node(e) : r.get(e)}</td>;
+                  })}
                 </tr>
               );
             })}
@@ -662,7 +661,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
                 const st = STATUS_PT[o.status];
                 return (
                   <tr key={i} style={ROW}>
-                    <td style={TD}>{o.engine === "classe" ? "⚙ Classe" : "Padrão"}</td>
+                    <td style={TD}>{o.engine === "classe" ? "⚙ Classe" : o.engine === "padrao_b" ? "Padrão-B" : o.engine === "classe_b" ? "⚙ Classe-B" : "Padrão"}</td>
                     <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
                     <td style={{ ...TD, color: o.side === "sell" ? "var(--bear,#dc2626)" : "var(--bull,#16a34a)" }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
                     <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{o.entry.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}</td>
