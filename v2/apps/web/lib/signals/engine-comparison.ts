@@ -41,7 +41,7 @@ function groupStat(resolved: { outcome: SignalOutcome; pnlR: number }[]): GroupS
     else if (r.outcome === "SL") sl++;
   }
   const decisive = wins + sl;
-  return { n: resolved.length, winRatePct: decisive > 0 ? (wins / decisive) * 100 : 0, totalR };
+  return { n: resolved.length, winRatePct: decisive > 0 ? (wins / decisive) * 100 : 0, totalR, wins, decisive };
 }
 
 /** Recorte por chave (classe ou TF) × TODOS os motores, ordenado por amostra total. */
@@ -161,9 +161,11 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
     };
   });
 
-  // Recortes por classe de ativo e por timeframe (onde cada motor é mais forte).
+  // Recortes por classe de ativo, por timeframe, por ativo e por ativo+timeframe.
   const byClass = breakdownBy(rows, (r) => r.asset_type, (k) => ASSET_PT[k] ?? k);
   const byTimeframe = breakdownBy(rows, (r) => r.timeframe, (k) => k.toUpperCase());
+  const byAsset = breakdownBy(rows, (r) => r.symbol, (k) => k);
+  const bySymbolTf = breakdownBy(rows, (r) => `${r.symbol}__${r.timeframe}`, (k) => { const [s, t] = k.split("__"); return `${s} · ${(t ?? "").toUpperCase()}`; });
 
   // Curva de R acumulado por motor: timeline de resolvidos (asc) com running total.
   const resolvedSorted = rows
@@ -185,5 +187,5 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
       direction: r.direction, outcome: r.outcome as string, pnlR: r.pnl_r != null ? Number(r.pnl_r) : 0, resolvedAt: r.resolved_at,
     }));
 
-  return { engines, open, byClass, byTimeframe, equity, closed };
+  return { engines, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed };
 }

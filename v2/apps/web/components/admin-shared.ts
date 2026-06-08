@@ -71,6 +71,8 @@ export interface GroupStat {
   n: number;
   winRatePct: number;
   totalR: number;
+  wins: number;
+  decisive: number;
 }
 
 export interface BreakdownRow {
@@ -102,6 +104,8 @@ export interface EngineComparison {
   open: OpenPosition[];
   byClass: BreakdownRow[];
   byTimeframe: BreakdownRow[];
+  byAsset: BreakdownRow[];
+  bySymbolTf: BreakdownRow[];
   equity: EquityPoint[];
   closed: ClosedOpRow[];
 }

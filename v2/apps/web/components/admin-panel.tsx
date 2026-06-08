@@ -473,6 +473,8 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
           open={extra.engines?.open ?? []}
           byClass={extra.engines?.byClass ?? []}
           byTimeframe={extra.engines?.byTimeframe ?? []}
+          byAsset={extra.engines?.byAsset ?? []}
+          bySymbolTf={extra.engines?.bySymbolTf ?? []}
           equity={extra.engines?.equity ?? []}
           closed={extra.engines?.closed ?? []}
           now={now}
@@ -545,6 +547,13 @@ function BreakdownTable({ title, rows, engineIds }: { title: string; rows: Break
     return gs.reduce((s, g) => s + g.n, 0);
   };
   const sorted = [...rows].sort((a, b) => score(b) - score(a));
+  // Totalizador por motor (soma sobre todos os grupos).
+  const totals: Record<string, { n: number; winRatePct: number; totalR: number }> = {};
+  for (const e of engineIds) {
+    let n = 0, wins = 0, decisive = 0, totalR = 0;
+    for (const r of rows) { const g = r.stats[e]; if (g) { n += g.n; wins += g.wins; decisive += g.decisive; totalR += g.totalR; } }
+    totals[e] = { n, totalR, winRatePct: decisive > 0 ? (wins / decisive) * 100 : 0 };
+  }
   return (
     <div style={{ width: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 8px" }}>
@@ -575,6 +584,12 @@ function BreakdownTable({ title, rows, engineIds }: { title: string; rows: Break
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr style={{ ...ROW, borderTop: "2px solid var(--border-faint,#475569)" }}>
+                <td style={{ ...TD, fontWeight: 700 }}>Total</td>
+                {engineIds.map((e) => <td key={e} style={{ ...TD, fontWeight: 700 }}>{cell(totals[e])}</td>)}
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
@@ -628,8 +643,82 @@ const SIDE_OPTS: [string, string][] = [["all", "Compra e venda"], ["buy", "Só c
 const OPEN_STATUS_OPTS: [string, string][] = [["all", "Todas situações"], ["lucro", "Lucro"], ["prejuizo", "Prejuízo"], ["neutro", "Neutro"]];
 const CLOSED_OUTCOME_OPTS: [string, string][] = [["all", "Todos desfechos"], ["take", "Take"], ["stop", "Stop"], ["exp", "Expirou"]];
 const FILTER_BAR: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 8px" };
+const C_GREEN = "var(--bull,#16a34a)";
+const C_RED = "var(--bear,#dc2626)";
 
-function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; now: number }) {
+// ===================== Ranking dos motores (ordenável por métrica) =====================
+type RankMetric = { key: string; label: string; value: (e: EngineStat) => number | null; dir: "higher" | "lower"; fmt: (v: number) => string; tone?: (v: number) => string | null };
+const RANK_METRICS: RankMetric[] = [
+  { key: "totalR", label: "R acumulado (realizado)", value: (e) => (e.resolved > 0 ? e.totalR : null), dir: "higher", fmt: (v) => `${sgn(v, 1)}R`, tone: (v) => (v < 0 ? C_RED : v > 0 ? C_GREEN : null) },
+  { key: "winRatePct", label: "Assertividade (win rate)", value: (e) => (e.decisive > 0 ? e.winRatePct : null), dir: "higher", fmt: (v) => `${v.toFixed(1)}%` },
+  { key: "profitFactor", label: "Profit factor", value: (e) => (e.decisive > 0 ? e.profitFactor : null), dir: "higher", fmt: (v) => v.toFixed(2) },
+  { key: "avgR", label: "R médio / sinal", value: (e) => (e.resolved > 0 ? e.avgR : null), dir: "higher", fmt: (v) => sgn(v), tone: (v) => (v < 0 ? C_RED : v > 0 ? C_GREEN : null) },
+  { key: "stopPct", label: "Stop loss (% dos decisivos)", value: (e) => (e.decisive > 0 ? (e.losses / e.decisive) * 100 : null), dir: "lower", fmt: (v) => `${v.toFixed(0)}%`, tone: () => C_RED },
+  { key: "stopsPerTake", label: "Stops por take", value: (e) => (e.wins > 0 ? e.losses / e.wins : null), dir: "lower", fmt: (v) => `${v.toFixed(2)}×`, tone: (v) => (v > 1 ? C_RED : v < 1 ? C_GREEN : null) },
+  { key: "wins", label: "Operações TP (take)", value: (e) => e.wins, dir: "higher", fmt: (v) => String(v), tone: (v) => (v > 0 ? C_GREEN : null) },
+  { key: "losses", label: "Operações SL (stop)", value: (e) => e.losses, dir: "lower", fmt: (v) => String(v), tone: (v) => (v > 0 ? C_RED : null) },
+  { key: "openUnrealizedR", label: "R não-realizado (abertos)", value: (e) => e.openUnrealizedR, dir: "higher", fmt: (v) => `${sgn(v, 1)}R`, tone: (v) => (v < 0 ? C_RED : v > 0 ? C_GREEN : null) },
+  { key: "emittedTotal", label: "Sinais emitidos (total)", value: (e) => e.emittedTotal, dir: "higher", fmt: (v) => String(v) },
+  { key: "decisive", label: "Decisivos (TP+SL)", value: (e) => e.decisive, dir: "higher", fmt: (v) => String(v) },
+];
+
+function RankingTable({ engines }: { engines: EngineStat[] }) {
+  const [metricKey, setMetricKey] = useState("totalR");
+  const m = RANK_METRICS.find((x) => x.key === metricKey) ?? RANK_METRICS[0]!;
+  const ranked = engines.map((e) => ({ e, v: m.value(e) }))
+    .sort((a, b) => {
+      if (a.v == null && b.v == null) return 0;
+      if (a.v == null) return 1;
+      if (b.v == null) return -1;
+      return m.dir === "higher" ? b.v - a.v : a.v - b.v;
+    });
+  return (
+    <div style={{ width: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 8px", flexWrap: "wrap" }}>
+        <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Ranking dos motores</h3>
+        <label style={{ fontSize: "0.8rem", color: "#aebccd", display: "flex", alignItems: "center", gap: 6 }}>
+          Ranquear por
+          <select value={metricKey} onChange={(e) => setMetricKey(e.target.value)} style={FIELD}>
+            {RANK_METRICS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+          </select>
+        </label>
+        <span style={{ fontSize: "0.72rem", color: "#64748b" }}>{m.dir === "higher" ? "maior = melhor" : "menor = melhor"}</span>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 560 }}>
+          <thead>
+            <tr style={ROW}>
+              <th style={{ ...TH, textAlign: "left", width: 44 }}>#</th>
+              <th style={{ ...TH, textAlign: "left" }}>Motor</th>
+              <th style={{ ...TH, textAlign: "right" }}>{m.label}</th>
+              <th style={{ ...TH, textAlign: "right" }}>Decisivos</th>
+              <th style={{ ...TH, textAlign: "right" }}>Win%</th>
+              <th style={{ ...TH, textAlign: "right" }}>R acum.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranked.map(({ e, v }, i) => {
+              const tone = v != null && m.tone ? m.tone(v) : null;
+              const ranked0 = v != null;
+              return (
+                <tr key={e.engine} style={ROW}>
+                  <td style={{ ...TD, fontWeight: 700 }}>{!ranked0 ? "—" : i === 0 ? "🥇 1º" : `${i + 1}º`}</td>
+                  <td style={TD}>{ENGINE_TAG[e.engine] ?? e.engine}</td>
+                  <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: tone ?? "#e8edf5" }}>{v == null ? "—" : m.fmt(v)}</td>
+                  <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{e.decisive}</td>
+                  <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{e.decisive > 0 ? `${e.winRatePct.toFixed(0)}%` : "—"}</td>
+                  <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", color: e.totalR > 0 ? C_GREEN : e.totalR < 0 ? C_RED : "#e8edf5" }}>{e.resolved > 0 ? `${sgn(e.totalR, 1)}R` : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function EnginesTab({ engines, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   // Motores visíveis (colunas do comparativo + recortes).
@@ -773,12 +862,18 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, closed, now }
         </table>
       </div>
 
+      <div style={{ marginTop: 24 }}>
+        <RankingTable engines={cols} />
+      </div>
+
       <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Curva de R acumulado (realizado, forward)</h3>
       <EquityChart equity={equity} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 24 }}>
         <BreakdownTable title="Por classe de ativo" rows={byClass} engineIds={visibleIds} />
         <BreakdownTable title="Por timeframe" rows={byTimeframe} engineIds={visibleIds} />
+        <BreakdownTable title="Por ativo" rows={byAsset} engineIds={visibleIds} />
+        <BreakdownTable title="Por timeframe e ativo" rows={bySymbolTf} engineIds={visibleIds} />
       </div>
 
       <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Posições abertas · marcadas a mercado agora</h3>
