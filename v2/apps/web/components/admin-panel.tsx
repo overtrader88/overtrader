@@ -565,7 +565,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
   const RED = "var(--bear,#dc2626)";
   const GREEN = "var(--bull,#16a34a)";
   // tone: cor por VALOR (sobrepõe o destaque do melhor). null = usa o padrão.
-  const ROWS: { label: string; get: (e: EngineStat) => string; raw: (e: EngineStat) => number | null; dir: Dir; tone?: (v: number | null) => string | null }[] = [
+  const ROWS: { label: string; get: (e: EngineStat) => string; raw: (e: EngineStat) => number | null; dir: Dir; tone?: (v: number | null) => string | null; node?: (e: EngineStat) => React.ReactNode }[] = [
     { label: "Sinais emitidos (total)", get: (e) => String(e.emittedTotal), raw: (e) => e.emittedTotal, dir: "none" },
     { label: "Frequência", get: (e) => `${e.perDay.toFixed(1)}/dia`, raw: (e) => e.perDay, dir: "none" },
     { label: "Abertos agora", get: (e) => String(e.open), raw: (e) => e.open, dir: "none" },
@@ -579,7 +579,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
     { label: "Profit factor", get: (e) => e.profitFactor.toFixed(2), raw: (e) => e.profitFactor, dir: "higher" },
     { label: "R médio / sinal", get: (e) => sgn(e.avgR), raw: (e) => e.avgR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
     { label: "R acumulado (realizado)", get: (e) => sgn(e.totalR, 1), raw: (e) => e.totalR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
-    { label: "Abertos em lucro / prejuízo", get: (e) => `${e.openInProfit} / ${e.openInLoss}`, raw: () => null, dir: "none" },
+    { label: "Abertos em lucro / prejuízo", get: (e) => `${e.openInProfit} / ${e.openInLoss}`, raw: () => null, dir: "none", node: (e) => (<><span style={{ color: GREEN, fontWeight: 700 }}>{e.openInProfit}</span> / <span style={{ color: RED, fontWeight: 700 }}>{e.openInLoss}</span></>) },
     { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
   ];
 
@@ -622,8 +622,8 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
               return (
                 <tr key={i} style={ROW}>
                   <td style={{ ...TD, color: "#aebccd" }}>{r.label}</td>
-                  <td style={hl(pBest, pTone)}>{p ? r.get(p) : "—"}</td>
-                  <td style={hl(cBest, cTone)}>{c ? r.get(c) : "—"}</td>
+                  <td style={hl(pBest, pTone)}>{p ? (r.node ? r.node(p) : r.get(p)) : "—"}</td>
+                  <td style={hl(cBest, cTone)}>{c ? (r.node ? r.node(c) : r.get(c)) : "—"}</td>
                 </tr>
               );
             })}
