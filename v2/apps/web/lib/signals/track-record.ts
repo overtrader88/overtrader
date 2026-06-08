@@ -36,6 +36,8 @@ export interface LiveSignal {
   emittedAt: string;
 }
 
+export type EngineFilter = "padrao" | "classe";
+
 export interface TrackRecordData {
   configured: boolean;
   overall: TrackRecordStats;
@@ -60,17 +62,22 @@ interface DbRow {
   emitted_at: string; resolved_at: string | null;
 }
 
-export async function getTrackRecord(): Promise<TrackRecordData> {
+export async function getTrackRecord(engine?: EngineFilter): Promise<TrackRecordData> {
   const sb = supabaseService();
   const empty = { configured: false, overall: EMPTY, byRegime: [], recent: [], live: [], openCount: 0 };
+  // Filtro por motor pode falhar antes da migration (coluna `engine` ausente) →
+  // mostra "em construção" (configured:true) em vez de "indisponível".
+  const emptyConfigured = { ...empty, configured: true };
   if (!sb) return empty;
 
-  const { data, error } = await sb
+  let q = sb
     .from("signals")
     .select("symbol, timeframe, direction, seal, outcome, pnl_r, regime, emitted_at, resolved_at")
     .not("outcome", "is", null)
     .order("resolved_at", { ascending: false });
-  if (error) return empty;
+  if (engine) q = q.eq("engine", engine);
+  const { data, error } = await q;
+  if (error) return engine ? emptyConfigured : empty;
 
   const rows = (data ?? []) as DbRow[];
   const withR = rows.filter((r) => r.pnl_r != null);
@@ -94,12 +101,14 @@ export async function getTrackRecord(): Promise<TrackRecordData> {
     emittedAt: r.emitted_at, resolvedAt: r.resolved_at,
   }));
 
-  const { data: openData, count } = await sb
+  let openQ = sb
     .from("signals")
     .select("symbol, timeframe, direction, seal, tp1_hit, tp2_hit, tp3_hit, stop_stage, emitted_at", { count: "exact" })
     .is("outcome", null)
     .order("emitted_at", { ascending: false })
     .limit(20);
+  if (engine) openQ = openQ.eq("engine", engine);
+  const { data: openData, count } = await openQ;
 
   const live: LiveSignal[] = (openData ?? []).map((r) => {
     const o = r as unknown as { symbol: string; timeframe: string; direction: string; seal: string; tp1_hit: boolean; tp2_hit: boolean; tp3_hit: boolean; stop_stage: string; emitted_at: string };

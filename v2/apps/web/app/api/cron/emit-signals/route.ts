@@ -8,7 +8,8 @@
 import { NextResponse } from "next/server";
 import { signalSide } from "@tradeai/shared";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { emitSignal, type EmitReason } from "@/lib/signals/emit";
+import { emitSignal, emitClassSignal, type EmitReason } from "@/lib/signals/emit";
+import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
 import { broadcastSignal } from "@/lib/notify/dispatch";
 import { generateNarrative } from "@/lib/analysis/narrative";
@@ -30,6 +31,7 @@ async function handle(req: Request): Promise<NextResponse> {
 
   const tally: Record<EmitReason, number> = { emitted: 0, neutral: 0, "low-seal": 0, "open-exists": 0, "no-db": 0, error: 0 };
   let broadcast = 0;
+  let classEmitted = 0;
   for (const m of TRACKED_MARKETS) {
     try {
       const dto = await analyzeSymbol(m.symbol, m.assetType, m.timeframe, "complete");
@@ -50,11 +52,21 @@ async function handle(req: Request): Promise<NextResponse> {
         });
         if (sent === "sent") broadcast++;
       }
+
+      // MOTOR 2 ("por classe"): segunda leitura, carimbada em paralelo (engine='classe').
+      // Best-effort — falha ou RPC sem p_engine (antes da migration) não derruba o Motor 1.
+      try {
+        const extras = await loadServerExtras(m.symbol, m.assetType);
+        const cls = await emitClassSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
+        if (cls.reason === "emitted") classEmitted++;
+      } catch {
+        // ignora: Motor 2 nunca compromete o track record do Motor 1.
+      }
     } catch {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, ...tally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, ...tally });
 }
 
 export const GET = handle;

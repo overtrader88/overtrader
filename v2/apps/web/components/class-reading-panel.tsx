@@ -1,11 +1,6 @@
 import { Panel, PanelLabel, RadialGauge } from "@/components/ui";
-import { computeClassReading, type ClassExtras } from "@/lib/analysis/engines";
-import { getMacroContext } from "@/lib/market/macro-yahoo";
-import { fetchFmpFundamental, fetchNextEarnings } from "@/lib/market/fmp";
-import { getCotPositioning } from "@/lib/market/cot-cftc";
-import { fetchFundamental } from "@/lib/market/defillama";
-import { getBreadthProxy } from "@/lib/market/breadth-yahoo";
-import { getOilInventory } from "@/lib/market/eia";
+import { computeClassReading } from "@/lib/analysis/engines";
+import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { DerivativesLive } from "@/components/derivatives-live";
 import { LiquidationHeatmap } from "@/components/liquidation-heatmap";
 import type { FullAnalysis } from "@/lib/analysis/full";
@@ -24,29 +19,9 @@ const SIDE_PT = {
  * integramos (`pending`). Não substitui o Motor 1 — é uma segunda lente.
  */
 export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis; assetType: AssetType }) {
-  // Derivativos da Binance são buscados NO NAVEGADOR (DerivativesLive) — a Vercel
-  // é bloqueada por IP de cloud. Macro (Yahoo) funciona server-side.
-  const extras: ClassExtras = {};
-  const asset = dto.analysis.meta.asset;
-  const fmpKey = process.env.FMP_API_KEY;
-  const [macro, cot, fundamental, onchain, breadth, earnings, oilInv] = await Promise.all([
-    assetType === "forex" || assetType === "commodities" || assetType === "indices"
-      ? getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices", us10y: assetType === "indices" })
-      : Promise.resolve(null),
-    assetType === "forex" || assetType === "commodities" ? getCotPositioning(asset) : Promise.resolve(null),
-    assetType === "stocks" && fmpKey ? fetchFmpFundamental(asset, fmpKey) : Promise.resolve(null),
-    assetType === "crypto" ? fetchFundamental(asset) : Promise.resolve(null),
-    assetType === "indices" ? getBreadthProxy() : Promise.resolve(null),
-    assetType === "stocks" && fmpKey ? fetchNextEarnings(asset, fmpKey) : Promise.resolve(null),
-    assetType === "commodities" ? getOilInventory(asset) : Promise.resolve(null),
-  ]);
-  extras.macro = macro;
-  extras.cot = cot;
-  extras.fundamental = fundamental;
-  extras.onchain = onchain;
-  extras.breadth = breadth;
-  extras.earnings = earnings;
-  extras.oil = oilInv;
+  // Derivativos da Binance + heatmap são buscados NO NAVEGADOR (Vercel bloqueada
+  // por IP de cloud). Os demais extras rodam server-side (helper compartilhado).
+  const extras = await loadServerExtras(dto.analysis.meta.asset, assetType);
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];

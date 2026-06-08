@@ -1,9 +1,15 @@
 import { AppBar, Panel, PanelLabel, ConfidenceBadge } from "@/components/ui";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
-import { getTrackRecord } from "@/lib/signals/track-record";
+import { getTrackRecord, type EngineFilter } from "@/lib/signals/track-record";
 import type { TrackRecordStats } from "@tradeai/engine";
 
 export const dynamic = "force-dynamic";
+
+const ENGINE_TABS: { key: string; label: string; filter?: EngineFilter }[] = [
+  { key: "ambos", label: "Ambos" },
+  { key: "padrao", label: "Motor padrão", filter: "padrao" },
+  { key: "classe", label: "Motor por classe", filter: "classe" },
+];
 
 const pct = (x: number) => `${x.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 const signed = (x: number) => `${x > 0 ? "+" : ""}${x.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`;
@@ -40,8 +46,14 @@ function StatRow({ s }: { s: TrackRecordStats }) {
   );
 }
 
-export default async function TrackRecordPage() {
-  const [user, tr] = await Promise.all([getCurrentUser(), getTrackRecord()]);
+export default async function TrackRecordPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ engine?: string }>;
+}) {
+  const sp = await searchParams;
+  const activeTab = ENGINE_TABS.find((t) => t.key === sp.engine) ?? ENGINE_TABS[0]!;
+  const [user, tr] = await Promise.all([getCurrentUser(), getTrackRecord(activeTab.filter)]);
   const { overall, byRegime, recent, live, openCount, configured } = tr;
   const sufficient = overall.decisive >= MIN_DECISIVE;
   const o = overall.outcomes;
@@ -54,11 +66,24 @@ export default async function TrackRecordPage() {
         <div className="wrap">
           <Panel>
             <PanelLabel>Track record · performance auditada forward</PanelLabel>
-            <p className="note" style={{ maxWidth: "70ch", marginBottom: 14 }}>
+            <p className="note" style={{ maxWidth: "70ch", marginBottom: 12 }}>
               Cada sinal de qualidade é <b>carimbado na emissão</b> com seu plano fixo (entrada/stop/alvos). O desfecho é medido
               contra os candles que vieram <b>depois</b> — sem reotimizar nada. É o oposto de um número cravado: win rate, profit
               factor e R médio vêm com <b>intervalo de confiança e amostra (n)</b>, e o veredito fica cinza enquanto a amostra é fraca.
             </p>
+
+            <div className="tr-tabs">
+              {ENGINE_TABS.map((t) => (
+                <a key={t.key} href={t.key === "ambos" ? "/track-record" : `/track-record?engine=${t.key}`}
+                  className={`tr-tab${t.key === activeTab.key ? " on" : ""}`}>{t.label}</a>
+              ))}
+            </div>
+            {activeTab.key === "classe" ? (
+              <p className="note" style={{ maxWidth: "70ch", margin: "0 0 14px" }}>
+                <b>Motor por classe (Motor 2):</b> segunda leitura, com a metodologia de cada família de ativo. Ainda <b>sem selo de
+                backtest próprio</b> — é justamente o forward que mede sua calibração. Compare com o Motor padrão acima.
+              </p>
+            ) : null}
 
             {!configured ? (
               <p className="note">Track record indisponível (banco não configurado neste ambiente).</p>
