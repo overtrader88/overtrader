@@ -44,6 +44,7 @@ const serverSchema = z.object({
   TELEGRAM_BOT_USERNAME: z.string().optional(),
   TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
   TELEGRAM_SIGNALS_CHAT_ID: z.string().optional(),
+  TELEGRAM_ADMIN_CHAT_ID: z.string().optional(), // placar dos motores p/ o admin
 
   // E-mail (Resend) — opcional; no-op gracioso sem credenciais
   RESEND_API_KEY: z.string().optional(),

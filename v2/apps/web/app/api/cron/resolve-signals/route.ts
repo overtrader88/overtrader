@@ -11,6 +11,7 @@ import type { AssetType, Timeframe } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
+import { sendScoreboardToAdmin, type ClosedOp } from "@/lib/signals/scoreboard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ const FETCH_LIMIT = 400;
 interface SignalRow {
   id: string; symbol: string; asset_type: string; timeframe: string; side: string;
   entry: number; stop_loss: number; tp1: number; tp2: number; tp3: number; emitted_at: string;
+  engine?: string | null;
 }
 
 function authorized(req: Request): boolean {
@@ -40,7 +42,7 @@ async function handle(req: Request): Promise<NextResponse> {
   const limit = Math.min(100, Math.max(1, Number(new URL(req.url).searchParams.get("limit") ?? "50") || 50));
   const { data, error } = await sb
     .from("signals")
-    .select("id, symbol, asset_type, timeframe, side, entry, stop_loss, tp1, tp2, tp3, emitted_at")
+    .select("id, symbol, asset_type, timeframe, side, entry, stop_loss, tp1, tp2, tp3, emitted_at, engine")
     .is("outcome", null)
     .order("emitted_at", { ascending: true })
     .limit(limit);
@@ -52,6 +54,7 @@ async function handle(req: Request): Promise<NextResponse> {
   let resolved = 0;
   let open = 0;
   let skipped = 0;
+  const closedDecisive: ClosedOp[] = []; // fechadas por lucro/prejuízo nesta rodada
 
   for (const s of (data ?? []) as SignalRow[]) {
     try {
@@ -77,6 +80,13 @@ async function handle(req: Request): Promise<NextResponse> {
           duration_candles: res.durationCandles, resolved_at: now,
         }).eq("id", s.id);
         resolved++;
+        // Fechou por lucro/prejuízo (TP/SL, não expiração) → entra no placar do admin.
+        if (res.outcome === "TP1" || res.outcome === "TP2" || res.outcome === "TP3" || res.outcome === "SL") {
+          closedDecisive.push({
+            engine: s.engine ?? "padrao", symbol: s.symbol, timeframe: s.timeframe,
+            side: s.side, outcome: res.outcome, pnlR: res.pnlR ?? 0,
+          });
+        }
       } else {
         await sb.from("signals").update(lifecycle).eq("id", s.id);
         open++;
@@ -85,7 +95,13 @@ async function handle(req: Request): Promise<NextResponse> {
       skipped++;
     }
   }
-  return NextResponse.json({ total: data?.length ?? 0, resolved, open, skipped });
+  // Placar dos motores no Telegram do admin — só quando algo fechou por lucro/prejuízo.
+  let scoreboard: string = "skip";
+  if (closedDecisive.length > 0) {
+    scoreboard = await sendScoreboardToAdmin(closedDecisive[closedDecisive.length - 1]!);
+  }
+
+  return NextResponse.json({ total: data?.length ?? 0, resolved, open, skipped, closedDecisive: closedDecisive.length, scoreboard });
 }
 
 export const GET = handle;
