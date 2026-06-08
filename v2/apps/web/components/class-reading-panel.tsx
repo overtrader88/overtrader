@@ -53,6 +53,10 @@ export async function ClassReadingPanel({ dto, assetType, reading, extras: extra
             <div><div className="k">Fatores</div><div className="v">{r.factors.length}</div></div>
           </div>
         </div>
+        <div className="hero2-asset">
+          <div className="ha-sym">{dto.analysis.meta.asset}</div>
+          <div className="ha-tf">{dto.analysis.meta.timeframe.toUpperCase()}</div>
+        </div>
         <RadialGauge value={r.score} caption="Convicção da classe" />
       </div>
 
