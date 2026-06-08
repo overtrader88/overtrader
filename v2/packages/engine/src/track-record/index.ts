@@ -102,6 +102,8 @@ export interface LifecycleState {
   /** Fração da posição já realizada (0..1). */
   closedFraction: number;
   exitPrice: number | null;
+  /** R já TRAVADO nas saídas parciais até agora (vale mesmo enquanto aberto). */
+  realizedR: number;
   /** R ponderado realizado (terços × R de cada saída). null enquanto totalmente aberto. */
   pnlR: number | null;
   durationCandles: number;
@@ -110,7 +112,7 @@ export interface LifecycleState {
 const THIRD = 1 / 3;
 const OPEN_LC: LifecycleState = {
   status: "open", outcome: null, tp1Hit: false, tp2Hit: false, tp3Hit: false,
-  stopStage: "initial", currentStop: 0, closedFraction: 0, exitPrice: null, pnlR: null, durationCandles: 0,
+  stopStage: "initial", currentStop: 0, closedFraction: 0, exitPrice: null, realizedR: 0, pnlR: null, durationCandles: 0,
 };
 
 /**
@@ -139,7 +141,7 @@ export function resolveLifecycle(plan: SignalPlan, futureCandles: Candle[], maxD
 
   const finish = (outcome: SignalOutcome, j: number, exitPrice: number): LifecycleState => ({
     status: "resolved", outcome, tp1Hit, tp2Hit, tp3Hit, stopStage, currentStop: stop,
-    closedFraction: 1, exitPrice, pnlR: Math.round(realizedR * 1e4) / 1e4, durationCandles: j + 1,
+    closedFraction: 1, exitPrice, realizedR: Math.round(realizedR * 1e4) / 1e4, pnlR: Math.round(realizedR * 1e4) / 1e4, durationCandles: j + 1,
   });
 
   const scan = Math.min(futureCandles.length, maxDuration);
@@ -177,7 +179,7 @@ export function resolveLifecycle(plan: SignalPlan, futureCandles: Candle[], maxD
     realizedR += (1 - closed) * rOf(last.close);
     return finish("EXPIRED", maxDuration - 1, last.close);
   }
-  return { status: "open", outcome: null, tp1Hit, tp2Hit, tp3Hit, stopStage, currentStop: stop, closedFraction: closed, exitPrice: null, pnlR: null, durationCandles: futureCandles.length };
+  return { status: "open", outcome: null, tp1Hit, tp2Hit, tp3Hit, stopStage, currentStop: stop, closedFraction: closed, exitPrice: null, realizedR: Math.round(realizedR * 1e4) / 1e4, pnlR: null, durationCandles: futureCandles.length };
 }
 
 export interface TrackRecordStats {

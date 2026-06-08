@@ -9,7 +9,7 @@ import { toNarrativeFacts } from "@/lib/analysis/narrative-facts";
 import { buildLiveNarration, type LiveNarration } from "@/lib/analysis/live-narration";
 import { computeSetupScore } from "@/lib/analysis/setup-score";
 import { computeLiveTrade } from "@/lib/analysis/live-trade";
-import { stepPaperTrading, paperStats, livePnl, normalizePaperState, EMPTY_PAPER_STATE, type PaperState, type PaperCandle } from "@/lib/analysis/paper-trading";
+import { stepPaperTrading, paperStats, paperLiveState, keyOf, normalizePaperState, EMPTY_PAPER_STATE, type PaperState, type PaperCandle, type PaperLive } from "@/lib/analysis/paper-trading";
 import { enablePush, disablePush, pushSupported, notifyReinforced } from "@/lib/push/client";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 import { LiveChart } from "@/components/live-chart";
@@ -39,6 +39,37 @@ function fmtPrice(n: number): string {
   if (n >= 1000) return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
   if (n >= 1) return n.toFixed(2);
   return n.toPrecision(4);
+}
+
+// Gestão em terços — rótulos e chips dos alvos.
+const STOP_STAGE_PT: Record<string, string> = {
+  initial: "stop inicial", breakeven: "↑ no zero a zero (após TP1)", tp1: "↑ protegido em TP1 (após TP2)",
+};
+const PAPER_STATUS_PT: Record<string, { label: string; cls: string }> = {
+  tp1: { label: "Alvo 1", cls: "ok" }, tp2: { label: "Alvo 2", cls: "ok" }, tp3: { label: "Alvo 3", cls: "ok" },
+  stop: { label: "Stop", cls: "no" }, cancel: { label: "Cancelada", cls: "open" }, open: { label: "Aberta", cls: "open" },
+};
+function liveStatusLabel(lc: PaperLive): string {
+  if (lc.resolved) {
+    if (lc.outcome === "TP3") return "Alvo final (TP3)";
+    if (lc.outcome === "TP2") return "Encerrando no TP1 (após TP2)";
+    if (lc.outcome === "TP1") return "Zerada no breakeven (após TP1)";
+    if (lc.outcome === "SL") return "Stopada";
+    return "Encerrando";
+  }
+  if (lc.tp3Hit) return "Alvo final (TP3)";
+  if (lc.tp2Hit) return "TP2 ✓ · 2/3 realizado";
+  if (lc.tp1Hit) return "TP1 ✓ · 1/3 realizado";
+  return "Aberta";
+}
+function TpChips({ hits }: { hits: [boolean, boolean, boolean] }) {
+  return (
+    <span style={{ display: "inline-flex", gap: 3 }}>
+      {(["TP1", "TP2", "TP3"] as const).map((lbl, k) => (
+        <i key={lbl} style={{ fontStyle: "normal", fontSize: "0.68rem", padding: "1px 5px", borderRadius: 4, border: "1px solid var(--border-faint,#2a3344)", background: hits[k] ? "var(--bull)" : "transparent", color: hits[k] ? "#0b1220" : "var(--ink-faint)", fontWeight: hits[k] ? 700 : 400 }}>{lbl}</i>
+      ))}
+    </span>
+  );
 }
 
 export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) {
@@ -253,7 +284,9 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
     if (!paperLoaded.current || !dto || livePrice == null || !Number.isFinite(livePrice)) return;
     setPaper((prev) => {
       const next = stepPaperTrading(prev, {
-        setup: trade ? { side: trade.side, entry: trade.entry, stop: trade.stop, tp1: trade.tp1 } : null,
+        setup: trade && dto.analysis.risk
+          ? { side: trade.side, entry: trade.entry, stop: trade.stop, tp1: trade.tp1, tp2: dto.analysis.risk.takeProfit2, tp3: dto.analysis.risk.takeProfit3 }
+          : null,
         price: livePrice, now: Date.now(), symbol, timeframe, candles: paperCandlesRef.current,
       });
       if (next !== prev && typeof window !== "undefined") {
@@ -288,6 +321,15 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
   const side: "buy" | "sell" | "neutral" = sig.includes("BUY") ? "buy" : sig.includes("SELL") ? "sell" : "neutral";
   const sideColor = side === "buy" ? "var(--bull)" : side === "sell" ? "var(--bear)" : "var(--ink-soft)";
   const risk = dto?.analysis.risk;
+
+  // "Operação ao vivo" = o trade de papel ABERTO no contexto atual, sob a gestão
+  // em terços (1/3 por alvo + stop móvel). Marca a mercado contra os candles desde
+  // a abertura + o preço ao vivo — não é mais o mark-to-market da posição cheia.
+  const curOpen = paper.open[keyOf(symbol, timeframe)];
+  const curLc: PaperLive | null =
+    curOpen && livePrice != null && Number.isFinite(livePrice)
+      ? paperLiveState(curOpen, paperCandlesRef.current, livePrice)
+      : null;
 
   // Aberto a partir da grade (initialSymbol) → o ativo é FIXO (cobrança é por ativo).
   const locked = !!initialSymbol;
@@ -481,14 +523,37 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
         </section>
       ) : null}
 
-      {/* OPERAÇÃO AO VIVO (simulada) — estilo Open Trades */}
+      {/* OPERAÇÃO AO VIVO (simulada) — gestão em terços + stop móvel */}
       {dto ? (
         <section className="lt-trades">
-          <div className="lt-trades-h">Operação ao vivo <span>· simulada</span></div>
-          {trade ? (
+          <div className="lt-trades-h">Operação ao vivo <span>· simulada · gestão em terços</span></div>
+          {curOpen && curLc ? (
             <div className="lt-trades-tbl">
               <table>
-                <thead><tr><th>Ativo</th><th>Lado</th><th>Entrada</th><th>Atual</th><th>Stop</th><th>Alvo 1</th><th>P&L</th><th>R</th><th>Status</th></tr></thead>
+                <thead><tr><th>Ativo</th><th>Lado</th><th>Entrada</th><th>Atual</th><th>Stop</th><th>Alvos</th><th>R</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><b>{symbol}</b> {timeframe.toUpperCase()}</td>
+                    <td><span className={`lt-side ${curOpen.side}`}>{curOpen.side === "buy" ? "COMPRA" : "VENDA"}</span></td>
+                    <td>{fmtPrice(curOpen.entry)}</td>
+                    <td>{fmtPrice(livePrice ?? curOpen.entry)}</td>
+                    <td className={curLc.stopStage === "initial" ? "bear" : "bull"}>
+                      {fmtPrice(curLc.currentStop)}
+                      {curLc.stopStage !== "initial" ? <em style={{ fontStyle: "normal", display: "block", fontSize: "0.7rem", color: "var(--bull)" }}>{STOP_STAGE_PT[curLc.stopStage]}</em> : null}
+                    </td>
+                    <td><TpChips hits={[curLc.tp1Hit, curLc.tp2Hit, curLc.tp3Hit]} /></td>
+                    <td className={curLc.totalR >= 0 ? "bull" : "bear"} title={`travado ${curLc.realizedR >= 0 ? "+" : ""}${curLc.realizedR.toFixed(2)}R + aberto`}>
+                      {curLc.totalR >= 0 ? "+" : ""}{curLc.totalR.toFixed(2)}R
+                    </td>
+                    <td><span className={`lt-status ${curLc.resolved ? (curLc.outcome === "SL" ? "no" : "ok") : curLc.tp1Hit ? "ok" : "open"}`}>{liveStatusLabel(curLc)}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : trade ? (
+            <div className="lt-trades-tbl">
+              <table>
+                <thead><tr><th>Ativo</th><th>Lado</th><th>Entrada</th><th>Atual</th><th>Stop</th><th>Alvos</th><th>R</th><th>Status</th></tr></thead>
                 <tbody>
                   <tr>
                     <td><b>{symbol}</b> {timeframe.toUpperCase()}</td>
@@ -496,8 +561,7 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
                     <td>{fmtPrice(trade.entry)}</td>
                     <td>{fmtPrice(trade.price)}</td>
                     <td className="bear">{fmtPrice(trade.stop)}</td>
-                    <td className="bull">{fmtPrice(trade.tp1)}</td>
-                    <td className={trade.pnlPct >= 0 ? "bull" : "bear"}>{trade.pnlPct >= 0 ? "+" : ""}{trade.pnlPct.toFixed(2)}%</td>
+                    <td><TpChips hits={[trade.status === "Alvo 1", false, false]} /></td>
                     <td className={trade.r >= 0 ? "bull" : "bear"}>{trade.r >= 0 ? "+" : ""}{trade.r.toFixed(2)}R</td>
                     <td><span className={`lt-status ${trade.status === "Stopada" ? "no" : trade.status === "Alvo 1" ? "ok" : "open"}`}>{trade.status}</span></td>
                   </tr>
@@ -507,7 +571,7 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
           ) : (
             <p className="note" style={{ padding: "8px 2px" }}>Sem operação — viés neutro. A IA aguarda definição.</p>
           )}
-          <p className="note" style={{ fontSize: "0.72rem", marginTop: 6 }}>Simulação do setup vigente (atualiza com o preço ao vivo). Não é ordem real nem recomendação de investimento.</p>
+          <p className="note" style={{ fontSize: "0.72rem", marginTop: 6 }}>Posição dividida em 3 terços: realiza 1/3 em cada alvo e o stop sobe sozinho (→ entrada após TP1, → TP1 após TP2). Atualiza com o preço ao vivo. Não é ordem real nem recomendação de investimento.</p>
         </section>
       ) : null}
 
@@ -539,14 +603,14 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
           </div>
           {Object.values(paper.open).map((t) => {
             const isCur = t.symbol === symbol && t.timeframe === timeframe;
-            const lp = isCur && livePrice != null ? livePnl(t, livePrice) : null;
+            const lc = isCur ? curLc : null;
             return (
               <div className="lt-paper-open" key={t.id}>
                 <span className={`lt-side ${t.side}`}>{t.side === "buy" ? "COMPRA" : "VENDA"}</span>
                 <span className="lt-po-sym"><b>{t.symbol}</b> {t.timeframe.toUpperCase()}</span>
                 <span>entrada {fmtPrice(t.entry)}</span>
-                {lp ? (
-                  <span className={lp.pnlPct >= 0 ? "bull" : "bear"}>{lp.pnlPct >= 0 ? "+" : ""}{lp.pnlPct.toFixed(2)}% · {lp.r >= 0 ? "+" : ""}{lp.r.toFixed(2)}R</span>
+                {lc ? (
+                  <span className={lc.totalR >= 0 ? "bull" : "bear"}>{lc.totalR >= 0 ? "+" : ""}{lc.totalR.toFixed(2)}R · {liveStatusLabel(lc)}</span>
                 ) : (
                   <span className="note" style={{ fontSize: "0.78rem" }}>acompanhando…</span>
                 )}
@@ -567,7 +631,7 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
                       <td>{fmtPrice(t.exit ?? NaN)}</td>
                       <td className={(t.pnlPct ?? 0) >= 0 ? "bull" : "bear"}>{(t.pnlPct ?? 0) >= 0 ? "+" : ""}{(t.pnlPct ?? 0).toFixed(2)}%</td>
                       <td className={(t.r ?? 0) >= 0 ? "bull" : "bear"}>{(t.r ?? 0) >= 0 ? "+" : ""}{(t.r ?? 0).toFixed(2)}R</td>
-                      <td><span className={`lt-status ${t.status === "stop" ? "no" : t.status === "tp1" ? "ok" : "open"}`}>{t.status === "tp1" ? "Alvo 1" : t.status === "stop" ? "Stop" : "Cancelada"}</span></td>
+                      <td><span className={`lt-status ${PAPER_STATUS_PT[t.status]?.cls ?? "open"}`}>{PAPER_STATUS_PT[t.status]?.label ?? t.status}</span></td>
                     </tr>
                   ))}
                 </tbody>
