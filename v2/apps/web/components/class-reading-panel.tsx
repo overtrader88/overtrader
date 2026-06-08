@@ -1,7 +1,7 @@
 import { Panel, PanelLabel, RadialGauge } from "@/components/ui";
 import { computeClassReading, type ClassExtras } from "@/lib/analysis/engines";
 import { getMacroContext } from "@/lib/market/macro-yahoo";
-import { fetchFmpFundamental } from "@/lib/market/fmp";
+import { fetchFmpFundamental, fetchNextEarnings } from "@/lib/market/fmp";
 import { getCotPositioning } from "@/lib/market/cot-cftc";
 import { fetchFundamental } from "@/lib/market/defillama";
 import { getBreadthProxy } from "@/lib/market/breadth-yahoo";
@@ -26,20 +26,23 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   // é bloqueada por IP de cloud. Macro (Yahoo) funciona server-side.
   const extras: ClassExtras = {};
   const asset = dto.analysis.meta.asset;
-  const [macro, cot, fundamental, onchain, breadth] = await Promise.all([
+  const fmpKey = process.env.FMP_API_KEY;
+  const [macro, cot, fundamental, onchain, breadth, earnings] = await Promise.all([
     assetType === "forex" || assetType === "commodities" || assetType === "indices"
-      ? getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices" })
+      ? getMacroContext({ dxy: assetType !== "indices", vix: assetType === "indices", us10y: assetType === "indices" })
       : Promise.resolve(null),
     assetType === "forex" || assetType === "commodities" ? getCotPositioning(asset) : Promise.resolve(null),
-    assetType === "stocks" && process.env.FMP_API_KEY ? fetchFmpFundamental(asset, process.env.FMP_API_KEY) : Promise.resolve(null),
+    assetType === "stocks" && fmpKey ? fetchFmpFundamental(asset, fmpKey) : Promise.resolve(null),
     assetType === "crypto" ? fetchFundamental(asset) : Promise.resolve(null),
     assetType === "indices" ? getBreadthProxy() : Promise.resolve(null),
+    assetType === "stocks" && fmpKey ? fetchNextEarnings(asset, fmpKey) : Promise.resolve(null),
   ]);
   extras.macro = macro;
   extras.cot = cot;
   extras.fundamental = fundamental;
   extras.onchain = onchain;
   extras.breadth = breadth;
+  extras.earnings = earnings;
   const r = computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
@@ -48,6 +51,7 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
   const ct = extras.cot;
   const oc = extras.onchain;
   const br = extras.breadth;
+  const ern = extras.earnings;
 
   return (
     <Panel style={{ ["--gc" as string]: side.color }}>
@@ -184,7 +188,18 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
         </div>
       )}
 
-      {mc && (mc.dxy || mc.vix) && (
+      {ern && (
+        <div className="cls-pending" style={ern.daysAway <= 7 ? { borderStyle: "solid" } : undefined}>
+          <div className="cp-h">Próximo earnings · FMP <span>{ern.daysAway <= 7 ? "atenção" : "agenda"}</span></div>
+          <p className="note" style={{ margin: 0 }}>
+            Divulgação em <b>{new Date(ern.date).toLocaleDateString("pt-BR")}</b> ({ern.daysAway <= 0 ? "em breve" : `~${ern.daysAway} dias`})
+            {ern.epsEstimated != null ? ` · EPS estimado ${ern.epsEstimated}` : ""}.
+            {ern.daysAway <= 7 ? <> <b>Cuidado:</b> earnings próximo costuma quebrar a leitura técnica — reduza tamanho ou evite operar contra o evento.</> : null}
+          </p>
+        </div>
+      )}
+
+      {mc && (mc.dxy || mc.vix || mc.us10y) && (
         <div className="cls-deriv">
           <div className="cd-h">Macro · Yahoo Finance <span>dados reais</span></div>
           <div className="cd-grid">
@@ -200,6 +215,13 @@ export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis;
                 <div className="k">VIX · medo</div>
                 <div className={`v ${mc.vix.changePct >= 0 ? "bear" : "bull"}`}>{mc.vix.value.toFixed(2)}</div>
                 <div className="s">{mc.vix.changePct >= 0 ? "+" : ""}{mc.vix.changePct.toFixed(1)}% · {mc.vix.value >= 20 ? "estresse elevado" : "calmo"}</div>
+              </div>
+            )}
+            {mc.us10y && (
+              <div className="cd-cell">
+                <div className="k">Juros 10Y</div>
+                <div className={`v ${mc.us10y.changePct >= 0 ? "bear" : "bull"}`}>{mc.us10y.value.toFixed(2)}%</div>
+                <div className="s">{mc.us10y.changePct >= 0 ? "+" : ""}{mc.us10y.changePct.toFixed(1)}% · {mc.us10y.changePct >= 0 ? "subindo" : "recuando"}</div>
               </div>
             )}
           </div>

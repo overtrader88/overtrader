@@ -12,6 +12,7 @@ export interface MacroQuote {
 export interface MacroContext {
   dxy: MacroQuote | null;
   vix: MacroQuote | null;
+  us10y: MacroQuote | null; // rendimento do Treasury de 10 anos (^TNX)
 }
 
 async function getQuote(symbol: string): Promise<MacroQuote | null> {
@@ -35,10 +36,11 @@ async function getQuote(symbol: string): Promise<MacroQuote | null> {
   }
 }
 
-export async function getMacroContext(opts: { dxy?: boolean; vix?: boolean }): Promise<MacroContext> {
-  const [dxy, vix] = await Promise.all([
+export async function getMacroContext(opts: { dxy?: boolean; vix?: boolean; us10y?: boolean }): Promise<MacroContext> {
+  const [dxy, vix, us10y] = await Promise.all([
     opts.dxy ? getQuote("DX-Y.NYB") : Promise.resolve(null),
     opts.vix ? getQuote("^VIX") : Promise.resolve(null),
+    opts.us10y ? getQuote("^TNX") : Promise.resolve(null),
   ]);
-  return { dxy, vix };
+  return { dxy, vix, us10y };
 }

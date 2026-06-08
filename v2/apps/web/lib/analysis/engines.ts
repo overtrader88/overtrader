@@ -11,7 +11,7 @@ import type { AssetType } from "@tradeai/shared";
 import type { FullAnalysis } from "./full";
 import type { BinanceDerivatives } from "@/lib/market/derivatives-binance";
 import type { MacroContext } from "@/lib/market/macro-yahoo";
-import type { FmpFundamental } from "@/lib/market/fmp";
+import type { FmpFundamental, FmpEarnings } from "@/lib/market/fmp";
 import type { CotPositioning } from "@/lib/market/cot-cftc";
 import type { FundamentalResult } from "@/lib/market/defillama";
 import type { BreadthProxy } from "@/lib/market/breadth-yahoo";
@@ -24,6 +24,7 @@ export interface ClassExtras {
   cot?: CotPositioning | null;
   onchain?: FundamentalResult | null;
   breadth?: BreadthProxy | null;
+  earnings?: FmpEarnings | null;
 }
 
 export type EngineId = "padrao" | "classe";
@@ -208,6 +209,12 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType, ext
     // VIX subindo = risk-off (baixa p/ índices); caindo = risk-on (alta).
     if (Math.abs(v.changePct) >= 3) factors.push({ label: `VIX ${v.changePct >= 0 ? "+" : ""}${v.changePct.toFixed(1)}% (${v.changePct > 0 ? "medo subindo" : "medo recuando"})`, side: v.changePct > 0 ? "bear" : "bull", weight: 1.0 });
   }
+  if (macro?.us10y != null && assetType === "indices") {
+    integrated.add("Macro (juros/Fed)");
+    const y = macro.us10y;
+    // juros 10Y subindo = vento contra ações; recuando = a favor.
+    if (Math.abs(y.changePct) >= 2) factors.push({ label: `Juros 10Y ${y.changePct >= 0 ? "+" : ""}${y.changePct.toFixed(1)}% (${y.changePct > 0 ? "subindo" : "recuando"})`, side: y.changePct > 0 ? "bear" : "bull", weight: 0.5 });
+  }
 
   // 2d) Fundamentos (ações) — qualidade/crescimento como viés lento.
   const fnd = extras?.fundamental;
@@ -224,6 +231,8 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType, ext
       else if (fnd.roeTTM < 0) factors.push({ label: "ROE negativo", side: "bear", weight: 0.5 });
     }
   }
+  // Calendário de earnings (ações) — flag de risco de timing, não direcional.
+  if (extras?.earnings && assetType === "stocks") integrated.add("Calendário de earnings");
 
   // 2e) COT (forex & commodities) — posicionamento dos grandes especuladores.
   const cot = extras?.cot;

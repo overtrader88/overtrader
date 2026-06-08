@@ -63,6 +63,38 @@ export interface FmpFundamental {
   disclaimer: string;
 }
 
+export interface FmpEarnings {
+  date: string;      // ISO da próxima divulgação
+  daysAway: number;  // dias até lá (a partir de agora)
+  epsEstimated?: number;
+}
+
+/** Próximo earnings de uma ação (free tier). Falha → null. */
+export async function fetchNextEarnings(
+  symbol: string,
+  apiKey: string,
+  fetcher: FetchLike = defaultFetch,
+): Promise<FmpEarnings | null> {
+  if (!apiKey || !symbol) return null;
+  try {
+    const raw = await fetchJson(`${BASE}/earnings?symbol=${symbol.toUpperCase()}&apikey=${apiKey}`, fetcher);
+    if (!Array.isArray(raw)) return null;
+    const now = Date.now();
+    // primeira data futura (epsActual ainda null) ordenada por proximidade
+    const future = raw
+      .map((r) => r as Record<string, unknown>)
+      .filter((r) => typeof r.date === "string")
+      .map((r) => ({ date: r.date as string, t: Date.parse(r.date as string), eps: typeof r.epsEstimated === "number" ? r.epsEstimated : undefined }))
+      .filter((r) => Number.isFinite(r.t) && r.t >= now - 36 * 3600 * 1000)
+      .sort((a, b) => a.t - b.t);
+    const next = future[0];
+    if (!next) return null;
+    return { date: next.date, daysAway: Math.round((next.t - now) / 86_400_000), epsEstimated: next.eps };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchJson(url: string, fetcher: FetchLike): Promise<unknown> {
   const res = await withTimeout(fetcher(url), 10_000);
   if (!res.ok) throw new Error(`FMP HTTP ${url}`);
