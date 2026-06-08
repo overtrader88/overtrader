@@ -570,7 +570,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
   ];
 
   return (
-    <>
+    <div className="motores-tab" style={{ color: "#e8edf5" }}>
       <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "78ch" }}>
         Comparação <b>forward</b> entre os dois motores nos mercados curados. <b>Realizado</b> = desfechos fechados pelo cron
         (TP/SL). <b>Não-realizado</b> = posições abertas marcadas a mercado AGORA (fecharia em lucro ou prejuízo). Win rate / PF / R
@@ -591,10 +591,10 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
               const pv = p ? r.raw(p) : undefined;
               const cv = c ? r.raw(c) : undefined;
               const [pBest, cBest] = r.higher ? better(pv, cv) : [false, false];
-              const hl = (best: boolean): React.CSSProperties => ({ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: best ? 700 : 500, color: best ? "var(--bull,#16a34a)" : "#0f172a" });
+              const hl = (best: boolean): React.CSSProperties => ({ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: best ? 700 : 500, color: best ? "var(--bull,#16a34a)" : "#e8edf5" });
               return (
                 <tr key={i} style={ROW}>
-                  <td style={{ ...TD, color: "#475569" }}>{r.label}</td>
+                  <td style={{ ...TD, color: "#aebccd" }}>{r.label}</td>
                   <td style={hl(pBest)}>{p ? r.get(p) : "—"}</td>
                   <td style={hl(cBest)}>{c ? r.get(c) : "—"}</td>
                 </tr>
@@ -655,6 +655,6 @@ function EnginesTab({ engines, open, byClass, byTimeframe, equity, now }: { engi
         entrada e o stop. Atualiza a cada carregamento do painel. As estatísticas realizadas só consolidam quando o cron
         <b> resolve-signals</b> fecha o desfecho contra os candles seguintes.
       </p>
-    </>
+    </div>
   );
 }
