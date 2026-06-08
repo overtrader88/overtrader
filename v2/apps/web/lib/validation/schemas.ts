@@ -25,6 +25,7 @@ export const watchlistCreateSchema = z.object({
   symbol: z.string().min(1).max(20).transform((s) => s.toUpperCase()),
   timeframe: timeframeSchema,
   min_signal_strength: minSignalStrengthSchema.default("STRONG_BUY"),
+  engine: z.enum(["padrao", "classe"]).default("padrao"),
 });
 export type WatchlistCreate = z.infer<typeof watchlistCreateSchema>;
 

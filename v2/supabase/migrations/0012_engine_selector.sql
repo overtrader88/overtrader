@@ -63,3 +63,43 @@ begin
   return v_id;
 end;
 $$;
+
+-- process_watchlist_alert: agora carimba o alerta com o MOTOR escolhido no item
+-- da watchlist (lido da própria linha; assinatura inalterada → não quebra o cron).
+create or replace function process_watchlist_alert(
+  p_item_id uuid,
+  p_signal  signal_direction,
+  p_message text
+)
+returns boolean
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_user uuid;
+  v_symbol text;
+  v_tf text;
+  v_last signal_direction;
+  v_engine text;
+begin
+  select user_id, symbol, timeframe, last_alerted_signal, engine
+    into v_user, v_symbol, v_tf, v_last, v_engine
+  from watchlist where id = p_item_id for update;
+
+  if v_user is null then
+    return false;
+  end if;
+
+  update watchlist set last_checked_at = now() where id = p_item_id;
+
+  if v_last is not distinct from p_signal then
+    return false;
+  end if;
+
+  insert into alerts (user_id, symbol, timeframe, signal, message, engine)
+  values (v_user, v_symbol, v_tf, p_signal, p_message, coalesce(v_engine, 'padrao'));
+
+  update watchlist set last_alerted_signal = p_signal where id = p_item_id;
+  return true;
+end;
+$$;

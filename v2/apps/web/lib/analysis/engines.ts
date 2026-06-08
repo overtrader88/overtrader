@@ -7,7 +7,7 @@
  * "apoia", os cruzamentos-chave e os cuidados. Honesto: não inventa dado — o que
  * a classe pede e ainda não integramos aparece em `pending` (próximas ondas).
  */
-import type { AssetType } from "@tradeai/shared";
+import type { AssetType, SignalDirection } from "@tradeai/shared";
 import type { FullAnalysis } from "./full";
 import type { BinanceDerivatives } from "@/lib/market/derivatives-binance";
 import type { MacroContext } from "@/lib/market/macro-yahoo";
@@ -292,4 +292,11 @@ export function computeClassReading(dto: FullAnalysis, assetType: AssetType, ext
   const stillPending = m.pending.filter((p) => !integrated.has(p));
 
   return { side, score, label, factors, agree, against, methodology: m, stillPending };
+}
+
+/** Mapeia a leitura por classe para uma direção granular (p/ gatilhos de alerta). */
+export function classReadingToSignal(r: ClassReading): SignalDirection {
+  if (r.side === "buy") return r.score >= 70 ? "STRONG_BUY" : r.score >= 60 ? "BUY" : "WEAK_BUY";
+  if (r.side === "sell") return r.score <= 30 ? "STRONG_SELL" : r.score <= 40 ? "SELL" : "WEAK_SELL";
+  return "NEUTRAL";
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Timeframe } from "@tradeai/shared";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
 
-interface WItem { id: string; symbol: string; timeframe: string; min_signal_strength: string; }
+interface WItem { id: string; symbol: string; timeframe: string; min_signal_strength: string; engine?: string; }
 
 const TFS: Timeframe[] = ["15m", "1h", "4h", "1d", "1w", "1M"];
 // Gatilho do alerta: lado + força mínima (compra OU venda).
@@ -28,6 +28,7 @@ export function WatchlistManager() {
   const [symbol, setSymbol] = useState("BTCUSDT");
   const [timeframe, setTimeframe] = useState<Timeframe>("4h");
   const [strength, setStrength] = useState("STRONG_BUY");
+  const [engine, setEngine] = useState<"padrao" | "classe">("padrao");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -40,14 +41,15 @@ export function WatchlistManager() {
   async function add() {
     setErr(null); setBusy(true);
     try {
-      const r = await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, timeframe, min_signal_strength: strength }) });
+      const r = await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, timeframe, min_signal_strength: strength, engine }) });
       if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? "Falha ao adicionar."); return; }
       await load();
     } finally { setBusy(false); }
   }
 
   async function setItemStrength(it: WItem, v: string) {
-    await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: it.symbol, timeframe: it.timeframe, min_signal_strength: v }) });
+    // preserva o motor do item (upsert sobrescreve a linha inteira).
+    await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: it.symbol, timeframe: it.timeframe, min_signal_strength: v, engine: it.engine ?? "padrao" }) });
     await load();
   }
 
@@ -76,6 +78,10 @@ export function WatchlistManager() {
             </optgroup>
           ))}
         </select>
+        <select value={engine} onChange={(e) => setEngine(e.target.value as "padrao" | "classe")} className="wm-sel" title="Motor que dispara o alerta">
+          <option value="padrao">Motor padrão</option>
+          <option value="classe">Motor por classe</option>
+        </select>
         <button type="button" className="wm-add-btn" onClick={add} disabled={busy}>{busy ? "…" : "+ Adicionar"}</button>
       </div>
       {err ? <div className="lg-err" style={{ marginTop: 10 }}>{err}</div> : null}
@@ -89,7 +95,7 @@ export function WatchlistManager() {
           <div className="wm-head"><span>Ativo</span><span>TF</span><span>Alerta quando</span><span /></div>
           {items.map((it) => (
             <div className="wm-row" key={it.id}>
-              <span className="wm-asset"><b>{it.symbol}</b> <small>{findAsset(it.symbol)?.name ?? ""}</small></span>
+              <span className="wm-asset"><b>{it.symbol}</b> <small>{findAsset(it.symbol)?.name ?? ""}</small>{it.engine === "classe" ? <span className="eng-chip" style={{ marginLeft: 6 }}>⚙ M2</span> : null}</span>
               <span className="wm-tf">{it.timeframe.toUpperCase()}</span>
               <span>
                 <select className="wm-sel sm" value={it.min_signal_strength} onChange={(e) => setItemStrength(it, e.target.value)}>

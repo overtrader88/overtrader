@@ -14,6 +14,8 @@ import { supabaseService } from "@/lib/supabase/server";
 import { analyzeSymbol } from "@/lib/analysis/service";
 import { findAsset } from "@/lib/market/catalog";
 import { dispatchUserAlert } from "@/lib/notify/dispatch";
+import { computeClassReading, classReadingToSignal } from "@/lib/analysis/engines";
+import { loadServerExtras } from "@/lib/analysis/class-extras";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +54,7 @@ async function handle(req: Request): Promise<NextResponse> {
   const limit = Math.min(50, Math.max(1, Number(new URL(req.url).searchParams.get("limit") ?? "25") || 25));
   const { data: items, error } = await sb
     .from("watchlist")
-    .select("id, user_id, symbol, timeframe, min_signal_strength")
+    .select("id, user_id, symbol, timeframe, min_signal_strength, engine")
     .order("last_checked_at", { ascending: true, nullsFirst: true })
     .limit(limit);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -60,16 +62,25 @@ async function handle(req: Request): Promise<NextResponse> {
   let checked = 0;
   let alerted = 0;
   let skipped = 0;
-  for (const it of (items ?? []) as { id: string; user_id: string; symbol: string; timeframe: string; min_signal_strength: string }[]) {
+  for (const it of (items ?? []) as { id: string; user_id: string; symbol: string; timeframe: string; min_signal_strength: string; engine?: string }[]) {
     const assetType = resolveType(it.symbol);
     if (!assetType) {
       skipped++;
       continue;
     }
     try {
-      const dto = await analyzeSymbol(it.symbol, assetType, it.timeframe as Timeframe, "simple");
+      // Motor 2 ("classe") precisa da análise COMPLETA + extras (custo extra só p/
+      // quem optou); Motor 1 ("padrao") segue no modo simple, barato.
+      const isClasse = it.engine === "classe";
+      const dto = await analyzeSymbol(it.symbol, assetType, it.timeframe as Timeframe, isClasse ? "complete" : "simple");
       checked++;
-      const sig = dto.analysis.signal.signal;
+      let sig: SignalDirection;
+      if (isClasse) {
+        const extras = await loadServerExtras(it.symbol, assetType);
+        sig = classReadingToSignal(computeClassReading(dto, assetType, extras));
+      } else {
+        sig = dto.analysis.signal.signal;
+      }
       const meets = meetsTrigger(sig, it.min_signal_strength);
       if (meets) {
         const message = `${it.symbol} ${it.timeframe.toUpperCase()}: ${sig} (força ${dto.analysis.signal.strength})`;

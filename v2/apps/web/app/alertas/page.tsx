@@ -17,19 +17,30 @@ interface AlertRow {
   message: string;
   read_at: string | null;
   created_at: string;
+  engine?: string;
 }
 
-export default async function AlertasPage() {
+const ENGINE_TABS = [
+  { key: "ambos", label: "Ambos" },
+  { key: "padrao", label: "Motor padrão" },
+  { key: "classe", label: "Motor por classe" },
+] as const;
+
+export default async function AlertasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ engine?: string }>;
+}) {
+  const sp = await searchParams;
+  const activeTab = ENGINE_TABS.find((t) => t.key === sp.engine) ?? ENGINE_TABS[0];
   const user = await getCurrentUser();
   const sb = await supabaseServerSSR();
-  const { data } = user
-    ? await sb
-        .from("alerts")
-        .select("id,symbol,timeframe,signal,message,read_at,created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(100)
-    : { data: [] };
+  // select("*") tolera a coluna `engine` ausente antes da migration (não quebra a lista).
+  let q = user
+    ? sb.from("alerts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(100)
+    : null;
+  if (q && activeTab.key !== "ambos") q = q.eq("engine", activeTab.key);
+  const { data } = q ? await q : { data: [] };
   const items = (data ?? []) as AlertRow[];
   const now = Date.now();
 
@@ -54,6 +65,13 @@ export default async function AlertasPage() {
         <TelegramConnect />
         <EmailNotify />
 
+        <div className="tr-tabs" style={{ marginBottom: 14 }}>
+          {ENGINE_TABS.map((t) => (
+            <a key={t.key} href={t.key === "ambos" ? "/alertas" : `/alertas?engine=${t.key}`}
+              className={`tr-tab${t.key === activeTab.key ? " on" : ""}`}>{t.label}</a>
+          ))}
+        </div>
+
         {items.length === 0 ? (
           <div className="tbl" style={{ padding: "40px 24px", textAlign: "center" }}>
             <p className="note" style={{ margin: 0 }}>
@@ -70,6 +88,7 @@ export default async function AlertasPage() {
                   <span className="tf">{a.timeframe.toUpperCase()}</span>
                 </div>
                 <SignalBadge direction={signalToDir(a.signal)}>{signalLabelPt(a.signal)}</SignalBadge>
+                {a.engine === "classe" ? <span className="eng-chip">⚙ Motor 2</span> : null}
                 <span className="am-msg">{a.message}</span>
                 <span className="am-dt">{relativeTime(a.created_at, now)}</span>
               </div>

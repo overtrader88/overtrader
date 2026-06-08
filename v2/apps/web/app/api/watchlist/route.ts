@@ -19,7 +19,7 @@ export async function GET(): Promise<NextResponse> {
   const sb = await supabaseServerSSR();
   const { data, error } = await sb
     .from("watchlist")
-    .select("id,symbol,timeframe,min_signal_strength,created_at")
+    .select("id,symbol,timeframe,min_signal_strength,engine,created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
   if (error || !data) return NextResponse.json({ items: [] });
@@ -52,6 +52,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       timeframe: parsed.data.timeframe,
       min_signal_strength: parsed.data.min_signal_strength,
       side,
+      engine: parsed.data.engine,
     },
     { onConflict: "user_id,symbol,timeframe,side" },
   );

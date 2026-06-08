@@ -1560,3 +1560,5 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .tr-tab { font: 600 12px/1 inherit; padding: 7px 14px; border-radius: 7px; color: var(--ink-soft); text-decoration: none; transition: .15s; white-space: nowrap; }
 .tr-tab:hover { color: var(--ink); }
 .tr-tab.on { background: var(--cyan); color: #04121a; box-shadow: 0 1px 8px rgba(60,200,255,.3); }
+
+.eng-chip { display: inline-flex; align-items: center; font: 600 9px/1 var(--mono, monospace); letter-spacing: .04em; padding: 3px 6px; border-radius: 5px; color: var(--cyan); border: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent); background: color-mix(in srgb, var(--cyan) 8%, transparent); white-space: nowrap; }
