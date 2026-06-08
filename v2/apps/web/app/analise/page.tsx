@@ -7,7 +7,8 @@ import { recordAnalysisView, getAnalysisById, recentAnalyses } from "@/lib/histo
 import { LastAnalysisBanner } from "@/components/last-analysis-banner";
 import { EngineSelector } from "@/components/engine-selector";
 import { ClassReadingPanel } from "@/components/class-reading-panel";
-import { isEngine, type EngineId } from "@/lib/analysis/engines";
+import { isEngine, computeClassReading, buildClassPlan, type EngineId, type ClassReading, type ClassExtras } from "@/lib/analysis/engines";
+import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { checkAnalysisCredit, chargeAnalysis } from "@/lib/credits";
 import { AiNarrative } from "@/components/ai-narrative";
 import { NewsCard } from "@/components/news-card";
@@ -15,7 +16,7 @@ import { FundamentalCard } from "@/components/fundamental-card";
 import { PriceChart } from "@/components/price-chart";
 import { ReportActions } from "@/components/report-actions";
 import { BacktestLab } from "@/components/backtest-lab";
-import { buildPriceLines } from "@/lib/analysis/chart-overlays";
+import { buildPriceLines, buildClassPlanLines } from "@/lib/analysis/chart-overlays";
 import { buildTradeGuard } from "@/lib/analysis/trade-guard";
 import { signalSide } from "@tradeai/shared";
 import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
@@ -708,6 +709,19 @@ export default async function AnalisePage({
   // Landing mostrando a última análise salva → exibe minimizada (com data/hora).
   const isLastSaved = !explicit && !fromId && !!dto && !blocked && !landingEmpty;
 
+  // Motor 2 selecionado → computa a leitura por classe UMA vez (passa ao painel e
+  // ao gráfico). Os motores são independentes: o veredito/plano/selo do Motor 1
+  // ficam OCULTOS quando o Motor 2 está ativo, p/ não misturar as decisões.
+  const isClasse = engine === "classe";
+  let classReading: ClassReading | null = null;
+  let classExtras: ClassExtras | null = null;
+  let classLines: { price: number; color: string; title: string; dashed: boolean }[] | null = null;
+  if (isClasse && dto) {
+    classExtras = await loadServerExtras(dto.analysis.meta.asset, assetType);
+    classReading = computeClassReading(dto, assetType, classExtras);
+    classLines = buildClassPlanLines(buildClassPlan(dto, classReading.side));
+  }
+
   return (
     <>
       <AppBar
@@ -750,18 +764,22 @@ export default async function AnalisePage({
               <span className="eb-k">Motor de análise</span>
               <EngineSelector active={engine} />
             </div>
-            {engine === "classe" ? <ClassReadingPanel dto={dto} assetType={assetType} /> : null}
-            <Verdict dto={dto} />
-            <TradeGuardPanel dto={dto} />
+            {isClasse ? <ClassReadingPanel dto={dto} assetType={assetType} reading={classReading ?? undefined} extras={classExtras ?? undefined} /> : null}
+            {/* Decisão do Motor 1 (veredito, operar-ou-não, plano/selo, leitura IA)
+                aparece SÓ no Motor padrão — não mistura com a decisão do Motor 2. */}
+            {!isClasse ? <Verdict dto={dto} /> : null}
+            {!isClasse ? <TradeGuardPanel dto={dto} /> : null}
             <Panel>
-              <PanelLabel>Gráfico · {symbol} · {timeframe.toUpperCase()} · níveis + zonas</PanelLabel>
-              <PriceChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={buildPriceLines(dto)} />
+              <PanelLabel>Gráfico · {symbol} · {timeframe.toUpperCase()} · {isClasse ? "plano do Motor 2" : "níveis + zonas"}</PanelLabel>
+              <PriceChart symbol={symbol} assetType={assetType} timeframe={timeframe} lines={isClasse ? (classLines ?? []) : buildPriceLines(dto)} />
             </Panel>
-            <Panel>
-              <PanelLabel>Leitura do analista · IA</PanelLabel>
-              <AiNarrative symbol={symbol} assetType={assetType} timeframe={timeframe} />
-            </Panel>
-            <LevelsAndSeal dto={dto} />
+            {!isClasse ? (
+              <Panel>
+                <PanelLabel>Leitura do analista · IA</PanelLabel>
+                <AiNarrative symbol={symbol} assetType={assetType} timeframe={timeframe} />
+              </Panel>
+            ) : null}
+            {!isClasse ? <LevelsAndSeal dto={dto} /> : null}
             {dto.backtest && dto.equityCurve && dto.quality ? (
               <Panel className="adv-only">
                 <PanelLabel>Backtest sob demanda · escolha estratégia / período / R:R</PanelLabel>

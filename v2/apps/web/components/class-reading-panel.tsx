@@ -1,5 +1,5 @@
 import { Panel, PanelLabel, RadialGauge } from "@/components/ui";
-import { computeClassReading, buildClassPlan } from "@/lib/analysis/engines";
+import { computeClassReading, buildClassPlan, type ClassReading, type ClassExtras } from "@/lib/analysis/engines";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { DerivativesLive } from "@/components/derivatives-live";
 import { LiquidationHeatmap } from "@/components/liquidation-heatmap";
@@ -20,11 +20,12 @@ const fmtPx = (p: number) => p.toLocaleString("pt-BR", { maximumFractionDigits: 
  * cuidados) e expõe, com honestidade, os dados que a classe pede e ainda não
  * integramos (`pending`). Não substitui o Motor 1 — é uma segunda lente.
  */
-export async function ClassReadingPanel({ dto, assetType }: { dto: FullAnalysis; assetType: AssetType }) {
+export async function ClassReadingPanel({ dto, assetType, reading, extras: extrasIn }: { dto: FullAnalysis; assetType: AssetType; reading?: ClassReading; extras?: ClassExtras }) {
   // Derivativos da Binance + heatmap são buscados NO NAVEGADOR (Vercel bloqueada
   // por IP de cloud). Os demais extras rodam server-side (helper compartilhado).
-  const extras = await loadServerExtras(dto.analysis.meta.asset, assetType);
-  const r = computeClassReading(dto, assetType, extras);
+  // `reading`/`extras` podem vir prontos da página (evita fetch duplicado).
+  const extras = extrasIn ?? (await loadServerExtras(dto.analysis.meta.asset, assetType));
+  const r = reading ?? computeClassReading(dto, assetType, extras);
   const m = r.methodology;
   const side = SIDE_PT[r.side];
   const plan = buildClassPlan(dto, r.side); // plano próprio do Motor 2 (orientado ao lado da classe)

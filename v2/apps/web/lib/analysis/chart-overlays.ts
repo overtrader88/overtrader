@@ -19,6 +19,19 @@ export interface ChartLine {
 
 const C = { cyan: "#54a8ff", bull: "#2bd49e", bear: "#ff6b8a", amber: "#ffb020" };
 
+/** Linhas do plano do MOTOR 2 (independente). Usado no gráfico quando o motor por
+ *  classe está selecionado — não mistura os níveis do Motor 1. */
+export function buildClassPlanLines(plan: { entry: number; stopLoss: number; takeProfit1: number; takeProfit2: number; takeProfit3: number } | null): ChartLine[] {
+  if (!plan) return [];
+  return [
+    { price: plan.entry, color: C.cyan, title: "Entrada (M2)", dashed: false },
+    { price: plan.stopLoss, color: C.bear, title: "Stop (M2)", dashed: false },
+    { price: plan.takeProfit1, color: C.bull, title: "TP1 (M2)", dashed: true },
+    { price: plan.takeProfit2, color: C.bull, title: "TP2 (M2)", dashed: true },
+    { price: plan.takeProfit3, color: C.bull, title: "TP3 (M2)", dashed: true },
+  ];
+}
+
 export function buildPriceLines(dto: FullAnalysis): ChartLine[] {
   const lines: ChartLine[] = [];
   const r = dto.analysis.risk;
