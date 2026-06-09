@@ -508,29 +508,36 @@ const STATUS_PT: Record<OpenPosition["status"], { label: string; color: string }
   unknown: { label: "—", color: "#94a3b8" },
 };
 
-/** Curva de R acumulado por motor (SVG, duas linhas). */
-function EquityChart({ equity }: { equity: EquityPoint[] }) {
+/** Curva de R acumulado por motor (SVG) — uma linha por motor visível. */
+function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: string[] }) {
   if (equity.length < 2) return <p className="note">A curva aparece quando houver ≥2 desfechos resolvidos.</p>;
+  const ids = ENGINE_ORDER.filter((id) => engineIds.includes(id));
   const W = 100, H = 40, PAD = 2;
-  const vals = [...equity.map((e) => e.padrao), ...equity.map((e) => e.classe), 0];
+  const vals = [0, ...equity.flatMap((e) => ids.map((id) => e.values[id] ?? 0))];
   const min = Math.min(...vals), max = Math.max(...vals);
   const range = max - min || 1;
   const x = (i: number) => (equity.length === 1 ? 0 : (i / (equity.length - 1)) * (W - PAD * 2) + PAD);
   const y = (v: number) => H - PAD - ((v - min) / range) * (H - PAD * 2);
-  const line = (key: "padrao" | "classe") => equity.map((e, i) => `${x(i).toFixed(2)},${y(e[key]).toFixed(2)}`).join(" ");
+  const line = (id: string) => equity.map((e, i) => `${x(i).toFixed(2)},${y(e.values[id] ?? 0).toFixed(2)}`).join(" ");
   const y0 = y(0);
-  const lastP = equity[equity.length - 1]!.padrao;
-  const lastC = equity[equity.length - 1]!.classe;
+  const lastOf = (id: string) => equity[equity.length - 1]!.values[id] ?? 0;
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 160, border: "1px solid var(--border-faint,#e4e8ef)", borderRadius: 10, background: "#fff" }}>
         <line x1={0} y1={y0} x2={W} y2={y0} stroke="#cbd5e1" strokeWidth={0.3} strokeDasharray="1,1" />
-        <polyline points={line("padrao")} fill="none" stroke="#2563eb" strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
-        <polyline points={line("classe")} fill="none" stroke="#9333ea" strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
+        {ids.map((id) => (
+          <polyline key={id} points={line(id)} fill="none" stroke={ENGINE_COLOR[id] ?? "#64748b"} strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
+        ))}
       </svg>
-      <div style={{ display: "flex", gap: 18, marginTop: 8, fontSize: "0.8rem" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, background: "#2563eb", display: "inline-block" }} /> Motor padrão <b style={{ color: lastP >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{sgn(lastP, 1)} R</b></span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, background: "#9333ea", display: "inline-block" }} /> Motor por classe <b style={{ color: lastC >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{sgn(lastC, 1)} R</b></span>
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 8, fontSize: "0.8rem" }}>
+        {ids.map((id) => {
+          const last = lastOf(id);
+          return (
+            <span key={id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 14, height: 3, background: ENGINE_COLOR[id] ?? "#64748b", display: "inline-block" }} /> {ENGINE_LABEL[id] ?? id} <b style={{ color: last >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{sgn(last, 1)} R</b>
+            </span>
+          );
+        })}
       </div>
     </div>
   );
@@ -541,6 +548,7 @@ function EquityChart({ equity }: { equity: EquityPoint[] }) {
 const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm"] as const;
 const ENGINE_LABEL: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM" };
 const ENGINE_TAG: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 LLM" };
+const ENGINE_COLOR: Record<string, string> = { padrao: "#2563eb", padrao_b: "#0ea5e9", classe: "#9333ea", classe_b: "#c026d3", llm: "#f59e0b" };
 
 type BreakdownSort = "n" | "r" | "wr";
 const BREAKDOWN_SORTS: [BreakdownSort, string][] = [["n", "Amostra (n)"], ["r", "R total"], ["wr", "Win% médio"]];
@@ -940,7 +948,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, byAsset, bySymbolTf, 
       </div>
 
       <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Curva de R acumulado (realizado, forward)</h3>
-      <EquityChart equity={equity} />
+      <EquityChart equity={equity} engineIds={visibleIds} />
 
       <div style={{ marginTop: 24 }}>
         <DailyBoard daily={daily} engines={cols} engineIds={visibleIds} />

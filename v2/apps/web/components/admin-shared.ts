@@ -83,9 +83,8 @@ export interface BreakdownRow {
 }
 
 export interface EquityPoint {
-  t: string;       // ISO do resolved_at
-  padrao: number;  // R acumulado do Motor 1 até aqui
-  classe: number;  // R acumulado do Motor 2 até aqui
+  t: string;                       // ISO do resolved_at
+  values: Record<string, number>;  // R acumulado por motor (padrao|padrao_b|classe|classe_b|llm) até aqui
 }
 
 export interface ClosedOpRow {

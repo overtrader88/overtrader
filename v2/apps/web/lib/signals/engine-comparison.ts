@@ -167,14 +167,19 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
   const byAsset = breakdownBy(rows, (r) => r.symbol, (k) => k);
   const bySymbolTf = breakdownBy(rows, (r) => `${r.symbol}__${r.timeframe}`, (k) => { const [s, t] = k.split("__"); return `${s} · ${(t ?? "").toUpperCase()}`; });
 
-  // Curva de R acumulado por motor: timeline de resolvidos (asc) com running total.
+  // Curva de R acumulado por motor (os 5): timeline de resolvidos (asc) com running
+  // total por motor; cada ponto carrega o snapshot de TODOS os motores.
   const resolvedSorted = rows
     .filter((r) => r.outcome != null && r.pnl_r != null && r.resolved_at)
     .sort((a, b) => new Date(a.resolved_at!).getTime() - new Date(b.resolved_at!).getTime());
-  let cumP = 0, cumC = 0;
+  const cum: Record<string, number> = {};
+  for (const e of ENGINE_IDS) cum[e] = 0;
   const equity: EquityPoint[] = resolvedSorted.map((r) => {
-    if (r.engine === "classe") cumC += Number(r.pnl_r); else cumP += Number(r.pnl_r);
-    return { t: r.resolved_at!, padrao: Math.round(cumP * 100) / 100, classe: Math.round(cumC * 100) / 100 };
+    const e = r.engine ?? "padrao";
+    cum[e] = (cum[e] ?? 0) + Number(r.pnl_r);
+    const values: Record<string, number> = {};
+    for (const id of ENGINE_IDS) values[id] = Math.round((cum[id] ?? 0) * 100) / 100;
+    return { t: r.resolved_at!, values };
   });
 
   // Operações FECHADAS (resolvidas) recentes, todos os motores.
