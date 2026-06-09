@@ -43,6 +43,12 @@ export interface EngineStat {
   profitFactor: number;
   avgR: number;
   totalR: number;
+  /** R médio dos GANHOS (TP1/TP2/TP3). */
+  avgWinR: number;
+  /** R médio das PERDAS (SL). */
+  avgLossR: number;
+  /** Payoff = ganho médio / |perda média| (>1 = assimetria a favor). */
+  payoff: number;
   open: number;
   emittedTotal: number;
   firstEmittedAt: string | null;

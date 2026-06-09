@@ -132,6 +132,12 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
     const resolved = list.filter((r) => r.outcome != null && r.pnl_r != null);
     const stats = aggregateTrackRecord(resolved.map((r) => ({ outcome: r.outcome as SignalOutcome, pnlR: Number(r.pnl_r) })));
     const wins = stats.outcomes.TP1 + stats.outcomes.TP2 + stats.outcomes.TP3;
+    // Assimetria realizada: ganho médio (TP1/2/3) × perda média (SL) × payoff.
+    const winRs = resolved.filter((r) => isWin(r.outcome as SignalOutcome)).map((r) => Number(r.pnl_r));
+    const lossRs = resolved.filter((r) => r.outcome === "SL").map((r) => Number(r.pnl_r));
+    const avgWinR = winRs.length ? winRs.reduce((s, v) => s + v, 0) / winRs.length : 0;
+    const avgLossR = lossRs.length ? lossRs.reduce((s, v) => s + v, 0) / lossRs.length : 0;
+    const payoff = avgLossR !== 0 ? avgWinR / Math.abs(avgLossR) : 0;
     const openList = open.filter((o) => o.engine === e);
     const emittedAts = list.map((r) => r.emitted_at).sort();
     const first = emittedAts[0] ?? null;
@@ -149,6 +155,9 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
       profitFactor: stats.profitFactor.value,
       avgR: stats.avgR.value,
       totalR: stats.totalR,
+      avgWinR,
+      avgLossR,
+      payoff,
       open: list.filter((r) => r.outcome == null).length,
       emittedTotal: list.length,
       firstEmittedAt: first,
