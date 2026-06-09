@@ -36,7 +36,7 @@ export interface LiveSignal {
   emittedAt: string;
 }
 
-export type EngineFilter = "padrao" | "classe";
+export type EngineFilter = "padrao" | "padrao_b" | "classe" | "classe_b" | "llm";
 
 export interface TrackRecordData {
   configured: boolean;
@@ -75,7 +75,9 @@ export async function getTrackRecord(engine?: EngineFilter): Promise<TrackRecord
     .select("symbol, timeframe, direction, seal, outcome, pnl_r, regime, emitted_at, resolved_at")
     .not("outcome", "is", null)
     .order("resolved_at", { ascending: false });
-  // Público: variantes experimentais (padrao_b/classe_b) NUNCA aparecem.
+  // Default "Ambos" = só os motores de PRODUÇÃO (padrão+classe) — número-manchete
+  // honesto. As variantes experimentais (padrao_b/classe_b/llm) só aparecem quando
+  // explicitamente selecionadas (rotuladas como experimentais na página).
   if (engine) q = q.eq("engine", engine);
   else q = q.in("engine", ["padrao", "classe"]);
   const { data, error } = await q;

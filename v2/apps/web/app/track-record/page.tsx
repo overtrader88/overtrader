@@ -5,10 +5,13 @@ import type { TrackRecordStats } from "@tradeai/engine";
 
 export const dynamic = "force-dynamic";
 
-const ENGINE_TABS: { key: string; label: string; filter?: EngineFilter }[] = [
+const ENGINE_TABS: { key: string; label: string; filter?: EngineFilter; experimental?: boolean }[] = [
   { key: "ambos", label: "Ambos" },
   { key: "padrao", label: "Motor padrão", filter: "padrao" },
   { key: "classe", label: "Motor por classe", filter: "classe" },
+  { key: "padrao_b", label: "Padrão-B", filter: "padrao_b", experimental: true },
+  { key: "classe_b", label: "Classe-B", filter: "classe_b", experimental: true },
+  { key: "llm", label: "Motor LLM", filter: "llm", experimental: true },
 ];
 
 const pct = (x: number) => `${x.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
@@ -75,13 +78,22 @@ export default async function TrackRecordPage({
             <div className="tr-tabs">
               {ENGINE_TABS.map((t) => (
                 <a key={t.key} href={t.key === "ambos" ? "/track-record" : `/track-record?engine=${t.key}`}
-                  className={`tr-tab${t.key === activeTab.key ? " on" : ""}`}>{t.label}</a>
+                  className={`tr-tab${t.key === activeTab.key ? " on" : ""}`}>
+                  {t.label}{t.experimental ? <sup style={{ fontSize: "0.6em", opacity: 0.7, marginLeft: 2 }}>exp</sup> : null}
+                </a>
               ))}
             </div>
             {activeTab.key === "classe" ? (
               <p className="note" style={{ maxWidth: "70ch", margin: "0 0 14px" }}>
                 <b>Motor por classe (Motor 2):</b> segunda leitura, com a metodologia de cada família de ativo. Ainda <b>sem selo de
                 backtest próprio</b> — é justamente o forward que mede sua calibração. Compare com o Motor padrão acima.
+              </p>
+            ) : null}
+            {activeTab.experimental ? (
+              <p className="note" style={{ maxWidth: "70ch", margin: "0 0 14px", padding: "8px 12px", border: "1px solid var(--amber)", borderRadius: 8, color: "var(--amber)" }}>
+                <b>Motor experimental · amostra pequena.</b> Variante em teste <b>forward (A/B)</b>, rodando há poucos dias — os números
+                ainda <b>não têm significância estatística</b> e não representam o produto. Estão aqui por transparência. Os motores de
+                produção são o <b>padrão</b> e o <b>por classe</b>.
               </p>
             ) : null}
 
