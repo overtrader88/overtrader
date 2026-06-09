@@ -44,12 +44,17 @@ export function ConfidenceBadge({
   format = defaultFormat,
 }: ConfidenceBadgeProps) {
   const [lo, hi] = ci;
+  // A POSIÇÃO visual é clampada a [min,max] — com amostra minúscula o IC pode
+  // estourar a régua (ex.: R médio IC −9,78 numa faixa −1..1,5). A faixa então
+  // "encosta" nas bordas (sinaliza incerteza enorme) sem vazar o medidor. O TEXTO
+  // do IC abaixo continua mostrando os números reais, sem clamp.
+  const clamp = (x: number) => Math.min(max, Math.max(min, x));
   const style: CSSProperties & Record<`--${string}`, number> = {
     "--min": min,
     "--max": max,
-    "--lo": lo,
-    "--hi": hi,
-    "--v": value,
+    "--lo": clamp(lo),
+    "--hi": clamp(hi),
+    "--v": clamp(value),
   };
   const meta = [`n=${n}`, method, period].filter(Boolean).join(" · ");
   return (

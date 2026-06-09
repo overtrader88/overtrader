@@ -6,13 +6,18 @@ import type { TrackRecordStats } from "@tradeai/engine";
 export const dynamic = "force-dynamic";
 
 const ENGINE_TABS: { key: string; label: string; filter?: EngineFilter; experimental?: boolean }[] = [
-  { key: "ambos", label: "Ambos" },
+  { key: "todos", label: "Todos" },
   { key: "padrao", label: "Motor padrão", filter: "padrao" },
   { key: "classe", label: "Motor por classe", filter: "classe" },
   { key: "padrao_b", label: "Padrão-B", filter: "padrao_b", experimental: true },
   { key: "classe_b", label: "Classe-B", filter: "classe_b", experimental: true },
   { key: "llm", label: "Motor LLM", filter: "llm", experimental: true },
 ];
+
+/** Rótulo curto do motor — usado na tag por linha na visão consolidada. */
+const ENGINE_SHORT: Record<string, string> = {
+  padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM",
+};
 
 const pct = (x: number) => `${x.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 const signed = (x: number) => `${x > 0 ? "+" : ""}${x.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`;
@@ -39,7 +44,9 @@ function fmtDate(s: string | null): string {
 }
 
 function StatRow({ s }: { s: TrackRecordStats }) {
-  const pfMax = Math.max(3.5, s.profitFactor.ci95[1]);
+  // Teto do medidor de PF entre 3,5 e 6 — com amostra minúscula o IC superior
+  // dispara (ex.: 0–99) e esmagaria a leitura. O texto do IC mostra o valor real.
+  const pfMax = Math.min(6, Math.max(3.5, s.profitFactor.ci95[1]));
   return (
     <div className="ci-grid">
       <ConfidenceBadge label="Win rate" value={s.winRate.value * 100} ci={[s.winRate.ci95[0] * 100, s.winRate.ci95[1] * 100]} n={s.winRate.n} method="Wilson" min={0} max={100} format={pct} />
@@ -77,12 +84,18 @@ export default async function TrackRecordPage({
 
             <div className="tr-tabs">
               {ENGINE_TABS.map((t) => (
-                <a key={t.key} href={t.key === "ambos" ? "/track-record" : `/track-record?engine=${t.key}`}
+                <a key={t.key} href={t.key === "todos" ? "/track-record" : `/track-record?engine=${t.key}`}
                   className={`tr-tab${t.key === activeTab.key ? " on" : ""}`}>
                   {t.label}{t.experimental ? <sup style={{ fontSize: "0.6em", opacity: 0.7, marginLeft: 2 }}>exp</sup> : null}
                 </a>
               ))}
             </div>
+            {activeTab.key === "todos" ? (
+              <p className="note" style={{ maxWidth: "70ch", margin: "0 0 14px" }}>
+                Visão <b>consolidada dos 5 motores</b> — 2 de produção (padrão e por classe) + 3 experimentais (Padrão-B, Classe-B,
+                LLM) em teste forward. A coluna de cada linha mostra de qual motor é o sinal. Selecione um motor acima para vê-lo isolado.
+              </p>
+            ) : null}
             {activeTab.key === "classe" ? (
               <p className="note" style={{ maxWidth: "70ch", margin: "0 0 14px" }}>
                 <b>Motor por classe (Motor 2):</b> segunda leitura, com a metodologia de cada família de ativo. Ainda <b>sem selo de
@@ -129,7 +142,7 @@ export default async function TrackRecordPage({
                 <div className="tr-head"><span>Ativo</span><span>Direção</span><span>Progresso</span><span>Stop</span><span>Emitido</span></div>
                 {live.map((l, i) => (
                   <div className="tr-row" key={i}>
-                    <span><b>{l.symbol}</b> · {l.timeframe.toUpperCase()}</span>
+                    <span><b>{l.symbol}</b> · {l.timeframe.toUpperCase()}{activeTab.key === "todos" ? <small style={{ opacity: 0.6, marginLeft: 6 }}>{ENGINE_SHORT[l.engine] ?? l.engine}</small> : null}</span>
                     <span className={`v ${l.direction.includes("BUY") ? "up" : "dn"}`}>{l.direction.includes("BUY") ? "Compra" : "Venda"}</span>
                     <span className="lc">
                       <span className={`lc-chip ${l.tp1Hit ? "on" : ""}`}>TP1</span>
@@ -171,7 +184,7 @@ export default async function TrackRecordPage({
                   const oc = OUTCOME[r.outcome] ?? { label: r.outcome, cls: "neu" };
                   return (
                     <div className="tr-row" key={i}>
-                      <span><b>{r.symbol}</b> · {r.timeframe.toUpperCase()}</span>
+                      <span><b>{r.symbol}</b> · {r.timeframe.toUpperCase()}{activeTab.key === "todos" ? <small style={{ opacity: 0.6, marginLeft: 6 }}>{ENGINE_SHORT[r.engine] ?? r.engine}</small> : null}</span>
                       <span className={`v ${r.direction.includes("BUY") ? "up" : r.direction.includes("SELL") ? "dn" : "neu"}`}>{r.direction.includes("BUY") ? "Compra" : r.direction.includes("SELL") ? "Venda" : "—"}</span>
                       <span className={`v ${oc.cls}`}>{oc.label}</span>
                       <span style={{ color: r.pnlR >= 0 ? "var(--bull)" : "var(--bear)" }}>{signed(r.pnlR)} R</span>

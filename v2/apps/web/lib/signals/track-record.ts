@@ -12,6 +12,7 @@ export interface TrackRecordRow {
   timeframe: string;
   direction: string;
   seal: string;
+  engine: string;
   outcome: SignalOutcome;
   pnlR: number;
   regime: string | null;
@@ -29,6 +30,7 @@ export interface LiveSignal {
   timeframe: string;
   direction: string;
   seal: string;
+  engine: string;
   tp1Hit: boolean;
   tp2Hit: boolean;
   tp3Hit: boolean;
@@ -37,6 +39,8 @@ export interface LiveSignal {
 }
 
 export type EngineFilter = "padrao" | "padrao_b" | "classe" | "classe_b" | "llm";
+/** Todos os motores — usado na visão consolidada ("Todos"). */
+const ALL_ENGINES = ["padrao", "padrao_b", "classe", "classe_b", "llm"];
 
 export interface TrackRecordData {
   configured: boolean;
@@ -57,7 +61,7 @@ const EMPTY: TrackRecordStats = {
 };
 
 interface DbRow {
-  symbol: string; timeframe: string; direction: string; seal: string;
+  symbol: string; timeframe: string; direction: string; seal: string; engine: string | null;
   outcome: SignalOutcome; pnl_r: number | null; regime: string | null;
   emitted_at: string; resolved_at: string | null;
 }
@@ -72,14 +76,13 @@ export async function getTrackRecord(engine?: EngineFilter): Promise<TrackRecord
 
   let q = sb
     .from("signals")
-    .select("symbol, timeframe, direction, seal, outcome, pnl_r, regime, emitted_at, resolved_at")
+    .select("symbol, timeframe, direction, seal, engine, outcome, pnl_r, regime, emitted_at, resolved_at")
     .not("outcome", "is", null)
     .order("resolved_at", { ascending: false });
-  // Default "Ambos" = só os motores de PRODUÇÃO (padrão+classe) — número-manchete
-  // honesto. As variantes experimentais (padrao_b/classe_b/llm) só aparecem quando
-  // explicitamente selecionadas (rotuladas como experimentais na página).
+  // "Todos" (sem filtro) = visão CONSOLIDADA dos 5 motores. Selecionar um motor
+  // mostra só ele (variantes experimentais são rotuladas na página).
   if (engine) q = q.eq("engine", engine);
-  else q = q.in("engine", ["padrao", "classe"]);
+  else q = q.in("engine", ALL_ENGINES);
   const { data, error } = await q;
   if (error) return engine ? emptyConfigured : empty;
 
@@ -100,25 +103,25 @@ export async function getTrackRecord(engine?: EngineFilter): Promise<TrackRecord
     .sort((a, b) => b.stats.n - a.stats.n);
 
   const recent: TrackRecordRow[] = rows.slice(0, 40).map((r) => ({
-    symbol: r.symbol, timeframe: r.timeframe, direction: r.direction, seal: r.seal,
+    symbol: r.symbol, timeframe: r.timeframe, direction: r.direction, seal: r.seal, engine: r.engine ?? "padrao",
     outcome: r.outcome, pnlR: r.pnl_r == null ? 0 : Number(r.pnl_r), regime: r.regime,
     emittedAt: r.emitted_at, resolvedAt: r.resolved_at,
   }));
 
   let openQ = sb
     .from("signals")
-    .select("symbol, timeframe, direction, seal, tp1_hit, tp2_hit, tp3_hit, stop_stage, emitted_at", { count: "exact" })
+    .select("symbol, timeframe, direction, seal, engine, tp1_hit, tp2_hit, tp3_hit, stop_stage, emitted_at", { count: "exact" })
     .is("outcome", null)
     .order("emitted_at", { ascending: false })
     .limit(20);
   if (engine) openQ = openQ.eq("engine", engine);
-  else openQ = openQ.in("engine", ["padrao", "classe"]);
+  else openQ = openQ.in("engine", ALL_ENGINES);
   const { data: openData, count } = await openQ;
 
   const live: LiveSignal[] = (openData ?? []).map((r) => {
-    const o = r as unknown as { symbol: string; timeframe: string; direction: string; seal: string; tp1_hit: boolean; tp2_hit: boolean; tp3_hit: boolean; stop_stage: string; emitted_at: string };
+    const o = r as unknown as { symbol: string; timeframe: string; direction: string; seal: string; engine: string | null; tp1_hit: boolean; tp2_hit: boolean; tp3_hit: boolean; stop_stage: string; emitted_at: string };
     return {
-      symbol: o.symbol, timeframe: o.timeframe, direction: o.direction, seal: o.seal,
+      symbol: o.symbol, timeframe: o.timeframe, direction: o.direction, seal: o.seal, engine: o.engine ?? "padrao",
       tp1Hit: !!o.tp1_hit, tp2Hit: !!o.tp2_hit, tp3Hit: !!o.tp3_hit, stopStage: o.stop_stage ?? "initial", emittedAt: o.emitted_at,
     };
   });
