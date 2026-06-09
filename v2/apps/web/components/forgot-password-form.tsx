@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { AuthPromo } from "@/components/auth-promo";
 
 /**
  * "Esqueci a senha" — envia o e-mail de recuperação (Supabase). O link cai em
@@ -41,6 +42,7 @@ export function ForgotPasswordForm() {
           Abra o e-mail e clique no link (verifique o spam).
         </p>
         <div className="foot"><a href="/login" className="link-btn">← Voltar para o login</a></div>
+        <AuthPromo />
       </div>
     );
   }
@@ -63,6 +65,7 @@ export function ForgotPasswordForm() {
       </button>
 
       <div className="foot"><a href="/login" className="link-btn">← Voltar para o login</a></div>
+      <AuthPromo />
     </form>
   );
 }

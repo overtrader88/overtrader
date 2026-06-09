@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { AuthPromo } from "@/components/auth-promo";
 
 /**
  * "Definir nova senha" — usada após o link de recuperação. O /auth/callback já
@@ -51,6 +52,7 @@ export function ResetPasswordForm() {
         <h1>Link inválido ou expirado</h1>
         <p className="auth-msg err">O link de recuperação não é mais válido. Peça um novo.</p>
         <div className="foot"><a href="/recuperar" className="link-btn">Pedir novo link →</a></div>
+        <AuthPromo />
       </div>
     );
   }
@@ -61,6 +63,7 @@ export function ResetPasswordForm() {
         <div className="kick">Recuperação</div>
         <h1>Senha atualizada ✓</h1>
         <p className="auth-msg ok">Pronto! Redirecionando para o painel…</p>
+        <AuthPromo />
       </div>
     );
   }
@@ -79,6 +82,7 @@ export function ResetPasswordForm() {
       </div>
       {error ? <p className="auth-msg err">{error}</p> : null}
       <button type="submit" className="submit" disabled={busy}>{busy ? "Salvando…" : "Salvar nova senha"}</button>
+      <AuthPromo />
     </form>
   );
 }
