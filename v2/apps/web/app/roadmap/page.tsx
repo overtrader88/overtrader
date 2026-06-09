@@ -29,7 +29,7 @@ const ITEMS: Item[] = [
 export default async function RoadmapPage() {
   const user = await getCurrentUser();
   return (
-    <div className="hist-page">
+    <div className="hist-page docpage">
       <AppBar credits={user?.credits} plan={user ? planLabel(user.plan) : undefined} initials={user ? initialsOf(user) : undefined} email={user?.email} />
       <div className="wrap">
         <div className="head2">

@@ -7,7 +7,7 @@ export const metadata = { title: "Política de Privacidade — Overtrader" };
 export default async function PrivacidadePage() {
   const user = await getCurrentUser();
   return (
-    <div className="hist-page">
+    <div className="hist-page docpage">
       <AppBar credits={user?.credits} plan={user ? planLabel(user.plan) : undefined} initials={user ? initialsOf(user) : undefined} email={user?.email} />
       <div className="wrap">
         <div className="legal-doc">

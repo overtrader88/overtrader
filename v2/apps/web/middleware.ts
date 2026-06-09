@@ -20,7 +20,9 @@ import { createServerClient } from "@supabase/ssr";
 const PROTECTED = ["/dashboard", "/analise", "/ao-vivo", "/monitor", "/track-record", "/historico", "/alertas", "/creditos", "/watchlist"];
 // Navegável sem login em QUALQUER modo (marketing + auth + legais).
 // Navegável sem login em QUALQUER modo (marketing + auth + legais).
-const PUBLIC = new Set(["/", "/login", "/recuperar", "/redefinir-senha", "/termos", "/privacidade"]);
+// /planos e /roadmap são páginas de marketing (linkadas na landing) e públicas
+// pós-lançamento — ficam acessíveis também na validação para o funil funcionar.
+const PUBLIC = new Set(["/", "/planos", "/roadmap", "/login", "/recuperar", "/redefinir-senha", "/termos", "/privacidade"]);
 const LAUNCHED = process.env.NEXT_PUBLIC_SIGNUPS_OPEN === "true";
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
