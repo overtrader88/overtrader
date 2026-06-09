@@ -1638,6 +1638,26 @@ body { padding-bottom: 34px; }
 .docpage .rdmap { max-width: 980px; margin: 8px auto 0; }
 .docpage .rd-item { background: linear-gradient(180deg, rgba(20, 26, 38, 0.5), rgba(10, 13, 20, 0.55)); backdrop-filter: blur(10px); border-radius: 12px; padding: 16px 18px; transition: transform 0.18s, border-color 0.18s; }
 .docpage .rd-item:hover { transform: translateX(3px); border-color: var(--line-2); }
+
+/* ============================================================
+   APP LOGADO — DASHBOARD (.dash) · aprofundamento v4
+   Escopado p/ não afetar outras telas que usam .panel/.kpi.
+   ============================================================ */
+.dash { position: relative; }
+.dash::before {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; height: 56vh; z-index: -1; pointer-events: none;
+  background: radial-gradient(52vw 32vh at 50% 0%, rgba(84, 168, 255, 0.12), transparent 64%), radial-gradient(36vw 26vh at 88% 2%, rgba(43, 212, 158, 0.05), transparent 66%);
+  filter: blur(6px);
+}
+/* KPIs e painéis em vidro */
+.dash .panel { background: linear-gradient(180deg, rgba(20, 26, 38, 0.5), rgba(10, 13, 20, 0.55)); backdrop-filter: blur(12px); border-radius: 14px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
+.dash .kpi:hover, .dash .grid2 .panel:hover { border-color: var(--line-2); transform: translateY(-3px); box-shadow: 0 26px 52px -34px rgba(0, 0, 0, 0.7); }
+.dash .kpi .kval { font-variant-numeric: tabular-nums; }
+.dash .kpi .kbar i { background: linear-gradient(90deg, #6fbcff, var(--cyan)); }
+/* linhas de análises recentes */
+.dash .arow { border-radius: 10px; padding-left: 10px; padding-right: 10px; }
+.dash .arow:hover { background: var(--cyan-soft); }
+.dash .a-sym .s { background: linear-gradient(100deg, #cfe8ff, var(--ink)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
 .liqz-now { text-align: center; font: 600 10px/1 var(--mono, monospace); color: var(--cyan); padding: 7px 0; letter-spacing: .04em; }
 
 /* ===== Track record — abas de motor ===== */

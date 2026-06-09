@@ -34,7 +34,7 @@ export default async function DashboardPage() {
         email={user?.email}
       />
 
-      <div className="wrap">
+      <div className="wrap dash">
         <div className="ctx">
           <div>
             <h1>Olá, {greetName}.</h1>
