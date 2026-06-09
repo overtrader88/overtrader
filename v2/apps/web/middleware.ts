@@ -19,8 +19,8 @@ import { createServerClient } from "@supabase/ssr";
 // Dados do usuário — exigem login em QUALQUER modo (pré ou pós-lançamento).
 const PROTECTED = ["/dashboard", "/analise", "/ao-vivo", "/monitor", "/track-record", "/historico", "/alertas", "/creditos", "/watchlist"];
 // Navegável sem login em QUALQUER modo (marketing + auth + legais).
-// "/nova" = landing alternativa em avaliação (mesma natureza pública da "/").
-const PUBLIC = new Set(["/", "/nova", "/login", "/recuperar", "/redefinir-senha", "/termos", "/privacidade"]);
+// "/nova" e "/v3" = landings alternativas em avaliação (mesma natureza pública da "/").
+const PUBLIC = new Set(["/", "/nova", "/v3", "/login", "/recuperar", "/redefinir-senha", "/termos", "/privacidade"]);
 const LAUNCHED = process.env.NEXT_PUBLIC_SIGNUPS_OPEN === "true";
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
