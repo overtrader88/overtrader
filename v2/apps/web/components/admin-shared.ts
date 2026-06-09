@@ -62,6 +62,7 @@ export interface EngineStat {
 
 export interface OpenPosition {
   engine: string;
+  assetType: string;
   symbol: string;
   timeframe: string;
   side: string;
@@ -104,8 +105,17 @@ export interface ClosedOpRow {
   resolvedAt: string | null;
 }
 
+/** Mesmas métricas por motor, recortadas por uma classe de ativo (filtro do ranking). */
+export interface ClassEngines {
+  class: string;   // crypto | forex | commodities | indices | stocks
+  label: string;   // PT
+  engines: EngineStat[];
+}
+
 export interface EngineComparison {
   engines: EngineStat[];
+  /** Stats por classe de ativo × motor — alimenta o filtro de classe no ranking. */
+  byClassEngine: ClassEngines[];
   open: OpenPosition[];
   byClass: BreakdownRow[];
   byTimeframe: BreakdownRow[];

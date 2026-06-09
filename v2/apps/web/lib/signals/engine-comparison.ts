@@ -10,7 +10,7 @@ import type { AssetType, Timeframe } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
-import type { EngineComparison, EngineStat, OpenPosition, GroupStat, BreakdownRow, EquityPoint, ClosedOpRow, DailyRow, DailyCell } from "@/components/admin-shared";
+import type { EngineComparison, EngineStat, ClassEngines, OpenPosition, GroupStat, BreakdownRow, EquityPoint, ClosedOpRow, DailyRow, DailyCell } from "@/components/admin-shared";
 
 interface Row {
   engine: string | null;
@@ -80,6 +80,44 @@ function unrealizedR(side: string, entry: number, stop: number, price: number): 
   return side === "sell" ? (entry - price) / dist : (price - entry) / dist;
 }
 
+/** Agrega os EngineStat (por motor) de um conjunto de linhas + posições abertas (já marcadas a mercado). Reusado no agregado global e por classe de ativo. */
+function buildEngineStats(rows: Row[], open: OpenPosition[]): EngineStat[] {
+  const byEngine = new Map<string, Row[]>();
+  for (const r of rows) {
+    const e = r.engine ?? "padrao";
+    (byEngine.get(e) ?? byEngine.set(e, []).get(e)!).push(r);
+  }
+  return ENGINE_IDS.map((e) => {
+    const list = byEngine.get(e) ?? [];
+    const resolved = list.filter((r) => r.outcome != null && r.pnl_r != null);
+    const stats = aggregateTrackRecord(resolved.map((r) => ({ outcome: r.outcome as SignalOutcome, pnlR: Number(r.pnl_r) })));
+    const wins = stats.outcomes.TP1 + stats.outcomes.TP2 + stats.outcomes.TP3;
+    // Assimetria realizada: ganho médio (TP1/2/3) × perda média (SL) × payoff.
+    const winRs = resolved.filter((r) => isWin(r.outcome as SignalOutcome)).map((r) => Number(r.pnl_r));
+    const lossRs = resolved.filter((r) => r.outcome === "SL").map((r) => Number(r.pnl_r));
+    const avgWinR = winRs.length ? winRs.reduce((s, v) => s + v, 0) / winRs.length : 0;
+    const avgLossR = lossRs.length ? lossRs.reduce((s, v) => s + v, 0) / lossRs.length : 0;
+    const payoff = avgLossR !== 0 ? avgWinR / Math.abs(avgLossR) : 0;
+    const openList = open.filter((o) => o.engine === e);
+    const emittedAts = list.map((r) => r.emitted_at).sort();
+    const first = emittedAts[0] ?? null;
+    const last = emittedAts[emittedAts.length - 1] ?? null;
+    const spanDays = first && last ? Math.max(1, (new Date(last).getTime() - new Date(first).getTime()) / DAY) : 1;
+    return {
+      engine: e, label: ENGINE_LABELS[e] ?? e,
+      resolved: stats.n, decisive: stats.decisive, wins, losses: stats.outcomes.SL, expired: stats.outcomes.EXPIRED,
+      winRatePct: stats.winRate.value * 100, profitFactor: stats.profitFactor.value, avgR: stats.avgR.value, totalR: stats.totalR,
+      avgWinR, avgLossR, payoff,
+      open: list.filter((r) => r.outcome == null).length, emittedTotal: list.length,
+      firstEmittedAt: first, lastEmittedAt: last, perDay: list.length / spanDays,
+      openInProfit: openList.filter((o) => o.status === "profit").length,
+      openInLoss: openList.filter((o) => o.status === "loss").length,
+      openNeutral: openList.filter((o) => o.status === "flat" || o.status === "unknown").length,
+      openUnrealizedR: openList.reduce((s, o) => s + (o.unrealizedR ?? 0), 0),
+    };
+  });
+}
+
 export async function getEngineComparison(): Promise<EngineComparison | null> {
   const sb = supabaseService();
   if (!sb) return null;
@@ -91,12 +129,6 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
     .limit(5000);
   if (error) return null;
   const rows = (data ?? []) as Row[];
-
-  const byEngine = new Map<string, Row[]>();
-  for (const r of rows) {
-    const e = r.engine ?? "padrao";
-    (byEngine.get(e) ?? byEngine.set(e, []).get(e)!).push(r);
-  }
 
   // Preço atual das posições abertas (marca a mercado). Cap p/ não estourar a página.
   const openRows = rows.filter((r) => r.outcome == null).slice(0, 40);
@@ -122,53 +154,23 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
     const ur = price != null ? unrealizedR(r.side, r.entry, r.stop_loss, price) : null;
     const status: OpenPosition["status"] = ur == null ? "unknown" : ur > 0.03 ? "profit" : ur < -0.03 ? "loss" : "flat";
     return {
-      engine: r.engine ?? "padrao", symbol: r.symbol, timeframe: r.timeframe, side: r.side, direction: r.direction,
+      engine: r.engine ?? "padrao", assetType: r.asset_type, symbol: r.symbol, timeframe: r.timeframe, side: r.side, direction: r.direction,
       entry: r.entry, emittedAt: r.emitted_at, currentPrice: price, unrealizedR: ur, status,
     };
   });
 
-  const engines: EngineStat[] = ENGINE_IDS.map((e) => {
-    const list = byEngine.get(e) ?? [];
-    const resolved = list.filter((r) => r.outcome != null && r.pnl_r != null);
-    const stats = aggregateTrackRecord(resolved.map((r) => ({ outcome: r.outcome as SignalOutcome, pnlR: Number(r.pnl_r) })));
-    const wins = stats.outcomes.TP1 + stats.outcomes.TP2 + stats.outcomes.TP3;
-    // Assimetria realizada: ganho médio (TP1/2/3) × perda média (SL) × payoff.
-    const winRs = resolved.filter((r) => isWin(r.outcome as SignalOutcome)).map((r) => Number(r.pnl_r));
-    const lossRs = resolved.filter((r) => r.outcome === "SL").map((r) => Number(r.pnl_r));
-    const avgWinR = winRs.length ? winRs.reduce((s, v) => s + v, 0) / winRs.length : 0;
-    const avgLossR = lossRs.length ? lossRs.reduce((s, v) => s + v, 0) / lossRs.length : 0;
-    const payoff = avgLossR !== 0 ? avgWinR / Math.abs(avgLossR) : 0;
-    const openList = open.filter((o) => o.engine === e);
-    const emittedAts = list.map((r) => r.emitted_at).sort();
-    const first = emittedAts[0] ?? null;
-    const last = emittedAts[emittedAts.length - 1] ?? null;
-    const spanDays = first && last ? Math.max(1, (new Date(last).getTime() - new Date(first).getTime()) / DAY) : 1;
-    return {
-      engine: e,
-      label: ENGINE_LABELS[e] ?? e,
-      resolved: stats.n,
-      decisive: stats.decisive,
-      wins,
-      losses: stats.outcomes.SL,
-      expired: stats.outcomes.EXPIRED,
-      winRatePct: stats.winRate.value * 100,
-      profitFactor: stats.profitFactor.value,
-      avgR: stats.avgR.value,
-      totalR: stats.totalR,
-      avgWinR,
-      avgLossR,
-      payoff,
-      open: list.filter((r) => r.outcome == null).length,
-      emittedTotal: list.length,
-      firstEmittedAt: first,
-      lastEmittedAt: last,
-      perDay: list.length / spanDays,
-      openInProfit: openList.filter((o) => o.status === "profit").length,
-      openInLoss: openList.filter((o) => o.status === "loss").length,
-      openNeutral: openList.filter((o) => o.status === "flat" || o.status === "unknown").length,
-      openUnrealizedR: openList.reduce((s, o) => s + (o.unrealizedR ?? 0), 0),
-    };
-  });
+  const engines: EngineStat[] = buildEngineStats(rows, open);
+
+  // Mesmas métricas, mas POR CLASSE DE ATIVO (p/ o filtro do ranking — fechado e
+  // aberto por classe). Ordena por amostra total da classe (desc).
+  const classes = [...new Set(rows.map((r) => r.asset_type))];
+  const byClassEngine: ClassEngines[] = classes
+    .map((cls) => ({
+      class: cls,
+      label: ASSET_PT[cls] ?? cls,
+      engines: buildEngineStats(rows.filter((r) => r.asset_type === cls), open.filter((o) => o.assetType === cls)),
+    }))
+    .sort((a, b) => rows.filter((r) => r.asset_type === b.class).length - rows.filter((r) => r.asset_type === a.class).length);
 
   // Recortes por classe de ativo, por timeframe, por ativo e por ativo+timeframe.
   const byClass = breakdownBy(rows, (r) => r.asset_type, (k) => ASSET_PT[k] ?? k);
@@ -218,5 +220,5 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 30);
 
-  return { engines, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily };
+  return { engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily };
 }

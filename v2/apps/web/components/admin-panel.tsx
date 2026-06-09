@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { AdminUserDetail } from "./admin-user-detail";
 import { NotifyButton } from "./admin-notify-button";
-import { type AdminExtra, type EngineStat, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, type DailyRow, type DailyCell, MRR_PRICE } from "./admin-shared";
+import { type AdminExtra, type EngineStat, type ClassEngines, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, type DailyRow, type DailyCell, MRR_PRICE } from "./admin-shared";
 
 const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
 
@@ -484,6 +484,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
       {tab === "motores" ? (
         <EnginesTab
           engines={extra.engines?.engines ?? []}
+          byClassEngine={extra.engines?.byClassEngine ?? []}
           open={extra.engines?.open ?? []}
           byClass={extra.engines?.byClass ?? []}
           byTimeframe={extra.engines?.byTimeframe ?? []}
@@ -741,15 +742,22 @@ const RANK_METRICS: RankMetric[] = [
   { key: "stopsPerTake", label: "Stops por take", value: (e) => (e.wins > 0 ? e.losses / e.wins : null), dir: "lower", fmt: (v) => `${v.toFixed(2)}×`, tone: (v) => (v > 1 ? C_RED : v < 1 ? C_GREEN : null) },
   { key: "wins", label: "Operações TP (take)", value: (e) => e.wins, dir: "higher", fmt: (v) => String(v), tone: (v) => (v > 0 ? C_GREEN : null) },
   { key: "losses", label: "Operações SL (stop)", value: (e) => e.losses, dir: "lower", fmt: (v) => String(v), tone: (v) => (v > 0 ? C_RED : null) },
+  { key: "open", label: "Abertos agora (qtd)", value: (e) => e.open, dir: "higher", fmt: (v) => String(v) },
   { key: "openUnrealizedR", label: "R não-realizado (abertos)", value: (e) => e.openUnrealizedR, dir: "higher", fmt: (v) => `${sgn(v, 1)}R`, tone: (v) => (v < 0 ? C_RED : v > 0 ? C_GREEN : null) },
   { key: "emittedTotal", label: "Sinais emitidos (total)", value: (e) => e.emittedTotal, dir: "higher", fmt: (v) => String(v) },
   { key: "decisive", label: "Decisivos (TP+SL)", value: (e) => e.decisive, dir: "higher", fmt: (v) => String(v) },
 ];
 
-function RankingTable({ engines }: { engines: EngineStat[] }) {
+function RankingTable({ engines, byClass, visibleIds }: { engines: EngineStat[]; byClass: ClassEngines[]; visibleIds: string[] }) {
   const [metricKey, setMetricKey] = useState("totalR");
+  const [classKey, setClassKey] = useState("todas");
   const m = RANK_METRICS.find((x) => x.key === metricKey) ?? RANK_METRICS[0]!;
-  const ranked = engines.map((e) => ({ e, v: m.value(e) }))
+  // "Todas" usa o agregado global (já filtrado pelos motores visíveis); uma classe
+  // usa as stats daquela classe, também restritas aos motores visíveis.
+  const source = classKey === "todas"
+    ? engines
+    : (byClass.find((c) => c.class === classKey)?.engines ?? []).filter((e) => visibleIds.includes(e.engine));
+  const ranked = source.map((e) => ({ e, v: m.value(e) }))
     .sort((a, b) => {
       if (a.v == null && b.v == null) return 0;
       if (a.v == null) return 1;
@@ -761,12 +769,19 @@ function RankingTable({ engines }: { engines: EngineStat[] }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 8px", flexWrap: "wrap" }}>
         <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Ranking dos motores</h3>
         <label style={{ fontSize: "0.8rem", color: "#aebccd", display: "flex", alignItems: "center", gap: 6 }}>
+          Classe
+          <select value={classKey} onChange={(e) => setClassKey(e.target.value)} style={FIELD}>
+            <option value="todas">Todas as classes</option>
+            {byClass.map((c) => <option key={c.class} value={c.class}>{c.label}</option>)}
+          </select>
+        </label>
+        <label style={{ fontSize: "0.8rem", color: "#aebccd", display: "flex", alignItems: "center", gap: 6 }}>
           Ranquear por
           <select value={metricKey} onChange={(e) => setMetricKey(e.target.value)} style={FIELD}>
             {RANK_METRICS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
           </select>
         </label>
-        <span style={{ fontSize: "0.72rem", color: "#64748b" }}>{m.dir === "higher" ? "maior = melhor" : "menor = melhor"}</span>
+        <span style={{ fontSize: "0.72rem", color: "#64748b" }}>{m.dir === "higher" ? "maior = melhor" : "menor = melhor"}{classKey !== "todas" ? " · classe filtrada" : ""}</span>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 560 }}>
@@ -802,7 +817,7 @@ function RankingTable({ engines }: { engines: EngineStat[] }) {
   );
 }
 
-function EnginesTab({ engines, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, now }: { engines: EngineStat[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; daily: DailyRow[]; now: number }) {
+function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, now }: { engines: EngineStat[]; byClassEngine: ClassEngines[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; daily: DailyRow[]; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   // Motores visíveis (colunas do comparativo + recortes).
@@ -950,7 +965,7 @@ function EnginesTab({ engines, open, byClass, byTimeframe, byAsset, bySymbolTf, 
       </div>
 
       <div style={{ marginTop: 24 }}>
-        <RankingTable engines={cols} />
+        <RankingTable engines={cols} byClass={byClassEngine} visibleIds={visibleIds} />
       </div>
 
       <h3 style={{ margin: "24px 0 8px", fontSize: "0.95rem" }}>Curva de R acumulado (realizado, forward)</h3>
