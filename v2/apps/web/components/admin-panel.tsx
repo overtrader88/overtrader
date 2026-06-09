@@ -855,13 +855,13 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
   type Dir = "higher" | "lower" | "none";
   const RED = "var(--bear,#dc2626)";
   const GREEN = "var(--bull,#16a34a)";
+  const YELLOW = "var(--amber,#eab308)";
   // tone: cor por VALOR (sobrepõe o destaque do melhor). null = usa o padrão.
   const ROWS: { label: string; get: (e: EngineStat) => string; raw: (e: EngineStat) => number | null; dir: Dir; tone?: (v: number | null) => string | null; node?: (e: EngineStat) => React.ReactNode }[] = [
     { label: "Sinais emitidos (total)", get: (e) => String(e.emittedTotal), raw: (e) => e.emittedTotal, dir: "none" },
     { label: "Frequência", get: (e) => `${e.perDay.toFixed(1)}/dia`, raw: (e) => e.perDay, dir: "none" },
-    { label: "Abertos agora", get: (e) => String(e.open), raw: (e) => e.open, dir: "none" },
+    { label: "Abertos agora", get: (e) => String(e.open), raw: (e) => e.open, dir: "none", tone: (v) => (v && v > 0 ? YELLOW : null) },
     { label: "Resolvidos", get: (e) => String(e.resolved), raw: (e) => e.resolved, dir: "none" },
-    { label: "Decisivos (TP+SL)", get: (e) => String(e.decisive), raw: (e) => e.decisive, dir: "none" },
     { label: "Operações TP (take)", get: (e) => String(e.wins), raw: (e) => e.wins, dir: "none", tone: (v) => (v && v > 0 ? GREEN : null) },
     { label: "Operações SL (stop)", get: (e) => String(e.losses), raw: (e) => e.losses, dir: "none", tone: (v) => (v && v > 0 ? RED : null) },
     { label: "Assertividade (win rate)", get: (e) => `${e.winRatePct.toFixed(1)}%`, raw: (e) => e.winRatePct, dir: "higher" },
