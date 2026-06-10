@@ -13,19 +13,41 @@ type Tab = "users" | "risk" | "expiring" | "growth" | "revenue" | "funnel" | "co
 type Bucket = "day" | "week" | "month";
 
 const FIELD: React.CSSProperties = {
-  padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border,#cbd5e1)",
-  background: "#fff", color: "#0f172a", fontSize: "0.85rem",
+  padding: "8px 12px", borderRadius: 10, border: "1px solid var(--line-2)",
+  background: "var(--panel-2)", color: "var(--ink)", fontSize: "0.85rem",
 };
-const CARD: React.CSSProperties = { border: "1px solid var(--border-faint,#e4e8ef)", borderRadius: 10, padding: "14px 18px" };
-const TH: React.CSSProperties = { padding: "8px 10px" };
-const TD: React.CSSProperties = { padding: "8px 10px" };
-const ROW: React.CSSProperties = { borderBottom: "1px solid var(--border-faint,#e4e8ef)" };
+const CARD: React.CSSProperties = { border: "1px solid var(--line-2)", borderRadius: 12, padding: "14px 18px", background: "linear-gradient(180deg,var(--panel),var(--panel-2))" };
+const TH: React.CSSProperties = { padding: "11px 12px", fontFamily: "var(--font-mono)", fontSize: "0.68rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-faint)" };
+const TD: React.CSSProperties = { padding: "10px 12px" };
+const ROW: React.CSSProperties = { borderBottom: "1px solid var(--line)" };
 const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const DAY = 86_400_000;
+const PER_PAGE = 10;
 
+/** Botão-segmento dark (toggles de janela nas abas risco/vencimentos/crescimento). */
 function tabBtn(active: boolean): React.CSSProperties {
-  return { ...FIELD, cursor: "pointer", fontWeight: active ? 700 : 500, background: active ? "var(--accent,#2563eb)" : "#fff", color: active ? "#fff" : "#0f172a", borderColor: active ? "var(--accent,#2563eb)" : "var(--border,#cbd5e1)" };
+  return { ...FIELD, cursor: "pointer", fontWeight: active ? 700 : 500, background: active ? "var(--cyan)" : "var(--panel-2)", color: active ? "#04121a" : "var(--ink-soft)", borderColor: active ? "var(--cyan)" : "var(--line-2)" };
 }
+
+/** Ícone por aba (stroke, 24-grid). */
+function TabIcon({ k }: { k: Tab }) {
+  const p = { fill: "none" as const, stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+  switch (k) {
+    case "users": return <svg viewBox="0 0 24 24" {...p}><circle cx="9" cy="8" r="3" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 6a3 3 0 0 1 0 6M19 19a5.5 5.5 0 0 0-3-4.9" /></svg>;
+    case "risk": return <svg viewBox="0 0 24 24" {...p}><path d="M12 3 2 20h20L12 3Z" /><path d="M12 10v4M12 17.5v.5" /></svg>;
+    case "expiring": return <svg viewBox="0 0 24 24" {...p}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 9h18M8 3v4M16 3v4" /></svg>;
+    case "growth": return <svg viewBox="0 0 24 24" {...p}><path d="m4 16 5-5 4 3 7-8" /><path d="M16 6h4v4" /></svg>;
+    case "revenue": return <svg viewBox="0 0 24 24" {...p}><circle cx="12" cy="12" r="9" /><path d="M14 9.2A2.6 2.6 0 0 0 12 8.2c-1.3 0-2.3.7-2.3 1.7 0 2.3 4.6 1.1 4.6 3.4 0 1-1 1.7-2.3 1.7A2.6 2.6 0 0 1 10 14M12 6.8v10.4" /></svg>;
+    case "funnel": return <svg viewBox="0 0 24 24" {...p}><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z" /></svg>;
+    case "consumption": return <svg viewBox="0 0 24 24" {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>;
+    case "cohort": return <svg viewBox="0 0 24 24" {...p}><circle cx="8" cy="9" r="2.5" /><circle cx="16" cy="9" r="2.5" /><path d="M3.5 18a4.5 4.5 0 0 1 9 0M11.5 18a4.5 4.5 0 0 1 9 0" /></svg>;
+    case "hubla": return <svg viewBox="0 0 24 24" {...p}><path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7" /></svg>;
+    case "audit": return <svg viewBox="0 0 24 24" {...p}><path d="M12 3 5 6v5c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6l-7-3Z" /><path d="m9 12 2 2 4-4" /></svg>;
+    case "ops": return <svg viewBox="0 0 24 24" {...p}><path d="M3 12h4l2 6 4-14 2 8h6" /></svg>;
+    case "motores": return <svg viewBox="0 0 24 24" {...p}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" /></svg>;
+  }
+}
+const SortIco = () => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg>);
 function brl(n: number): string { return `R$${n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`; }
 function planLbl(p: string): string { return p === "pro_plus" ? "PRO+" : p.toUpperCase(); }
 function monthLbl(ym: string): string { const [y = "", m = "01"] = ym.split("-"); return `${MONTHS_PT[+m - 1]}/${y}`; }
@@ -65,8 +87,8 @@ function Bars({ data }: { data: { label: string; count: number }[] }) {
       {data.map((s, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span className="note" style={{ width: 80, fontSize: "0.78rem", textAlign: "right", flexShrink: 0 }}>{s.label}</span>
-          <div style={{ flex: 1, background: "var(--border-faint,#eef2f7)", borderRadius: 6, height: 22 }}>
-            <div style={{ width: `${(s.count / max) * 100}%`, minWidth: 2, height: "100%", background: "var(--accent,#2563eb)", borderRadius: 6 }} />
+          <div style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 6, height: 22 }}>
+            <div style={{ width: `${(s.count / max) * 100}%`, minWidth: 2, height: "100%", background: "var(--cyan)", borderRadius: 6, boxShadow: "0 0 10px var(--glow)" }} />
           </div>
           <span style={{ width: 36, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.count}</span>
         </div>
@@ -98,6 +120,29 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
       return true;
     });
   }, [users, q, planF, monthF]);
+
+  // ordenação + paginação da tabela de usuários
+  const [sortKey, setSortKey] = useState<"email" | "createdAt">("createdAt");
+  const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(PER_PAGE);
+  const sortedUsers = useMemo(() => {
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      const va = sortKey === "email" ? a.email.toLowerCase() : a.createdAt;
+      const vb = sortKey === "email" ? b.email.toLowerCase() : b.createdAt;
+      return va < vb ? -1 * sortDir : va > vb ? 1 * sortDir : 0;
+    });
+    return arr;
+  }, [filtered, sortKey, sortDir]);
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / perPage));
+  const pageSafe = Math.min(page, totalPages);
+  const pagedUsers = sortedUsers.slice((pageSafe - 1) * perPage, pageSafe * perPage);
+  const toggleSort = (k: "email" | "createdAt") => {
+    if (sortKey === k) setSortDir((d) => (d * -1) as 1 | -1);
+    else { setSortKey(k); setSortDir(1); }
+    setPage(1);
+  };
 
   const series = useMemo(() => {
     const counts = new Map<string, number>();
@@ -184,44 +229,73 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
     ["funnel", "Funil"],
     ["consumption", "Consumo"],
     ["cohort", "Cohort"],
-    ["hubla", "Hubla"],
+    ["hubla", "HubLA"],
     ["audit", "Auditoria"],
     ["ops", "Saúde"],
     ["motores", "Motores"],
   ];
   const hasFilter = q || planF || monthF;
   const stageStyle: React.CSSProperties = { ...CARD, flex: "1 1 140px", textAlign: "center" };
+  const fromN = sortedUsers.length === 0 ? 0 : (pageSafe - 1) * perPage + 1;
+  const toN = Math.min(sortedUsers.length, pageSafe * perPage);
 
   return (
     <>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {TABS.map(([k, label]) => <button key={k} type="button" onClick={() => setTab(k)} style={tabBtn(tab === k)}>{label}</button>)}
+      <div className="adm-tabs">
+        {TABS.map(([k, label]) => (
+          <button key={k} type="button" onClick={() => setTab(k)} className={`adm-tab${tab === k ? " on" : ""}`}>
+            <TabIcon k={k} />{label}
+          </button>
+        ))}
       </div>
 
       {/* ---- USUÁRIOS ---- */}
       {tab === "users" ? (
         <>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
-            <input type="text" placeholder="Buscar nome ou e-mail…" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...FIELD, minWidth: 220, flex: "1 1 220px" }} />
-            <select value={planF} onChange={(e) => setPlanF(e.target.value)} style={FIELD}>
+          <div className="adm-toolbar">
+            <div className="adm-search">
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" /><path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              <input type="text" placeholder="Buscar nome ou e-mail…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
+            </div>
+            <select className="adm-field" value={planF} onChange={(e) => { setPlanF(e.target.value); setPage(1); }}>
               <option value="">Todos os planos</option><option value="free">FREE</option><option value="pro">PRO</option><option value="pro_plus">PRO+</option>
             </select>
-            <select value={monthF} onChange={(e) => setMonthF(e.target.value)} style={FIELD}>
+            <select className="adm-field" value={monthF} onChange={(e) => { setMonthF(e.target.value); setPage(1); }}>
               <option value="">Qualquer mês</option>
               {monthOptions.map((m) => <option key={m} value={m}>{monthLbl(m)}</option>)}
             </select>
-            {hasFilter ? <button type="button" onClick={() => { setQ(""); setPlanF(""); setMonthF(""); }} style={{ ...FIELD, cursor: "pointer" }}>Limpar</button> : null}
-            <span className="note" style={{ fontSize: "0.8rem" }}>{filtered.length} de {users.length}</span>
+            {hasFilter ? <button type="button" className="adm-field" style={{ cursor: "pointer" }} onClick={() => { setQ(""); setPlanF(""); setMonthF(""); setPage(1); }}>Limpar</button> : null}
+            <span className="adm-count">{filtered.length} de {users.length}</span>
           </div>
           <div className="tbl" style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-              <thead><tr style={{ textAlign: "left", borderBottom: "2px solid var(--border,#cbd5e1)" }}>
-                <th style={TH}>Usuário</th><th style={TH}>Cód. compra (Hubla)</th><th style={TH}>Créditos</th><th style={TH}>Cadastro</th><th style={TH}>Plano</th>
+              <thead><tr>
+                <th className="adm-th">Usuário<button type="button" className={`adm-sort${sortKey === "email" ? " on" : ""}`} aria-label="Ordenar por usuário" onClick={() => toggleSort("email")}><SortIco /></button></th>
+                <th className="adm-th">Cód. compra (HubLA)</th>
+                <th className="adm-th">Créditos</th>
+                <th className="adm-th">Cadastro<button type="button" className={`adm-sort${sortKey === "createdAt" ? " on" : ""}`} aria-label="Ordenar por cadastro" onClick={() => toggleSort("createdAt")}><SortIco /></button></th>
+                <th className="adm-th">Plano</th>
+                <th className="adm-th rgt">Ações</th>
               </tr></thead>
-              <tbody>{filtered.map((u) => <AdminUserRow key={u.id} user={u} />)}</tbody>
+              <tbody>{pagedUsers.map((u) => <AdminUserRow key={u.id} user={u} />)}</tbody>
             </table>
             {filtered.length === 0 ? <p className="note" style={{ padding: 20, textAlign: "center" }}>{users.length === 0 ? "Nenhum usuário ainda." : "Nenhum usuário com esses filtros."}</p> : null}
           </div>
+          {sortedUsers.length > 0 ? (
+            <div className="adm-pager">
+              <span className="info">Exibindo {fromN} a {toN} de {sortedUsers.length} resultados</span>
+              <div className="adm-pages">
+                <button type="button" className="adm-pg" disabled={pageSafe <= 1} onClick={() => setPage(pageSafe - 1)} aria-label="Anterior">‹</button>
+                <span className="adm-pg on">{pageSafe}</span>
+                <button type="button" className="adm-pg" disabled={pageSafe >= totalPages} onClick={() => setPage(pageSafe + 1)} aria-label="Próxima">›</button>
+                <select className="adm-field" style={{ height: 34, marginLeft: 6 }} value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}>
+                  <option value={10}>10 por página</option>
+                  <option value={25}>25 por página</option>
+                  <option value={50}>50 por página</option>
+                </select>
+              </div>
+            </div>
+          ) : null}
         </>
       ) : null}
 

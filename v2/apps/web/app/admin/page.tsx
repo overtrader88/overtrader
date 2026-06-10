@@ -91,20 +91,36 @@ export default async function AdminPage() {
   const paid = (byPlan.pro ?? 0) + (byPlan.pro_plus ?? 0);
   const mrr = mrrFromSubs(extra.activeSubs); // MRR REAL (assinaturas ativas), não estimado
 
-  const cardStyle: React.CSSProperties = { border: "1px solid var(--border-faint,#e4e8ef)", borderRadius: 10, padding: "14px 18px" };
+  const KPIS = [
+    { k: "Usuários", v: String(total), s: "ativos", kc: "var(--cyan)", icon: <ShieldUsersIcon /> },
+    { k: "Planos", v: String(paid), s: "ativos", kc: "#a98bff", icon: <DocIcon /> },
+    { k: "PRO · PRO+", v: `${byPlan.pro ?? 0} · ${byPlan.pro_plus ?? 0}`, s: "ativos", kc: "var(--amber)", icon: <CrownIcon /> },
+    { k: "MRR real", v: `R$${mrr.toLocaleString("pt-BR")}`, s: "este mês", kc: "var(--bull)", icon: <DollarIcon /> },
+  ];
 
   return (
-    <div className="hist-page">
+    <div className="hist-page admin">
       <AppBar credits={user.credits} plan={planLabel(user.plan)} initials={initialsOf(user)} email={user.email} />
       <div className="wrap">
-        <div className="head2"><div><h1>Admin</h1><div className="meta">Painel de gestão · {user.email}</div></div></div>
+        <div className="adm-head">
+          <span className="adm-ico"><ShieldCrownIcon /></span>
+          <div>
+            <h1>Admin</h1>
+            <div className="adm-sub">Painel de gestão · <a href={`mailto:${user.email}`}>{user.email}</a></div>
+          </div>
+        </div>
 
-        {/* Métricas */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, margin: "12px 0 24px" }}>
-          <div style={cardStyle}><div className="note" style={{ fontSize: "0.75rem" }}>Usuários</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{total}</div></div>
-          <div style={cardStyle}><div className="note" style={{ fontSize: "0.75rem" }}>Pagantes</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{paid}</div></div>
-          <div style={cardStyle}><div className="note" style={{ fontSize: "0.75rem" }}>PRO · PRO+</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{byPlan.pro ?? 0} · {byPlan.pro_plus ?? 0}</div></div>
-          <div style={cardStyle}><div className="note" style={{ fontSize: "0.75rem" }}>MRR real</div><div style={{ fontSize: "1.6rem", fontWeight: 700 }}>R${mrr.toLocaleString("pt-BR")}</div></div>
+        <div className="adm-kpis">
+          {KPIS.map((c) => (
+            <div className="adm-kpi" key={c.k} style={{ ["--kc" as string]: c.kc }}>
+              <span className="adm-kpi-ic">{c.icon}</span>
+              <div className="adm-kpi-b">
+                <div className="adm-kpi-k">{c.k}</div>
+                <div className="adm-kpi-v">{c.v}</div>
+                <div className="adm-kpi-s">{c.s}</div>
+              </div>
+            </div>
+          ))}
         </div>
 
         <AdminPanel users={users} now={Date.now()} extra={extra} />
@@ -112,5 +128,43 @@ export default async function AdminPage() {
         <div style={{ height: 60 }} />
       </div>
     </div>
+  );
+}
+
+/* ---- ícones (stroke, alinhados ao set do app) ---- */
+function ShieldCrownIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3 5 6v5c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6l-7-3Z" />
+      <path d="m9 11 1.5 2L12 10l1.5 3L15 11l.6 3.2H8.4L9 11Z" />
+    </svg>
+  );
+}
+function ShieldUsersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="9" cy="9" r="3" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0" /><path d="M16 7a3 3 0 0 1 0 6M18 19a5.5 5.5 0 0 0-3-4.9" />
+    </svg>
+  );
+}
+function DocIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M6 3h8l4 4v14H6V3Z" /><path d="M14 3v4h4M9 12h6M9 16h6" />
+    </svg>
+  );
+}
+function CrownIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 18h16M4 18 3 7l5 4 4-7 4 7 5-4-1 11" />
+    </svg>
+  );
+}
+function DollarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" /><path d="M14.5 9a3 3 0 0 0-2.5-1.2c-1.5 0-2.7.8-2.7 2 0 2.7 5.4 1.3 5.4 4 0 1.2-1.2 2-2.7 2A3 3 0 0 1 9.5 16M12 6.5v11" />
+    </svg>
   );
 }

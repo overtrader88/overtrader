@@ -19,14 +19,20 @@ export interface AdminUser {
 
 const PLANS = ["free", "pro", "pro_plus"] as const;
 
-// Campos legíveis sobre o tema escuro (fundo claro + texto escuro).
-const FIELD: React.CSSProperties = {
-  padding: "4px 8px",
-  borderRadius: 6,
-  border: "1px solid var(--border,#cbd5e1)",
-  background: "#fff",
-  color: "#0f172a",
-};
+/** Iniciais (nome → 1ªs letras de 2 palavras; senão local-part do e-mail). */
+function initials(email: string, fullName: string | null): string {
+  if (fullName && fullName.trim()) {
+    const parts = fullName.trim().split(/\s+/);
+    return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || email.slice(0, 2).toUpperCase();
+  }
+  return (email.split("@")[0] ?? email).slice(0, 2).toUpperCase();
+}
+/** Cor estável do avatar a partir do e-mail (hue determinístico). */
+function avatarBg(email: string): string {
+  let h = 0;
+  for (let i = 0; i < email.length; i++) h = (h * 31 + email.charCodeAt(i)) % 360;
+  return `linear-gradient(135deg, hsl(${h} 70% 52%), hsl(${(h + 38) % 360} 68% 44%))`;
+}
 
 /** Linha da tabela admin: mostra o usuário e permite trocar o plano e os créditos. */
 export function AdminUserRow({ user }: { user: AdminUser }) {
@@ -128,64 +134,62 @@ export function AdminUserRow({ user }: { user: AdminUser }) {
   const date = new Date(user.createdAt).toLocaleDateString("pt-BR");
 
   return (
-    <tr style={{ borderBottom: "1px solid var(--border-faint,#e4e8ef)" }}>
-      <td style={{ padding: "8px 10px" }}>
-        <button type="button" onClick={() => setDetail(true)} title="Ver perfil completo"
-          style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "inherit", font: "inherit", textAlign: "left" }}>
-          <span style={{ fontWeight: 600, textDecoration: "underline dotted", textUnderlineOffset: 3 }}>{user.email}</span>
-        </button>
-        {user.fullName ? <div className="note" style={{ fontSize: "0.75rem" }}>{user.fullName}</div> : null}
+    <tr className="adm-row">
+      <td>
+        <div className="adm-user">
+          <span className="adm-av" style={{ background: avatarBg(user.email) }}>{initials(user.email, user.fullName)}</span>
+          <div style={{ minWidth: 0 }}>
+            <button type="button" className="em" onClick={() => setDetail(true)} title="Ver perfil completo">{user.email}</button>
+            {user.fullName ? <div className="sub">{user.fullName}</div> : null}
+          </div>
+        </div>
         {detail ? <AdminUserDetail userId={user.id} onClose={() => setDetail(false)} /> : null}
       </td>
-      <td style={{ padding: "8px 10px" }}>
+      <td>
         {user.hublaCode ? (
-          <button
-            type="button"
-            onClick={() => { navigator.clipboard?.writeText(user.hublaCode as string); }}
-            title={`Clique p/ copiar: ${user.hublaCode}`}
-            style={{
-              maxWidth: 180, fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", fontSize: "0.75rem",
-              padding: "2px 6px", borderRadius: 6, border: "1px solid var(--border,#cbd5e1)", background: "#fff", color: "#0f172a",
-              cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block",
-            }}
-          >
+          <button type="button" className="adm-hubla" onClick={() => { navigator.clipboard?.writeText(user.hublaCode as string); }} title={`Clique p/ copiar: ${user.hublaCode}`}>
             {user.hublaCode}
           </button>
         ) : (
-          <span className="note" style={{ fontSize: "0.8rem" }}>—</span>
+          <span className="adm-dash">—</span>
         )}
       </td>
-      <td style={{ padding: "8px 10px", fontVariantNumeric: "tabular-nums" }}>
+      <td style={{ fontVariantNumeric: "tabular-nums" }}>
         <input
           type="text"
           inputMode="numeric"
+          className="adm-credits"
           value={draft}
           disabled={cSaving}
           onChange={(e) => setDraft(e.target.value.replace(/[^\d]/g, ""))}
           onBlur={saveCredits}
           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          style={{ ...FIELD, width: 80, fontVariantNumeric: "tabular-nums" }}
         />
         {cSaving ? <span className="note" style={{ marginLeft: 6, fontSize: "0.75rem" }}>salvando…</span> : null}
-        {cSaved ? <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "var(--bull,#16a34a)" }}>✓</span> : null}
-        {cErr ? <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "var(--bear,#dc2626)" }} title={cErr}>{cErr}</span> : null}
+        {cSaved ? <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "var(--bull)" }}>✓</span> : null}
+        {cErr ? <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "var(--bear)" }} title={cErr}>{cErr}</span> : null}
       </td>
-      <td style={{ padding: "8px 10px" }} className="note">{date}</td>
-      <td style={{ padding: "8px 10px" }}>
-        <select value={plan} disabled={saving} onChange={(e) => save(e.target.value)} style={FIELD}>
+      <td><span className="adm-date2">{date}</span></td>
+      <td>
+        <select className={`adm-plan ${plan}`} value={plan} disabled={saving} onChange={(e) => save(e.target.value)}>
           {PLANS.map((p) => <option key={p} value={p}>{p === "pro_plus" ? "PRO+" : p.toUpperCase()}</option>)}
         </select>
         {saving ? <span className="note" style={{ marginLeft: 8, fontSize: "0.75rem" }}>salvando…</span> : null}
-        {saved ? <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--bull,#16a34a)" }}>✓</span> : null}
-        {err ? <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--bear,#dc2626)" }}>erro</span> : null}
+        {saved ? <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--bull)" }}>✓</span> : null}
+        {err ? <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--bear)" }}>erro</span> : null}
         {plan !== "free" ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 10 }}>
-            <span className="note" style={{ fontSize: "0.7rem" }}>cortesia até</span>
-            <input type="date" value={courtesy} disabled={pcSaving} onChange={(e) => saveCourtesy(e.target.value)}
-              style={{ ...FIELD, padding: "2px 6px", fontSize: "0.75rem" }} title="Define um vencimento de cortesia (aparece na aba Vencimentos)" />
-            {pcMsg ? <span style={{ fontSize: "0.72rem", color: pcMsg === "✓" ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }} title={pcMsg}>{pcMsg}</span> : null}
+          <span className="adm-ext">
+            <span className="lab">extensão até</span>
+            <input type="date" className="adm-date" value={courtesy} disabled={pcSaving} onChange={(e) => saveCourtesy(e.target.value)}
+              title="Define um vencimento de cortesia (aparece na aba Vencimentos)" />
+            {pcMsg ? <span style={{ fontSize: "0.72rem", color: pcMsg === "✓" ? "var(--bull)" : "var(--bear)" }} title={pcMsg}>{pcMsg}</span> : null}
           </span>
         ) : null}
+      </td>
+      <td style={{ textAlign: "right" }}>
+        <button type="button" className="adm-actions" onClick={() => setDetail(true)} aria-label="Ações do usuário" title="Ver perfil completo">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none" aria-hidden><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+        </button>
       </td>
     </tr>
   );
