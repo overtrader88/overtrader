@@ -910,7 +910,8 @@ input:focus-visible,
 
 .analysis-page .cfg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
 .analysis-page .cfg-eyebrow { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.24em; color: var(--cyan); display: inline-flex; align-items: center; gap: 8px; }
-.analysis-page .cfg-eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--glow); }
+.analysis-page .cfg-eyebrow svg { color: var(--cyan); filter: drop-shadow(0 0 6px var(--glow)); }
+.analysis-page .cfg-hl { color: var(--cyan); }
 .analysis-page .cfg-title { font-family: var(--font-display); font-variation-settings: "wdth" 112; font-size: 25px; font-weight: 700; letter-spacing: -0.015em; margin: 7px 0 0; color: var(--ink); }
 .analysis-page .cfg-sub { font-size: 12.5px; color: var(--ink-soft); margin: 5px 0 0; max-width: 52ch; }
 .analysis-page .cfg-pro { display: inline-flex; align-items: center; gap: 12px; padding: 11px 15px; border-radius: 14px; border: 1px solid rgba(154, 139, 255, 0.28); background: linear-gradient(120deg, rgba(84, 168, 255, 0.16), rgba(154, 139, 255, 0.12)); color: var(--ink); text-decoration: none; transition: 0.16s; flex: 0 0 auto; }
@@ -996,13 +997,26 @@ input:focus-visible,
 .analysis-page .cfg-go:disabled { opacity: 0.7; cursor: progress; }
 .analysis-page .cfg-go:disabled::after { display: none; }
 .analysis-page .cfg-go-ico { display: grid; place-items: center; }
+/* card do CTA: botão + legenda + saldo (cara da referência) */
+.analysis-page .cfg-cta { margin-top: 16px; padding: 16px; border: 1px solid var(--line-2); border-radius: 16px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent); }
+.analysis-page .cfg-cta .cfg-go { margin-top: 0; }
+.analysis-page .cfg-cta-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.analysis-page .cfg-cta-note { font-size: 12.5px; color: var(--ink-soft); }
+.analysis-page .cfg-bal { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-soft); border: 1px solid var(--line-2); border-radius: 99px; padding: 6px 13px; background: var(--bg-2); }
+.analysis-page .cfg-bal svg { color: var(--cyan); flex: none; }
+.analysis-page .cfg-bal b { color: var(--cyan); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 .analysis-page .cfg-trust { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
 .analysis-page .cfg-trust-item { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.analysis-page .cfg-trust-item .ti-ico { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 auto; border-radius: 9px; background: var(--cyan-soft); color: var(--cyan); }
+.analysis-page .cfg-trust-item:not(:first-child) { border-left: 1px solid var(--line); padding-left: 14px; }
+.analysis-page .cfg-trust-item .ti-ico { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 auto; border-radius: 11px; background: var(--cyan-soft); color: var(--cyan); }
+.analysis-page .cfg-trust-item .ti-ico.blue { background: rgba(84, 168, 255, 0.12); color: #54a8ff; }
+.analysis-page .cfg-trust-item .ti-ico.indigo { background: rgba(124, 156, 255, 0.14); color: #7c9cff; }
+.analysis-page .cfg-trust-item .ti-ico.teal { background: rgba(43, 212, 158, 0.13); color: var(--bull); }
+.analysis-page .cfg-trust-item .ti-ico.violet { background: rgba(154, 139, 255, 0.14); color: #9a8bff; }
 .analysis-page .cfg-trust-item .ti-txt { min-width: 0; }
 .analysis-page .cfg-trust-item .ti-txt b { display: block; font-size: 12px; font-weight: 600; color: var(--ink); line-height: 1.25; }
-.analysis-page .cfg-trust-item .ti-txt small { display: block; font-size: 10.5px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.analysis-page .cfg-trust-item .ti-txt small { display: block; font-size: 10.5px; color: var(--ink-faint); line-height: 1.35; }
 
 @media (prefers-reduced-motion: reduce) {
   .analysis-page .cfg-go::after { display: none; }

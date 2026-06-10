@@ -29,6 +29,7 @@ export function AnalysisShell({
   regime,
   adx,
   plan,
+  credits,
   children,
 }: {
   symbol: string;
@@ -37,6 +38,7 @@ export function AnalysisShell({
   regime?: string;
   adx?: number;
   plan?: string;
+  credits?: number;
   children: ReactNode;
 }) {
   const [mode, setMode] = useState<Mode>("avancado");
@@ -82,7 +84,7 @@ export function AnalysisShell({
           </div>
         </div>
         {/* "Configurar Análise" SEMPRE visível (campos zeram após gerar). */}
-        <AnalyzeForm symbol={symbol} assetType={assetType} timeframe={timeframe} plan={plan} />
+        <AnalyzeForm symbol={symbol} assetType={assetType} timeframe={timeframe} plan={plan} credits={credits} />
         {children}
       </div>
     </div>

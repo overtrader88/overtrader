@@ -61,6 +61,21 @@ function ClockIcon() {
     </svg>
   );
 }
+function SparkleIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2.5l1.7 4.8L18.5 9l-4.8 1.7L12 15.5l-1.7-4.8L5.5 9l4.8-1.7z" />
+      <path d="M19 13.5l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z" opacity=".85" />
+    </svg>
+  );
+}
+function CoinIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+    </svg>
+  );
+}
 const TYPE_ICON: Record<AssetType, React.ReactNode> = {
   crypto: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
@@ -177,33 +192,37 @@ function AssetAvatar({ symbol, assetType, compact }: { symbol: string; assetType
   );
 }
 
-const TRUST: { t: string; s: string; icon: React.ReactNode }[] = [
+const TRUST: { t: string; s: string; tone: string; icon: React.ReactNode }[] = [
   {
-    t: "Auditável",
-    s: "n · IC 95% · período",
+    t: "Confiável",
+    s: "IA de alta precisão",
+    tone: "blue",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v6c0 4-3 6.5-7 9-4-2.5-7-5-7-9V6l7-3Z" /><path d="m9 12 2 2 4-4" /></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 5 6v5c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6l-7-3Z" /><path d="m9 12 2 2 4-4" /></svg>
     ),
   },
   {
-    t: "Segundos",
-    s: "15 camadas por sinal",
+    t: "Rápido",
+    s: "Resultados em segundos",
+    tone: "indigo",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7Z" /></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" /></svg>
     ),
   },
   {
-    t: "5 mercados",
-    s: "143 ativos num só motor",
+    t: "Assertivo",
+    s: "Insights claros e ações objetivas",
+    tone: "teal",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.5 6 3.5 9S14.5 18.5 12 21M12 3c-2.5 2.5-3.5 6-3.5 9S9.5 18.5 12 21" /></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 20V11M12 20V4M19 20v-6" /></svg>
     ),
   },
   {
-    t: "Aberto",
-    s: "algoritmos em código",
+    t: "Alerta",
+    s: "Notificações em tempo real",
+    tone: "violet",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m8 9-3 3 3 3M16 9l3 3-3 3M13 5l-2 14" /></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>
     ),
   },
 ];
@@ -218,11 +237,13 @@ export function AnalyzeForm({
   assetType,
   timeframe,
   plan = "free",
+  credits = 0,
 }: {
   symbol: string;
   assetType: AssetType;
   timeframe: Timeframe;
   plan?: string;
+  credits?: number;
 }) {
   const router = useRouter();
   // Começa SEM seleção — o usuário precisa escolher ativo e timeframe (evita
@@ -301,9 +322,9 @@ export function AnalyzeForm({
       <div className="cfg-glow" aria-hidden />
       <div className="cfg-head">
         <div className="cfg-headline">
-          <span className="cfg-eyebrow">Nova análise</span>
+          <span className="cfg-eyebrow"><SparkleIcon size={14} /> Análise IA</span>
           <h2 className="cfg-title">Configurar Análise</h2>
-          <p className="cfg-sub">Escolha o ativo, a classe e o timeframe — o motor faz as 15 camadas com dados reais.</p>
+          <p className="cfg-sub">Escolha os ativos, o intervalo de tempo e o motor de IA. Receba <span className="cfg-hl">insights</span> precisos para operar com mais confiança.</p>
         </div>
         {plan === "pro_plus" ? (
           <div className="cfg-pro is-proplus">
@@ -492,17 +513,23 @@ export function AnalyzeForm({
         {eng === "classe" ? <span className="cfg-engine-hint">leitura por classe + dados da família (funding, COT, DXY, on-chain…)</span> : null}
       </div>
 
-      <button type="submit" className="cfg-go" disabled={pending}>
-        <span className="cfg-go-ico"><CrownIcon /></span>
-        {pending ? "Analisando…" : `Analisar (1 crédito)${eng === "classe" ? " · Motor 2" : ""}`}
-        {pending ? null : <ArrowIcon />}
-      </button>
+      <div className="cfg-cta">
+        <button type="submit" className="cfg-go" disabled={pending}>
+          <span className="cfg-go-ico"><SparkleIcon /></span>
+          {pending ? "Analisando…" : `Analisar (1 crédito)${eng === "classe" ? " · Motor 2" : ""}`}
+          {pending ? null : <ArrowIcon />}
+        </button>
+        <div className="cfg-cta-foot">
+          <span className="cfg-cta-note">Cada análise consome 1 crédito do seu saldo.</span>
+          <span className="cfg-bal"><CoinIcon /> Saldo disponível: <b>{credits.toLocaleString("pt-BR")}</b> créditos</span>
+        </div>
+      </div>
       {showErrors && !canAnalyze ? <p className="cfg-err-msg">Selecione os campos destacados em vermelho para analisar.</p> : null}
 
       <div className="cfg-trust">
         {TRUST.map((x) => (
           <div className="cfg-trust-item" key={x.t}>
-            <span className="ti-ico">{x.icon}</span>
+            <span className={`ti-ico ${x.tone}`}>{x.icon}</span>
             <span className="ti-txt">
               <b>{x.t}</b>
               <small>{x.s}</small>

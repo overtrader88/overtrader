@@ -764,6 +764,7 @@ export default async function AnalisePage({
         regime={dto?.analysis.meta.regime}
         adx={dto?.analysis.meta.adxValue}
         plan={user?.plan}
+        credits={displayCredits}
       >
         {blocked ? (
           <Panel>
