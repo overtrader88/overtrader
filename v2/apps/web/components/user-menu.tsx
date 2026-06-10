@@ -22,6 +22,7 @@ export function UserMenu({ initials, email, isAdmin }: { initials: string; email
     <div className="usermenu">
       <button type="button" className="avatar" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} title={email}>
         {initials}
+        <span className="av-status" aria-hidden />
       </button>
       {open ? (
         <>
