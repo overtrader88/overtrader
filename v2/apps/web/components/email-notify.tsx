@@ -50,20 +50,24 @@ export function EmailNotify() {
   return (
     <div className="tg-connect">
       <div className="tg-l">
-        <span className="tg-i">✉</span>
+        <span className="tg-ico" aria-hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m4 7 8 6 8-6" /></svg>
+        </span>
         <div>
           <div className="tg-t">E-mail {on ? "ativado" : "para alertas"}</div>
           <div className="note">
-            {on
-              ? `Os alertas da watchlist também chegam em ${email ?? "seu e-mail"}.`
-              : "Receba os alertas da watchlist por e-mail, além do app."}
-            {err ? <span style={{ color: "var(--red, #e5484d)" }}> · falhou ao salvar, tente de novo</span> : null}
+            {on ? (
+              <>Os alertas da watchlist também chegam em <span className="tg-mail">{email ?? "seu e-mail"}</span>.</>
+            ) : (
+              "Receba os alertas da watchlist por e-mail, além do app."
+            )}
+            {err ? <span style={{ color: "var(--bear)" }}> · falhou ao salvar, tente de novo</span> : null}
           </div>
         </div>
       </div>
       <button
         type="button"
-        className="tg-btn"
+        className={`tg-btn${on ? " ghost" : ""}`}
         onClick={toggle}
         disabled={saving}
         aria-pressed={on}

@@ -38,13 +38,17 @@ export function TelegramConnect() {
   return (
     <div className="tg-connect">
       <div className="tg-l">
-        <span className="tg-i">✈</span>
+        <span className="tg-ico" aria-hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3 2 10.5l6 2.2L11 20l2.6-4.4L20 18 22 3Z" /><path d="m8 12.7 9-6.2-6 7.3" /></svg>
+        </span>
         <div>
           <div className="tg-t">Telegram {linked ? "conectado" : "para alertas por DM"}</div>
           <div className="note">
-            {linked
-              ? "Os alertas da sua watchlist chegam no seu Telegram. Envie /stop no bot para desconectar."
-              : "Receba os alertas da watchlist direto no Telegram, em tempo real."}
+            {linked ? (
+              <>Os alertas da sua watchlist chegam no seu Telegram. Envie <code className="tg-code">/stop</code> no bot para desconectar.</>
+            ) : (
+              "Receba os alertas da watchlist direto no Telegram, em tempo real."
+            )}
           </div>
           {url ? <div className="note" style={{ marginTop: 4 }}>Não abriu? <a href={url} target="_blank" rel="noopener" style={{ color: "var(--cyan)" }}>Abrir o bot</a></div> : null}
         </div>
@@ -54,7 +58,7 @@ export function TelegramConnect() {
           {state === "loading" ? "Gerando link…" : state === "error" ? "Falhou — tentar de novo" : "Conectar Telegram"}
         </button>
       ) : (
-        <span className="tg-ok">✓ ativo</span>
+        <span className="tg-status">Ativo</span>
       )}
     </div>
   );

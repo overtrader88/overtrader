@@ -5,6 +5,7 @@ import { signalToDir, signalLabelPt, relativeTime } from "@/lib/analysis/display
 import { MarkAlertsRead } from "@/components/mark-alerts-read";
 import { TelegramConnect } from "@/components/telegram-connect";
 import { EmailNotify } from "@/components/email-notify";
+import { AssetGlyph } from "@/components/asset-glyph";
 import type { SignalDirection } from "@tradeai/shared";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,18 @@ const ENGINE_TABS = [
   { key: "padrao", label: "Motor padrão" },
   { key: "classe", label: "Motor por classe" },
 ] as const;
+
+const BellIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
+  </svg>
+);
+const StarIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden><path d="m12 3 2.7 5.5 6 .9-4.3 4.2 1 6-5.4-2.8L6.6 19.6l1-6L3.3 9.4l6-.9L12 3Z" /></svg>
+);
+const ClockIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+);
 
 export default async function AlertasPage({
   searchParams,
@@ -54,12 +67,13 @@ export default async function AlertasPage({
         email={user?.email}
       />
       <div className="wrap">
-        <div className="head2" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
+        <div className="al-head">
+          <span className="al-ico"><BellIcon /></span>
+          <div className="al-titles">
             <h1>Alertas</h1>
-            <div className="meta"><b>{items.length}</b> {items.length === 1 ? "alerta" : "alertas"} · disparados pela watchlist</div>
+            <div className="al-sub"><b>{items.length} {items.length === 1 ? "alerta" : "alertas"}</b> · disparados pela watchlist</div>
           </div>
-          <a href="/watchlist" className="btn primary" style={{ whiteSpace: "nowrap" }}>★ Gerenciar watchlist</a>
+          <a href="/watchlist" className="btn primary lg al-wl"><StarIcon /> Gerenciar watchlist</a>
         </div>
 
         <TelegramConnect />
@@ -73,7 +87,7 @@ export default async function AlertasPage({
         </div>
 
         {items.length === 0 ? (
-          <div className="tbl" style={{ padding: "40px 24px", textAlign: "center" }}>
+          <div className="tbl" style={{ padding: "44px 24px", textAlign: "center" }}>
             <p className="note" style={{ margin: 0 }}>
               Nenhum alerta ainda. Adicione ativos em <a href="/watchlist" style={{ color: "var(--cyan)" }}>Gerenciar watchlist</a> —
               quando o sinal (compra ou venda) atingir o limiar escolhido, o alerta aparece aqui.
@@ -82,16 +96,24 @@ export default async function AlertasPage({
         ) : (
           <div className="tbl">
             {items.map((a) => (
-              <div className={`alert-item${a.read_at ? "" : " unread"}`} key={a.id}>
-                <div className="a-sym">
+              <a className={`alert-item${a.read_at ? "" : " unread"}`} key={a.id}
+                href={`/analise?symbol=${encodeURIComponent(a.symbol)}&tf=${a.timeframe}${a.engine === "classe" ? "&engine=classe" : ""}`}>
+                <span className="a-sym">
+                  <AssetGlyph symbol={a.symbol} size={34} />
                   <span className="s">{a.symbol}</span>
                   <span className="tf">{a.timeframe.toUpperCase()}</span>
-                </div>
-                <SignalBadge direction={signalToDir(a.signal)}>{signalLabelPt(a.signal)}</SignalBadge>
-                {a.engine === "classe" ? <span className="eng-chip">⚙ Motor 2</span> : null}
+                </span>
+                <span className="am-sig">
+                  <SignalBadge direction={signalToDir(a.signal)}>{signalLabelPt(a.signal)}</SignalBadge>
+                  {a.engine === "classe" ? <span className="eng-chip">⚙ Motor 2</span> : null}
+                </span>
                 <span className="am-msg">{a.message}</span>
-                <span className="am-dt">{relativeTime(a.created_at, now)}</span>
-              </div>
+                <span className="am-meta">
+                  <ClockIcon />
+                  <span className="am-dt">{relativeTime(a.created_at, now)}</span>
+                  <span className="am-chev" aria-hidden>›</span>
+                </span>
+              </a>
             ))}
           </div>
         )}
