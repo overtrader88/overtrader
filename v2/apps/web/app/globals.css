@@ -1751,6 +1751,69 @@ body { padding-bottom: 34px; }
 .dh-card { padding: 22px; border: 1px solid var(--line-2); border-radius: 16px; background: linear-gradient(180deg, rgba(20, 26, 38, 0.5), rgba(10, 13, 20, 0.58)); backdrop-filter: blur(12px); }
 .dh-empty { font-size: 13.5px; color: var(--ink-soft); padding: 8px 4px; margin: 0; }
 .dh-empty a { color: var(--cyan); }
+
+/* ============================================================
+   DASHBOARD "MESA" — cockpit/terminal (.mesa-*) · conceito v4
+   ============================================================ */
+/* HUD — linha de status */
+.mesa-hud { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 24px 0 18px; padding: 11px 16px; border: 1px solid var(--line-2); border-radius: 12px; background: linear-gradient(180deg, rgba(20, 26, 38, 0.5), rgba(10, 13, 20, 0.6)); backdrop-filter: blur(10px); font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
+.mesa-hud .hud-live { display: inline-flex; align-items: center; gap: 7px; color: var(--bull); font-weight: 700; }
+.mesa-hud .hud-live .d { width: 7px; height: 7px; border-radius: 50%; background: var(--bull); box-shadow: 0 0 0 0 rgba(43, 212, 158, 0.5); animation: ltpulse 1.8s infinite; }
+.mesa-hud .hud-seg.b { color: var(--ink); letter-spacing: 0.16em; }
+.mesa-hud .hud-seg b { color: var(--ink-soft); }
+.mesa-hud .hud-sep { opacity: 0.4; }
+.mesa-hud .hud-spacer { flex: 1; }
+@media (max-width: 640px) { .mesa-hud .hud-seg:not(.b) { display: none; } }
+
+/* COMANDO — leitura + instrumento */
+.mesa-top { display: grid; grid-template-columns: 1.35fr 0.85fr; gap: 16px; align-items: stretch; margin-bottom: 18px; }
+@media (max-width: 880px) { .mesa-top { grid-template-columns: 1fr; } }
+.mesa-read { position: relative; overflow: hidden; padding: 30px 30px 26px; border: 1px solid var(--line-2); border-radius: 18px; background: radial-gradient(520px 220px at 0% 0%, rgba(84, 168, 255, 0.12), transparent 64%), linear-gradient(180deg, rgba(22, 30, 44, 0.58), rgba(10, 13, 20, 0.64)); backdrop-filter: blur(14px); box-shadow: 0 40px 90px -52px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+.mesa-over { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.22em; color: var(--cyan); }
+.mesa-greet { font-family: var(--font-display); font-variation-settings: "wdth" 125; font-weight: 800; font-size: clamp(32px, 4.4vw, 50px); line-height: 1; letter-spacing: 0.004em; margin: 12px 0 12px; color: var(--ink); }
+.mesa-sub { font-size: 14.5px; color: var(--ink-soft); max-width: 46ch; line-height: 1.55; }
+.mesa-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 22px 0 4px; }
+/* cluster de leituras (cockpit) */
+.mesa-readouts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.mesa-readouts .ro { display: flex; flex-direction: column; gap: 4px; padding: 0 18px; border-left: 1px solid var(--line); }
+.mesa-readouts .ro:first-child { border-left: none; padding-left: 0; }
+.ro .ro-k { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
+.ro .ro-v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 26px; line-height: 1; color: var(--ink); }
+.ro .ro-v.sm { font-size: 18px; }
+.ro .ro-bar { height: 5px; margin-top: 4px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.ro .ro-bar i { display: block; height: 100%; background: linear-gradient(90deg, #6fbcff, var(--cyan)); }
+.ro .ro-note { font-size: 10px; color: var(--ink-faint); }
+@media (max-width: 520px) { .mesa-readouts { grid-template-columns: 1fr 1fr; gap: 16px 0; } .mesa-readouts .ro:nth-child(odd) { border-left: none; padding-left: 0; } }
+
+/* instrumento — gauge do Fear&Greed emoldurado */
+.mesa-inst { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 26px 22px; border: 1px solid var(--line-2); border-radius: 18px; background: linear-gradient(180deg, rgba(20, 26, 38, 0.55), rgba(9, 12, 19, 0.7)); backdrop-filter: blur(14px); box-shadow: 0 40px 90px -52px rgba(0, 0, 0, 0.85); overflow: hidden; }
+.mesa-inst .cn { position: absolute; width: 14px; height: 14px; border: 1px solid var(--line-3); }
+.mesa-inst .cn.tl { top: 12px; left: 12px; border-right: none; border-bottom: none; }
+.mesa-inst .cn.tr { top: 12px; right: 12px; border-left: none; border-bottom: none; }
+.mesa-inst .cn.bl { bottom: 12px; left: 12px; border-right: none; border-top: none; }
+.mesa-inst .cn.br { bottom: 12px; right: 12px; border-left: none; border-top: none; }
+.mesa-inst .inst-k { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-soft); }
+.mesa-inst .inst-gauge { margin: 6px 0 2px; }
+.mesa-inst .inst-class { font-family: var(--font-display); font-variation-settings: "wdth" 112; font-weight: 700; font-size: 18px; }
+.mesa-inst .inst-scale { display: flex; align-items: center; gap: 8px; width: 80%; font-family: var(--font-mono); font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); }
+.mesa-inst .inst-scale .bar { flex: 1; height: 4px; border-radius: 99px; background: linear-gradient(90deg, var(--bear) 0 28%, var(--amber) 42% 58%, var(--bull) 72% 100%); opacity: 0.8; }
+.mesa-inst .inst-foot { font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); margin-top: 2px; }
+
+/* FITA — análises recentes (terminal tape) */
+.mesa-tape { margin-bottom: 18px; padding: 22px; border: 1px solid var(--line-2); border-radius: 16px; background: linear-gradient(180deg, rgba(20, 26, 38, 0.5), rgba(10, 13, 20, 0.58)); backdrop-filter: blur(12px); }
+.tape { display: flex; flex-direction: column; }
+.tape-row { position: relative; display: grid; grid-template-columns: 16px 1.1fr auto auto 1fr auto auto; align-items: center; gap: 12px; padding: 12px 12px 12px 8px; border-top: 1px solid var(--line); text-decoration: none; border-radius: 8px; transition: background 0.14s; }
+.tape-row:first-child { border-top: none; }
+.tape-row:hover { background: var(--cyan-soft); }
+.tape-row .t-rail { width: 3px; height: 24px; border-radius: 99px; background: var(--ink-faint); }
+.tape-row.buy .t-rail { background: var(--bull); box-shadow: 0 0 10px var(--bull-soft); }
+.tape-row.sell .t-rail { background: var(--bear); box-shadow: 0 0 10px var(--bear-soft); }
+.tape-row .t-sym { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--ink); }
+.tape-row .t-tf { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); border: 1px solid var(--line-2); border-radius: 4px; padding: 2px 6px; justify-self: start; }
+.tape-row .t-fr { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-soft); }
+.tape-row .t-fr b { color: var(--ink); }
+.tape-row .t-tm { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); text-align: right; }
+@media (max-width: 720px) { .tape-row { grid-template-columns: 12px 1fr auto auto; } .tape-row .t-fr, .tape-row .t-tm { display: none; } }
 .liqz-now { text-align: center; font: 600 10px/1 var(--mono, monospace); color: var(--cyan); padding: 7px 0; letter-spacing: .04em; }
 
 /* ===== Track record — abas de motor ===== */
