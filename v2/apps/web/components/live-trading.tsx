@@ -321,6 +321,12 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
   const side: "buy" | "sell" | "neutral" = sig.includes("BUY") ? "buy" : sig.includes("SELL") ? "sell" : "neutral";
   const sideColor = side === "buy" ? "var(--bull)" : side === "sell" ? "var(--bear)" : "var(--ink-soft)";
   const risk = dto?.analysis.risk;
+  // odds first-passage do lado recomendado — contrapeso honesto à "força" (que é
+  // convicção na direção, NÃO probabilidade de lucro).
+  const scn = dto?.scenarios ?? null;
+  const recS = scn ? (scn.recommended === "buy" ? scn.buy : scn.sell) : null;
+  const liveTp1 = recS ? Math.round(recS.tp1.probability.value * 100) : null;
+  const liveStop = recS ? Math.round(recS.stopProbability.value * 100) : null;
 
   // "Operação ao vivo" = o trade de papel ABERTO no contexto atual, sob a gestão
   // em terços (1/3 por alvo + stop móvel). Marca a mercado contra os candles desde
@@ -459,6 +465,10 @@ export function LiveTrading({ initialSymbol }: { initialSymbol?: string } = {}) 
               <div className="lt-meter">
                 <div className="lt-meter-l"><span>Força do sinal</span><b>{facts.strengthPct}%</b></div>
                 <div className="lt-meter-bar"><i style={{ width: `${facts.strengthPct}%`, background: sideColor }} /></div>
+                <div className="lt-meter-note">
+                  convicção na direção · não é prob. de lucro
+                  {liveTp1 != null && liveStop != null ? <> · <span className="bull">TP1 {liveTp1}%</span> <span className="bear">stop {liveStop}%</span></> : null}
+                </div>
               </div>
 
               {facts.crossConfluence ? (

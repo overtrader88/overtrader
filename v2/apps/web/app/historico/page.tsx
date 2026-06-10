@@ -80,7 +80,7 @@ export default async function HistoricoPage({
               <span>Ativo</span>
               <span className="col-tf">TF</span>
               <span>Sinal</span>
-              <span>Força</span>
+              <span title="Força = convicção na direção do sinal, não probabilidade de lucro. Veja Selo e PF para a qualidade do trade.">Força ⓘ</span>
               <span>Selo</span>
               <span className="col-rr">R:R</span>
               <span className="col-pf">PF backtest</span>
@@ -108,6 +108,12 @@ export default async function HistoricoPage({
             })}
           </div>
         )}
+
+        {items.length > 0 ? (
+          <p className="note hist-foot" style={{ margin: "14px 2px 0", fontSize: "11.5px" }}>
+            <b>Força</b> = convicção na direção do sinal — <b>não</b> é probabilidade de lucro. A qualidade do trade está no <b>Selo</b> e no <b>PF backtest</b>.
+          </p>
+        ) : null}
 
         {total > LIMIT ? (
           <div className="pager">

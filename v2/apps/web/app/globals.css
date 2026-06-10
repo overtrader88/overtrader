@@ -1270,6 +1270,9 @@ body { padding-bottom: 34px; }
 .lt-meter-l b { font-family: var(--font-mono); color: var(--ink); }
 .lt-meter-bar { height: 7px; border-radius: 4px; background: var(--bg-2); overflow: hidden; }
 .lt-meter-bar i { display: block; height: 100%; border-radius: 4px; transition: width .6s ease; }
+.lt-meter-note { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .02em; color: var(--ink-faint); margin-top: 2px; }
+.lt-meter-note .bull { color: var(--bull); font-weight: 600; }
+.lt-meter-note .bear { color: var(--bear); font-weight: 600; }
 .lt-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .lt-chip { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px; }
 .lt-chip span { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); }
