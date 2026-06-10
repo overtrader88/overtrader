@@ -384,6 +384,15 @@ body::after {
 .analysis-page .telem .v .b { color: var(--bull); }
 .analysis-page .telem .v .n { color: var(--ink-soft); }
 .analysis-page .telem .v .s { color: var(--bear); }
+/* coluna do medidor: força + rótulo honesto + veredito de operabilidade + odds */
+.analysis-page .hero2-gauge { display: flex; flex-direction: column; align-items: center; gap: 9px; }
+.analysis-page .force-note { font-family: var(--font-mono); font-size: 9px; line-height: 1.45; letter-spacing: 0.03em; text-align: center; color: var(--ink-faint); max-width: 152px; }
+.analysis-page .force-note b { color: var(--ink-soft); font-weight: 600; }
+.analysis-page .op-chip { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--gc); border: 1px solid color-mix(in srgb, var(--gc) 42%, transparent); background: color-mix(in srgb, var(--gc) 12%, transparent); padding: 6px 12px; border-radius: 99px; white-space: nowrap; }
+.analysis-page .op-chip .op-led { width: 8px; height: 8px; border-radius: 50%; background: var(--gc); box-shadow: 0 0 9px var(--gc); flex: none; }
+.analysis-page .op-odds { display: flex; gap: 12px; font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; }
+.analysis-page .op-odds .oo.bull { color: var(--bull); }
+.analysis-page .op-odds .oo.bear { color: var(--bear); }
 .analysis-page .gauge { position: relative; width: 172px; height: 172px; flex: none; }
 .analysis-page .gauge svg { transform: rotate(-90deg); overflow: visible; }
 .analysis-page .gauge .bg { fill: none; stroke: rgba(120, 160, 225, 0.12); stroke-width: 9; }

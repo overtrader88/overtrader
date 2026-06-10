@@ -90,9 +90,23 @@ function fmtIndicator(value: number | Record<string, number> | null): string {
 }
 
 // ======================= blocos =======================
+// anel do medidor por veredito (hex p/ SVG; cyan=ok · âmbar=ressalva · rosa=não operar)
+const GAUGE_HEX: Record<string, string> = { green: "#54A8FF", yellow: "#FFB020", red: "#FF6B8A", grey: "#535F74" };
+
 function Verdict({ dto }: { dto: FullAnalysis }) {
   const sig = dto.analysis.signal;
   const tone = toneOf(sig.signal);
+  // O número grande (força) é CONVICÇÃO NA DIREÇÃO, não probabilidade de lucro.
+  // Trazemos o veredito de operabilidade + as odds first-passage pra perto dele,
+  // e tingimos o anel pelo selo — pra "95" não parecer "sinal verde liberado".
+  const guard = buildTradeGuard(dto);
+  const gaugeColor = GAUGE_HEX[guard.tone] ?? "#54A8FF";
+  const guardColor = GUARD_TONE[guard.tone] ?? "var(--ink-faint)";
+  const opLabel = !guard.operate ? "NÃO OPERAR" : guard.reasons.length > 0 ? "OPERÁVEL · COM RESSALVAS" : "OPERÁVEL";
+  const sc = dto.scenarios;
+  const rec = sc ? (sc.recommended === "buy" ? sc.buy : sc.sell) : null;
+  const tp1p = rec ? Math.round(rec.tp1.probability.value * 100) : null;
+  const stopp = rec ? Math.round(rec.stopProbability.value * 100) : null;
   return (
     <Panel>
       <span className="cn tl" /><span className="cn tr" /><span className="cn bl" /><span className="cn br" />
@@ -112,7 +126,19 @@ function Verdict({ dto }: { dto: FullAnalysis }) {
           <div className="ha-sym">{dto.analysis.meta.asset}</div>
           <div className="ha-tf">{dto.analysis.meta.timeframe.toUpperCase()}</div>
         </div>
-        <RadialGauge value={sig.strength} caption="Força do sinal" showOutOf />
+        <div className="hero2-gauge">
+          <RadialGauge value={sig.strength} caption="Força do sinal" showOutOf color={gaugeColor} />
+          <div className="force-note">convicção na <b>direção</b> — não é probabilidade de lucro</div>
+          <div className="op-chip" style={{ "--gc": guardColor } as CSSProperties}>
+            <span className="op-led" />{opLabel}
+          </div>
+          {tp1p != null && stopp != null ? (
+            <div className="op-odds">
+              <span className="oo bull">TP1 {tp1p}%</span>
+              <span className="oo bear">stop {stopp}%</span>
+            </div>
+          ) : null}
+        </div>
       </div>
     </Panel>
   );

@@ -15,6 +15,8 @@ export interface RadialGaugeProps {
   showOutOf?: boolean;
   /** Legenda curta abaixo do número. */
   caption?: string;
+  /** Cor sólida do anel + glow + legenda (sobrepõe solid/gradiente) — ex.: refletir o selo/veredito. */
+  color?: string;
 }
 
 /**
@@ -30,7 +32,13 @@ export function RadialGauge({
   solid = false,
   showOutOf = false,
   caption,
+  color,
 }: RadialGaugeProps) {
+  const ringStroke = color ?? (solid ? "#54A8FF" : undefined);
+  const ringShadow = color
+    ? `drop-shadow(0 0 8px ${color})`
+    : "drop-shadow(0 0 8px rgba(84,168,255,.5))";
+  const accent = color ?? "var(--cyan)";
   const r = Math.round(size * 0.42);
   const circ = 2 * Math.PI * r;
   const gid = "rg" + useId().replace(/[^a-zA-Z0-9]/g, "");
@@ -74,7 +82,7 @@ export function RadialGauge({
   return (
     <div style={{ position: "relative", width: size, height: size, flex: "none" }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)", overflow: "visible" }} aria-hidden>
-        {!solid && (
+        {!solid && !color && (
           <defs>
             <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
               <stop offset="0" stopColor="#2BD49E" />
@@ -88,12 +96,12 @@ export function RadialGauge({
           cy={center}
           r={r}
           fill="none"
-          stroke={solid ? "#54A8FF" : `url(#${gid})`}
+          stroke={ringStroke ?? `url(#${gid})`}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circ}
           strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 1.3s cubic-bezier(.2,.7,.2,1)", filter: "drop-shadow(0 0 8px rgba(84,168,255,.5))" }}
+          style={{ transition: "stroke-dashoffset 1.3s cubic-bezier(.2,.7,.2,1)", filter: ringShadow }}
         />
       </svg>
       <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}>
@@ -103,7 +111,7 @@ export function RadialGauge({
             {showOutOf ? <span style={{ fontSize: 14, color: "var(--ink-faint)" }}>/100</span> : null}
           </div>
           {caption ? (
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: size > 150 ? 9 : 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: "var(--cyan)", marginTop: 5 }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: size > 150 ? 9 : 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: accent, marginTop: 5 }}>
               {caption}
             </div>
           ) : null}
