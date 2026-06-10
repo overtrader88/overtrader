@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AssetGlyph } from "@/components/asset-glyph";
 
 interface Market {
   symbol: string; timeframe: string; signal: string; strength: number;
@@ -54,6 +55,8 @@ export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs
   const [data, setData] = useState<MonitorData | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [err, setErr] = useState(false);
+  const [open, setOpen] = useState<Set<number>>(new Set());
+  const toggle = (i: number) => setOpen((s) => { const n = new Set(s); if (n.has(i)) n.delete(i); else n.add(i); return n; });
 
   const load = useCallback(async () => {
     try {
@@ -96,11 +99,18 @@ export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs
             const stop = lc ? stopLabel(lc, s.entry) : null;
             const closed = lc?.status === "resolved";
             return (
-            <div className="mon-sig" key={i} style={{ ["--sc" as string]: SEAL_C[s.seal] ?? "var(--ink-faint)", opacity: closed ? 0.78 : 1 }}>
+            <article className="mon-sig" key={i} style={{ ["--sc" as string]: SEAL_C[s.seal] ?? "var(--ink-faint)", opacity: closed ? 0.82 : 1 }}>
               <div className="ms-head">
+                <AssetGlyph symbol={s.symbol} size={30} />
                 <span className="ms-sym"><b>{s.symbol}</b> · {s.timeframe.toUpperCase()}</span>
                 <span className={`ms-dir ${sideClass(s.direction)}`}>{SIGNAL_PT[s.direction] ?? s.direction}</span>
-                <span className="ms-seal" style={{ color: SEAL_C[s.seal] }}>● {s.seal === "green" ? "selo verde" : "selo amarelo"}</span>
+                <span className="ms-spacer" />
+                <span className="ms-seal" style={{ color: SEAL_C[s.seal] }}>● {s.seal === "green" ? "SELO VERDE" : s.seal === "red" ? "SELO VERMELHO" : "SELO AMARELO"}</span>
+                {closed || s.narrative ? (
+                  <button type="button" className={`ms-chev${open.has(i) ? " open" : ""}`} aria-expanded={open.has(i)} aria-label="Detalhes" onClick={() => toggle(i)}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+                  </button>
+                ) : null}
               </div>
               <div className="ms-levels">
                 <span>Entrada <b>{fmt(s.entry)}</b></span>
@@ -115,13 +125,15 @@ export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs
                   <i className={tp3 ? "on" : ""}>TP3</i>
                 </span>
               </div>
-              {closed && lc ? (
-                <p className="ms-narr" style={{ color: closedTone(lc.outcome, lc.pnlR), fontWeight: 600 }}>
-                  ● {CLOSED_PT[lc.outcome ?? ""] ?? "Encerrada"}{lc.pnlR != null ? ` · ${fmtR(lc.pnlR)}` : ""}
-                  <span style={{ fontWeight: 400, opacity: 0.8 }}> (aguardando registro)</span>
-                </p>
-              ) : s.narrative ? <p className="ms-narr">{s.narrative}</p> : null}
-            </div>
+              {open.has(i) ? (
+                closed && lc ? (
+                  <p className="ms-narr" style={{ color: closedTone(lc.outcome, lc.pnlR), fontWeight: 600 }}>
+                    ● {CLOSED_PT[lc.outcome ?? ""] ?? "Encerrada"}{lc.pnlR != null ? ` · ${fmtR(lc.pnlR)}` : ""}
+                    <span style={{ fontWeight: 400, opacity: 0.8 }}> (aguardando registro)</span>
+                  </p>
+                ) : s.narrative ? <p className="ms-narr">{s.narrative}</p> : null
+              ) : null}
+            </article>
             );
           })}
         </div>
@@ -131,7 +143,7 @@ export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs
       <div className="mon-grid">
         {data.markets.map((m, i) => (
           <a className="mon-row" key={i} href={`/analise?symbol=${m.symbol}&tf=${m.timeframe}&type=crypto${engineQs}`}>
-            <span className="mr-sym">{m.watched ? <span className="mr-star" title="Da sua watchlist">★</span> : null}<b>{m.symbol}</b> · {m.timeframe.toUpperCase()}</span>
+            <span className="mr-sym"><AssetGlyph symbol={m.symbol} size={24} />{m.watched ? <span className="mr-star" title="Da sua watchlist">★</span> : null}<b>{m.symbol}</b> · {m.timeframe.toUpperCase()}</span>
             <span className={`mr-sig ${sideClass(m.side)}`}>{SIGNAL_PT[m.signal] ?? m.signal}</span>
             <span className="mr-reg">{m.regime ? REGIME_PT[m.regime] ?? m.regime : "—"}</span>
             <span className="mr-px">{fmt(m.price)}</span>

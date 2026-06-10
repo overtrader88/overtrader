@@ -1152,12 +1152,13 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .mon-sec-h { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); margin: 18px 0 10px; }
 .mon-empty { border: 1px dashed var(--line-2); border-radius: var(--radius); padding: 16px; color: var(--ink-soft); font-size: 13px; }
 .mon-signals { display: flex; flex-direction: column; gap: 10px; }
-.mon-sig { border: 1px solid var(--line-2); border-left: 3px solid var(--sc); border-radius: var(--radius); padding: 12px 14px; background: var(--panel); }
-.mon-sig .ms-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.mon-sig .ms-sym { font-size: 14px; }
-.mon-sig .ms-dir { font-family: var(--font-mono); font-size: 12px; font-weight: 700; }
-.mon-sig .ms-dir.up { color: var(--bull); } .mon-sig .ms-dir.dn { color: var(--bear); } .mon-sig .ms-dir.neu { color: var(--ink-soft); }
-.mon-sig .ms-seal { font-family: var(--font-mono); font-size: 10px; margin-left: auto; }
+.mon-sig { border: 1px solid var(--line-2); border-left: 3px solid var(--sc); border-radius: 14px; padding: 14px 16px; background: linear-gradient(180deg, rgba(20, 26, 38, 0.5), rgba(10, 13, 20, 0.6)); backdrop-filter: blur(8px); }
+.mon-sig .ms-head { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; }
+.mon-sig .ms-sym { font-family: var(--font-mono); font-size: 14px; color: var(--ink-soft); }
+.mon-sig .ms-sym b { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--ink); }
+.mon-sig .ms-dir { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; padding: 4px 9px; border-radius: 7px; }
+.mon-sig .ms-dir.up { color: var(--bull); background: var(--bull-soft); } .mon-sig .ms-dir.dn { color: var(--bear); background: var(--bear-soft); } .mon-sig .ms-dir.neu { color: var(--ink-soft); background: rgba(139, 151, 173, 0.12); }
+.mon-sig .ms-seal { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
 .mon-sig .ms-levels { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--ink-soft); }
 .mon-sig .ms-lc { display: inline-flex; gap: 4px; }
 .mon-sig .ms-lc i { font-family: var(--font-mono); font-size: 8.5px; font-style: normal; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line-2); color: var(--ink-faint); }
@@ -1171,6 +1172,43 @@ a.arow, a.see, a.pg, a.sel, .usermenu-pop a.um-item { text-decoration: none; }
 .mon-row .mr-reg { font-size: 12px; color: var(--ink-soft); }
 .mon-row .mr-px { font-family: var(--font-mono); font-size: 13px; text-align: right; }
 .mon-row .mr-star { color: var(--amber); margin-right: 5px; font-size: 11px; }
+.mon-row .mr-sym { display: flex; align-items: center; gap: 9px; }
+
+/* ===== Monitor — cara da referência ===== */
+.aglyph { display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); box-shadow: 0 6px 14px -7px rgba(0, 0, 0, 0.7); flex: none; }
+.aglyph.sq { font-family: var(--font-mono); font-weight: 700; letter-spacing: 0.02em; }
+.mon-dot { display: inline-block; width: 13px; height: 13px; border-radius: 50%; background: var(--bull); box-shadow: 0 0 0 4px rgba(43, 212, 158, 0.15), 0 0 12px var(--bull); margin-right: 12px; vertical-align: middle; animation: monpulse 1.8s ease-in-out infinite; }
+.mon-active-pill { display: inline-flex; align-items: center; gap: 8px; align-self: center; font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--bull); border: 1px solid rgba(43, 212, 158, 0.35); background: var(--bull-soft); border-radius: 99px; padding: 8px 14px; white-space: nowrap; }
+.mon-controls { display: flex; align-items: stretch; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 6px 0 14px; }
+.mon-timer { display: flex; align-items: center; gap: 16px; border: 1px solid var(--line-2); border-radius: 14px; padding: 12px 18px; background: linear-gradient(180deg, rgba(20, 26, 38, 0.55), rgba(10, 13, 20, 0.62)); backdrop-filter: blur(10px); }
+.mon-timer .mt-l { display: flex; flex-direction: column; gap: 2px; }
+.mon-timer .mt-live { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--bull); }
+.mon-timer .mt-live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bull); box-shadow: 0 0 8px var(--bull); animation: monpulse 1.8s infinite; }
+.mon-timer .mt-sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+.mon-timer .mt-count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 26px; letter-spacing: 0.01em; color: var(--bull); }
+.mon-timer .mt-ring { width: 38px; height: 38px; flex: none; }
+.mon-timer .mt-ring svg { width: 38px; height: 38px; }
+.mon-timer .mt-ring-t { fill: none; stroke: var(--line-2); stroke-width: 3; }
+.mon-timer .mt-ring-p { fill: none; stroke: var(--cyan); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 94; stroke-dashoffset: 68; filter: drop-shadow(0 0 4px var(--glow)); transform-origin: 50% 50%; animation: mt-spin 1.5s linear infinite; }
+@keyframes mt-spin { to { transform: rotate(360deg); } }
+@media (max-width: 620px) { .mon-timer { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .mon-timer .mt-ring-p, .mon-dot, .mon-timer .mt-live .dot { animation: none; } }
+.mon-alerts { display: flex; flex-direction: column; border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; background: linear-gradient(180deg, rgba(20, 26, 38, 0.4), rgba(10, 13, 20, 0.5)); margin-bottom: 8px; }
+.mon-alert { display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-top: 1px solid var(--line); text-decoration: none; color: var(--ink); transition: background 0.12s; }
+.mon-alert:first-child { border-top: none; }
+.mon-alert:hover { background: var(--cyan-soft); }
+.mon-alert .ma-star { color: var(--amber); font-size: 13px; flex: none; }
+.mon-alert .ma-sym { font-family: var(--font-mono); font-size: 14px; color: var(--ink-soft); }
+.mon-alert .ma-sym b { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--ink); }
+.mon-alert .ma-spacer { flex: 1; }
+.mon-alert .ma-time { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+.mon-alert .ma-chev { color: var(--ink-faint); font-size: 18px; line-height: 1; }
+@media (max-width: 560px) { .mon-alert .ma-time { display: none; } }
+.mon-sig .ms-spacer { flex: 1; }
+.mon-sig .ms-chev { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line-2); background: transparent; color: var(--ink-soft); cursor: pointer; transition: 0.16s; flex: none; }
+.mon-sig .ms-chev:hover { border-color: var(--line-3); color: var(--ink); }
+.mon-sig .ms-chev svg { width: 16px; height: 16px; transition: transform 0.2s; }
+.mon-sig .ms-chev.open svg { transform: rotate(180deg); }
 
 /* ===== Aviso de risco (faixa) + páginas legais (Fase E) ===== */
 /* Faixa de aviso legal — RODAPÉ fixo (transferida do topo). Só aparece nas páginas
