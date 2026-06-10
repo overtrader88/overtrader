@@ -96,8 +96,7 @@ export default async function AlertasPage({
         ) : (
           <div className="tbl">
             {items.map((a) => (
-              <a className={`alert-item${a.read_at ? "" : " unread"}`} key={a.id}
-                href={`/analise?symbol=${encodeURIComponent(a.symbol)}&tf=${a.timeframe}${a.engine === "classe" ? "&engine=classe" : ""}`}>
+              <div className={`alert-item${a.read_at ? "" : " unread"}`} key={a.id}>
                 <span className="a-sym">
                   <AssetGlyph symbol={a.symbol} size={34} />
                   <span className="s">{a.symbol}</span>
@@ -111,9 +110,8 @@ export default async function AlertasPage({
                 <span className="am-meta">
                   <ClockIcon />
                   <span className="am-dt">{relativeTime(a.created_at, now)}</span>
-                  <span className="am-chev" aria-hidden>›</span>
                 </span>
-              </a>
+              </div>
             ))}
           </div>
         )}
