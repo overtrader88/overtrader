@@ -169,7 +169,7 @@ export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs
       <div className="mon-sec-h">Mercados monitorados</div>
       <div className="mon-grid">
         {data.markets.map((m, i) => (
-          <a className="mon-row" key={i} href={`/analise?symbol=${m.symbol}&tf=${m.timeframe}&type=crypto${engineQs}`}>
+          <a className="mon-row" key={i} href={`/analise?symbol=${m.symbol}&tf=${m.timeframe}&type=crypto&view=1${engineQs}`}>
             <span className="mr-sym"><AssetGlyph symbol={m.symbol} size={24} />{m.watched ? <span className="mr-star" title="Da sua watchlist">★</span> : null}<b>{m.symbol}</b> · {m.timeframe.toUpperCase()}</span>
             <span className={`mr-sig ${sideClass(m.side)}`}>{SIGNAL_PT[m.signal] ?? m.signal}</span>
             <span className="mr-reg">{m.regime ? REGIME_PT[m.regime] ?? m.regime : "—"}</span>

@@ -16,7 +16,8 @@
 ## 💳 Sistema de créditos (modelo definido 07/06)
 
 **Grants (assinatura):** PRO 75/mês · 900/ano · PRO+ 175/mês · 2.100/ano · Free 3 vitalícios (já no signup).
-**Consumo:** /analise = 1 crédito/análise · /ao-vivo = 2 créditos/hora (PRO/PRO+) · /monitor = ativação 20 créditos por 5 dias (re-paga ao expirar).
+**Consumo:** /analise = 1 crédito/análise · /ao-vivo = 2 créditos/hora (PRO/PRO+) · /monitor = ativação 20 créditos por 5 dias (re-paga ao expirar) · **watchlist/alerta = 15 créditos por (ativo+TF+direção), 5 dias** (10/06).
+**Regra "não cobrar 2×" (10/06):** abrir uma análise a partir de um contexto JÁ pago — alerta da watchlist (15cr) ou monitor ativo (20cr) — é **grátis**: o link usa `/analise?...&view=1`, que mostra a análise SALVA do ativo (`latestAnalysisId`) sem gerar nem cobrar; sem nenhuma salva, abre o formulário (gerar nova é explícito = 1 crédito). Só o botão "Analisar" explícito (form, watchlist "analisar") cobra 1.
 
 - [x] **Fase 1 — /analise consome 1 crédito por análise NOVA** (RPC `consume_credits`; Free a 0 → bloqueia + CTA /planos). Análises ficam SALVAS no histórico e o usuário reabre quando quiser **de graça** via `/analise?id=<id>` (snapshot, sem recomputar/cobrar) — histórico e recentes do dashboard linkam por `?id`. Validado em prod (gerar nova 49→48; abrir salva 48→48).
 - [x] **Fase 2 — /ao-vivo (código):** grade de ativos com toggle + metering no servidor (2 na ativação + 2/hora; relógio segue com página fechada até desligar; sem saldo desativa). Exclusivo PRO/PRO+; mercado fechado trava. Cron `settle-live` (15 * * * *). Migration 0010 aplicada. **Vercel PRO ativo (07/06) → crons rodam de hora em hora (metering em tempo real).**

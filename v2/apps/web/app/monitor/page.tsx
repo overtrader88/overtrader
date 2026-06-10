@@ -78,7 +78,7 @@ export default async function MonitorPage({
             <div className="mon-sec-h">Seus alertas recentes · watchlist</div>
             <div className="mon-alerts">
               {alerts.map((a) => (
-                <a className="mon-alert" key={a.id} href={`/analise?symbol=${a.symbol}&tf=${a.timeframe}&type=crypto${engQs}`}>
+                <a className="mon-alert" key={a.id} href={`/analise?symbol=${a.symbol}&tf=${a.timeframe}&type=crypto&view=1${engQs}`}>
                   <span className="ma-star">★</span>
                   <AssetGlyph symbol={a.symbol} size={28} />
                   <span className="ma-sym"><b>{a.symbol}</b> · {a.timeframe.toUpperCase()}</span>

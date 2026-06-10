@@ -143,3 +143,24 @@ export async function recentAnalyses(limit = 6): Promise<AnalysisRow[]> {
   const { items } = await listAnalyses({ limit });
   return items;
 }
+
+/**
+ * id da análise SALVA mais recente de um (ativo, timeframe) do usuário — usado
+ * para "ver de graça" a partir de um contexto que JÁ foi pago (monitor ativo /
+ * alerta da watchlist), sem gerar/cobrar de novo. Retorna null se não houver.
+ */
+export async function latestAnalysisId(symbol: string, timeframe: string): Promise<string | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const sb = await supabaseServerSSR();
+  const { data } = await sb
+    .from("analyses")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("symbol", symbol)
+    .eq("timeframe", timeframe)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as { id?: string } | null)?.id ?? null;
+}

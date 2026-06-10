@@ -3,7 +3,7 @@ import { AnalysisShell } from "@/components/analysis-shell";
 import { analyzeSymbol } from "@/lib/analysis/service";
 import { findAsset } from "@/lib/market/catalog";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
-import { recordAnalysisView, getAnalysisById, recentAnalyses } from "@/lib/history";
+import { recordAnalysisView, getAnalysisById, recentAnalyses, latestAnalysisId } from "@/lib/history";
 import { LastAnalysisBanner } from "@/components/last-analysis-banner";
 import { EngineSelector } from "@/components/engine-selector";
 import { ClassReadingPanel } from "@/components/class-reading-panel";
@@ -670,6 +670,9 @@ export default async function AnalisePage({
   const engine: EngineId = isEngine(sp.engine) ? sp.engine : "padrao";
   const explicit = typeof sp.symbol === "string"; // veio do form/link com um ativo
   const fromId = typeof sp.id === "string";
+  // ?view=1 → veio de um contexto JÁ PAGO (monitor ativo / alerta da watchlist):
+  // mostra a análise SALVA do ativo (grátis), nunca gera nem cobra.
+  const viewMode = sp.view === "1" && explicit;
   let savedId = typeof sp.id === "string" ? sp.id : null;
   let symbol = (explicit ? (sp.symbol as string) : "BTCUSDT").toUpperCase();
   let timeframe = resolveTf(sp.tf);
@@ -692,7 +695,12 @@ export default async function AnalisePage({
   if (!user) {
     blocked = true;
   } else {
-    if (!savedId && !explicit) {
+    if (viewMode) {
+      // contexto já pago (monitor/alerta): pega a análise salva do ativo, grátis.
+      // Sem nenhuma salva → só o formulário (sem gerar, sem cobrar).
+      if (!savedId) savedId = await latestAnalysisId(symbol, timeframe);
+      if (!savedId) landingEmpty = true;
+    } else if (!savedId && !explicit) {
       const recents = await recentAnalyses(1);
       savedId = recents[0]?.id ?? null;
       if (!savedId) landingEmpty = true; // sem histórico → só o formulário (sem análise)
@@ -704,12 +712,12 @@ export default async function AnalisePage({
         symbol = saved.symbol;
         timeframe = saved.timeframe as Timeframe;
         assetType = saved.assetType as AssetType;
-      } else if (explicit) {
+      } else if (explicit && !viewMode) {
         error = "Análise não encontrada no seu histórico.";
       } else {
         landingEmpty = true;
       }
-    } else if (!landingEmpty) {
+    } else if (!landingEmpty && !viewMode) {
       // explícito (escolheu um ativo e clicou Analisar) → gera + cobra
       const gate = await checkAnalysisCredit(user.id, symbol, timeframe);
       if (!gate.allowed) {
