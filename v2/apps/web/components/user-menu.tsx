@@ -28,6 +28,7 @@ export function UserMenu({ initials, email, isAdmin }: { initials: string; email
           <button type="button" className="usermenu-scrim" aria-label="Fechar menu" onClick={() => setOpen(false)} />
           <div className="usermenu-pop" role="menu">
             <div className="um-email" title={email}>{email}</div>
+            <a className="um-item" href="/conta" role="menuitem">Conta &amp; senha</a>
             <a className="um-item" href="/planos" role="menuitem">Planos &amp; créditos</a>
             {isAdmin ? <a className="um-item" href="/admin" role="menuitem">Admin</a> : null}
             <button type="button" className="um-item danger" onClick={signOut} disabled={busy} role="menuitem">
