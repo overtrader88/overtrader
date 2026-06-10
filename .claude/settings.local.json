@@ -241,7 +241,15 @@
       "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/ao-vivo)",
       "Bash(echo \"ao-vivo status \\(deslogado\\): $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/ao-vivo\\)\")",
       "Bash(curl -s -I http://localhost:3001/ao-vivo)",
-      "Bash(curl -s http://localhost:3001/ao-vivo)"
+      "Bash(curl -s http://localhost:3001/ao-vivo)",
+      "Skill(code-review)",
+      "Skill(code-review:*)",
+      "Bash(findstr /n \"return <a <button href onClick\")",
+      "Bash(findstr /s /n \"tg-i\\\\b tg-ok\" components\\\\*.tsx app\\\\*.tsx app\\\\**\\\\*.tsx)",
+      "Bash(cat v2/apps/web/tsconfig.json)",
+      "Bash(cat v2/tsconfig.json)",
+      "Bash(cat v2/tsconfig.base.json)",
+      "Bash(echo \"=== EXIT CODE: $? ===\")"
     ]
   }
 }
