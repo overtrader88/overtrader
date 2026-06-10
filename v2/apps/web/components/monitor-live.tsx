@@ -50,6 +50,27 @@ function closedTone(outcome: string | null, pnlR: number | null): string {
   if (outcome === "EXPIRED") return "var(--ink-faint)";
   return (pnlR ?? 0) > 0 ? "var(--bull)" : "var(--ink-faint)";
 }
+/**
+ * "Ainda dá pra entrar?" — para quem abre um sinal ATRASADO (ex.: dormiu na
+ * emissão). Compara o preço ao vivo com a entrada/TP1 do plano e diz se a entrada
+ * ainda está na zona, se o preço já avançou (entrada tardia) ou se já passou do TP1.
+ */
+type EntryView = { label: string; tone: string; tip: string };
+function entryView(s: ActiveSignal, lc: LiveLifecycle | null): EntryView | null {
+  if (!lc || lc.price == null || lc.status === "resolved") return null;
+  const buy = s.side === "buy" || s.direction.includes("BUY");
+  if (lc.tp1Hit) return { label: "Já passou do TP1 — tarde p/ entrar", tone: "var(--amber)", tip: "O preço já alcançou o 1º alvo; entrar agora é correr atrás (R:R pior)." };
+  const dist = s.tp1 - s.entry;                                  // assinado pelo lado
+  const progress = dist !== 0 ? (lc.price - s.entry) / dist : 0; // fração entrada→TP1
+  if (progress <= 0.25) {
+    const better = buy ? lc.price < s.entry : lc.price > s.entry;
+    return better
+      ? { label: "Ainda dá pra entrar · preço melhor que a entrada", tone: "var(--bull)", tip: "Preço na zona de entrada e a seu favor." }
+      : { label: "Ainda dá pra entrar · preço na zona", tone: "var(--bull)", tip: "Preço ainda próximo da entrada do plano." };
+  }
+  const pct = Math.min(99, Math.round(progress * 100));
+  return { label: `Preço já andou ~${pct}% até o TP1 — entrada tardia`, tone: "var(--amber)", tip: "R:R pior que na emissão; avalie esperar um pullback à entrada." };
+}
 
 export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs?: string }) {
   const [data, setData] = useState<MonitorData | null>(null);
@@ -98,6 +119,7 @@ export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs
             const tp3 = lc?.tp3Hit ?? s.tp3_hit;
             const stop = lc ? stopLabel(lc, s.entry) : null;
             const closed = lc?.status === "resolved";
+            const ev = !closed ? entryView(s, lc) : null;
             return (
             <article className="mon-sig" key={i} style={{ ["--sc" as string]: SEAL_C[s.seal] ?? "var(--ink-faint)", opacity: closed ? 0.82 : 1 }}>
               <div className="ms-head">
@@ -125,6 +147,11 @@ export function MonitorLive({ watch, engineQs = "" }: { watch?: string; engineQs
                   <i className={tp3 ? "on" : ""}>TP3</i>
                 </span>
               </div>
+              {ev ? (
+                <div className="ms-entry" title={ev.tip} style={{ marginTop: 6, fontSize: "0.8rem", fontWeight: 700, color: ev.tone, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: ev.tone, display: "inline-block" }} /> {ev.label}
+                </div>
+              ) : null}
               {open.has(i) ? (
                 closed && lc ? (
                   <p className="ms-narr" style={{ color: closedTone(lc.outcome, lc.pnlR), fontWeight: 600 }}>
