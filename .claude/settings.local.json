@@ -233,7 +233,15 @@
       "mcp__Claude_in_Chrome__read_page",
       "Bash(curl -s --max-time 20 'https://publicreporting.cftc.gov/resource/6dca-aqww.json?$where=contract_market_name%20like%20%27GOLD%25%27&$order=report_date_as_yyyy_mm_dd%20DESC&$limit=1')",
       "Bash(curl -s --max-time 20 'https://publicreporting.cftc.gov/resource/6dca-aqww.json?$select=contract_market_name,report_date_as_yyyy_mm_dd,open_interest_all,noncomm_positions_long_all,noncomm_positions_short_all&$where=contract_market_name%20like%20%27EURO%20FX%25%27&$order=report_date_as_yyyy_mm_dd%20DESC&$limit=3')",
-      "Bash(curl -s --max-time 20 'https://publicreporting.cftc.gov/resource/6dca-aqww.json?$select=contract_market_name&$where=contract_market_name%20like%20%27CRUDE%20OIL%25%27&$group=contract_market_name&$limit=10')"
+      "Bash(curl -s --max-time 20 'https://publicreporting.cftc.gov/resource/6dca-aqww.json?$select=contract_market_name&$where=contract_market_name%20like%20%27CRUDE%20OIL%25%27&$group=contract_market_name&$limit=10')",
+      "Bash(curl -s https://overtrader-git-feat-landing-nova-preview-devtrad.vercel.app/v3)",
+      "Bash(curl -s http://localhost:3001/)",
+      "Bash(echo \"h1: $\\(curl -s http://localhost:3001/)",
+      "Bash(git commit *)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/ao-vivo)",
+      "Bash(echo \"ao-vivo status \\(deslogado\\): $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/ao-vivo\\)\")",
+      "Bash(curl -s -I http://localhost:3001/ao-vivo)",
+      "Bash(curl -s http://localhost:3001/ao-vivo)"
     ]
   }
 }
