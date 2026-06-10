@@ -114,7 +114,7 @@ export default async function AoVivoPage({
           <>
             <div className="head2">
               <div>
-                <h1>Live Trading IA 24/7</h1>
+                <h1>Live Trading <span className="lg-title-ia">IA 24/7</span> <span className="lg-aovivo"><span className="d" /> AO VIVO</span></h1>
                 <div className="meta">Ative uma live por ativo — a IA analisa, desenha e narra em tempo real. Cripto 24/7; demais mercados em horário de pregão.</div>
               </div>
             </div>
