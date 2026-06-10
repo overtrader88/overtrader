@@ -99,7 +99,7 @@ const RICH =
   "id,symbol,asset_type,timeframe,signal,strength,created_at,seal:result->quality->>status,pf:result->backtest->profitFactor->>value,rr:result->analysis->risk->>rr1,period:result->>period";
 const SCALAR = "id,symbol,asset_type,timeframe,signal,strength,created_at";
 
-async function fetchRows(sb: Sb, userId: string, select: string, from: number, to: number, q?: string) {
+async function fetchRows(sb: Sb, userId: string, select: string, from: number, to: number, q?: string, cls?: string) {
   let query = sb
     .from("analyses")
     .select(select, { count: "exact" })
@@ -107,6 +107,7 @@ async function fetchRows(sb: Sb, userId: string, select: string, from: number, t
     .order("created_at", { ascending: false })
     .range(from, to);
   if (q) query = query.ilike("symbol", `%${q}%`);
+  if (cls) query = query.eq("asset_type", cls);
   return query;
 }
 
@@ -115,7 +116,7 @@ export interface ListResult {
   total: number;
 }
 
-export async function listAnalyses(opts: { page?: number; limit?: number; q?: string } = {}): Promise<ListResult> {
+export async function listAnalyses(opts: { page?: number; limit?: number; q?: string; cls?: string } = {}): Promise<ListResult> {
   const user = await getCurrentUser();
   if (!user) return { items: [], total: 0 };
   const sb = await supabaseServerSSR();
@@ -124,11 +125,12 @@ export async function listAnalyses(opts: { page?: number; limit?: number; q?: st
   const from = (page - 1) * limit;
   const to = from + limit - 1;
   const q = opts.q?.trim().toUpperCase() || undefined;
+  const cls = opts.cls?.trim() || undefined;
 
   // Tenta o select rico (com selo/PF/período via JSON path); cai p/ scalar se a
   // versão do PostgREST não aceitar a sintaxe — histórico nunca fica vazio à toa.
-  let res = await fetchRows(sb, user.id, RICH, from, to, q);
-  if (res.error) res = await fetchRows(sb, user.id, SCALAR, from, to, q);
+  let res = await fetchRows(sb, user.id, RICH, from, to, q, cls);
+  if (res.error) res = await fetchRows(sb, user.id, SCALAR, from, to, q, cls);
   if (res.error || !res.data) return { items: [], total: 0 };
 
   return {
