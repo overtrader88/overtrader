@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Timeframe } from "@tradeai/shared";
 import { CATALOG, ASSET_CLASS_PT, findAsset } from "@/lib/market/catalog";
+import { AssetGlyph } from "@/components/asset-glyph";
 
 interface WItem { id: string; symbol: string; timeframe: string; min_signal_strength: string; engine?: string; }
 
@@ -95,7 +96,7 @@ export function WatchlistManager() {
           <div className="wm-head"><span>Ativo</span><span>TF</span><span>Alerta quando</span><span /></div>
           {items.map((it) => (
             <div className="wm-row" key={it.id}>
-              <span className="wm-asset"><b>{it.symbol}</b> <small>{findAsset(it.symbol)?.name ?? ""}</small>{it.engine === "classe" ? <span className="eng-chip" style={{ marginLeft: 6 }}>⚙ M2</span> : null}</span>
+              <span className="wm-asset"><AssetGlyph symbol={it.symbol} size={30} /><b>{it.symbol}</b> <small>{findAsset(it.symbol)?.name ?? ""}</small>{it.engine === "classe" ? <span className="eng-chip" style={{ marginLeft: 6 }}>⚙ M2</span> : null}</span>
               <span className="wm-tf">{it.timeframe.toUpperCase()}</span>
               <span>
                 <select className="wm-sel sm" value={it.min_signal_strength} onChange={(e) => setItemStrength(it, e.target.value)}>
@@ -114,9 +115,14 @@ export function WatchlistManager() {
           ))}
         </div>
       )}
-      <p className="note" style={{ fontSize: "0.72rem", marginTop: 10 }}>
-        A IA varre a watchlist de hora em hora e dispara um alerta (sininho + Telegram, se vinculado) quando o ativo atinge o sinal mínimo escolhido. Conteúdo educativo — não é recomendação.
-      </p>
+      <div className="wm-foot">
+        <span className="ic" aria-hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><path d="M12 7.5v.5" /></svg>
+        </span>
+        <p>
+          A IA varre a watchlist de hora em hora e dispara um alerta (sininho + Telegram, se vinculado) quando o ativo atinge o sinal mínimo escolhido. Conteúdo educativo — não é recomendação.
+        </p>
+      </div>
     </div>
   );
 }
