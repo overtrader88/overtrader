@@ -274,9 +274,9 @@ body::after {
    ============================================================ */
 .appbar { position: sticky; top: 0; z-index: 50; background: rgba(7, 9, 14, 0.62); backdrop-filter: blur(16px) saturate(1.3); border-bottom: 1px solid var(--line); }
 .appbar .wrap { max-width: none; }
-.appbar .row { display: flex; align-items: center; gap: 16px; height: 60px; }
-.brand { flex: none; }
-.nav { display: flex; gap: 2px; align-items: stretch; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+.appbar .row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; height: 60px; }
+.brand { flex: none; justify-self: start; }
+.nav { display: flex; gap: 2px; align-items: stretch; justify-self: center; justify-content: center; min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
 .nav::-webkit-scrollbar { display: none; }
 .nav a { display: inline-flex; align-items: center; gap: 7px; height: 60px; padding: 0 10px; font-size: 13px; color: var(--ink-soft); border-bottom: 2px solid transparent; white-space: nowrap; flex: none; transition: color .15s, background .15s; }
 .nav a svg { flex: none; width: 16px; height: 16px; opacity: 0.8; }
@@ -285,8 +285,24 @@ body::after {
 .nav a.on { color: var(--cyan); border-bottom-color: var(--cyan); background: linear-gradient(180deg, transparent 52%, color-mix(in srgb, var(--cyan) 11%, transparent)); }
 .nav a.on svg { opacity: 1; }
 .nav .nav-lbl { white-space: normal; line-height: 1.12; max-width: 76px; }
-@media (max-width: 980px) { .nav { display: none; } }
-.ab-right { flex: none; margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.ab-right { justify-self: end; display: flex; align-items: center; gap: 10px; }
+
+/* menu hambúrguer (mobile) — restaura a navegação quando a nav inline some */
+.appbar-burger { display: none; flex: none; }
+.mnav-scrim { position: fixed; inset: 60px 0 0; z-index: 59; background: rgba(0, 0, 0, .5); border: none; cursor: default; }
+.mnav-panel { position: fixed; top: 60px; left: 0; right: 0; z-index: 60; background: var(--panel); border-bottom: 1px solid var(--line-2); box-shadow: 0 24px 50px -24px #000; padding: 8px; display: flex; flex-direction: column; gap: 2px; max-height: calc(100dvh - 60px); overflow-y: auto; }
+.mnav-item { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 10px; color: var(--ink-soft); text-decoration: none; font-size: 15px; }
+.mnav-item svg { width: 18px; height: 18px; opacity: .85; flex: none; }
+.mnav-item:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+.mnav-item.on { color: var(--cyan); background: var(--cyan-soft); }
+@media (max-width: 980px) {
+  .appbar .row { grid-template-columns: 1fr auto; }
+  .nav { display: none; }
+  .appbar-burger { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink); cursor: pointer; }
+  .appbar-burger:hover { border-color: var(--line-3); }
+}
+@media (max-width: 620px) { .ab-right .chip.plan { display: none; } }
+@media (max-width: 460px) { .brand .name, .brand .ia { display: none; } }
 .chip { font-family: var(--font-mono); font-size: 11.5px; padding: 7px 12px; border-radius: 99px; border: 1px solid var(--line-2); color: var(--ink-soft); }
 .chip b { color: var(--ink); }
 .chip .am { color: var(--amber); }
