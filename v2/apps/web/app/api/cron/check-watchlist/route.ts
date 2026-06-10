@@ -62,7 +62,14 @@ async function handle(req: Request): Promise<NextResponse> {
   let checked = 0;
   let alerted = 0;
   let skipped = 0;
-  for (const it of (items ?? []) as { id: string; user_id: string; symbol: string; timeframe: string; min_signal_strength: string; engine?: string }[]) {
+  const nowMs = Date.now();
+  for (const it of (items ?? []) as { id: string; user_id: string; symbol: string; timeframe: string; min_signal_strength: string; engine?: string; expires_at?: string | null }[]) {
+    // Alerta pago vencido (expires_at no passado) não é mais monitorado.
+    // expires_at null/ausente = alerta legado (grátis) → segue ativo.
+    if (it.expires_at && new Date(it.expires_at).getTime() <= nowMs) {
+      skipped++;
+      continue;
+    }
     const assetType = resolveType(it.symbol);
     if (!assetType) {
       skipped++;
