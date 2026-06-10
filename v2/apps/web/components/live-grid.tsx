@@ -12,6 +12,26 @@ export interface LiveAsset {
 }
 
 /**
+ * Sparkline DECORATIVA por símbolo (determinística — mesmo desenho sempre p/ o
+ * mesmo ativo, sem rede). Vai borrada no fundo do card; nítida quando ativo.
+ */
+function bgSpark(symbol: string): { line: string; area: string } {
+  const W = 240, H = 120, N = 30;
+  let seed = 0;
+  for (let i = 0; i < symbol.length; i++) seed = (seed * 31 + symbol.charCodeAt(i)) >>> 0;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  let v = 0.4 + rnd() * 0.25;
+  const pts: string[] = [];
+  for (let i = 0; i < N; i++) {
+    v += (rnd() - 0.46) * 0.18;
+    v = Math.max(0.1, Math.min(0.9, v));
+    pts.push(`${((i / (N - 1)) * W).toFixed(1)},${(H - v * H).toFixed(1)}`);
+  }
+  const line = pts.join(" ");
+  return { line, area: `0,${H} ${line} ${W},${H}` };
+}
+
+/**
  * Grade de Live Trading (estilo "Live Trading IA 24/7"): cada ativo tem um
  * toggle. Ativar cobra 2 créditos imediatamente + 2/hora no servidor (continua
  * contando com a página fechada até desligar). Mercado fechado → travado.
@@ -81,8 +101,13 @@ export function LiveGrid({ assets, activeSymbols, plan, credits }: {
           const on = active.has(a.symbol);
           const loading = busy === a.symbol;
           const disabled = !isPro || !a.open || loading;
+          const spark = bgSpark(a.symbol);
           return (
             <div className={`lg-card ${on ? "on" : a.open ? "live" : "closed"}`} key={a.symbol}>
+              <svg className="lg-chart" viewBox="0 0 240 120" preserveAspectRatio="none" aria-hidden>
+                <polygon className="lg-chart-area" points={spark.area} />
+                <polyline className="lg-chart-line" points={spark.line} />
+              </svg>
               <div className="lg-card-top">
                 <span className={`lg-badge ${on ? "on" : a.open ? "live" : "closed"}`}>{on ? "● ATIVO" : a.open ? "● LIVE" : "FECHADO"}</span>
               </div>
