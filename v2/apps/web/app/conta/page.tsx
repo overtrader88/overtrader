@@ -18,7 +18,7 @@ export default async function ContaPage() {
       <div className="wrap conta">
         <div className="ctx">
           <div>
-            <h1>Sua conta</h1>
+            <h1 className="page-title">Sua conta</h1>
             <div className="sub">
               {user?.email ?? "—"} · plano <b style={{ color: "var(--cyan)" }}>{user ? planLabel(user.plan) : "—"}</b>
             </div>

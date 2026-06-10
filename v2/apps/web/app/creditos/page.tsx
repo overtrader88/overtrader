@@ -54,7 +54,7 @@ export default async function CreditosPage() {
       <div className="wrap">
         <div className="head2">
           <div>
-            <h1>Meus créditos</h1>
+            <h1 className="page-title">Meus créditos</h1>
             <div className="meta">Saldo, lives ativas, monitor e o histórico de consumo de créditos.</div>
           </div>
         </div>

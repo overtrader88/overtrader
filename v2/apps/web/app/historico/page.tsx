@@ -86,7 +86,7 @@ export default async function HistoricoPage({
         <div className="hist-head">
           <span className="hist-ico"><ChartIcon /></span>
           <div>
-            <h1>Histórico de análises</h1>
+            <h1 className="page-title">Histórico de análises</h1>
             <div className="hist-sub">
               <b>{total}</b> {total === 1 ? "análise salva" : "análises salvas"}
               {q ? <> · busca <b>{q.toUpperCase()}</b></> : null}

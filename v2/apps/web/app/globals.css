@@ -2257,3 +2257,29 @@ body { padding-bottom: 34px; }
 @media (max-width: 760px) {
   .admin .adm-row td:nth-child(2), .admin .adm-th:nth-child(2) { display: none; }
 }
+
+/* ============================================================
+   TÍTULO PRINCIPAL PADRÃO — tamanho + degradê do "Live Trading IA 24/7".
+   Aplicado via .page-title nas telas (o /ao-vivo fica como referência).
+   Especificidade alta o suficiente p/ vencer os headers de cada tela.
+   ============================================================ */
+h1.page-title,
+.hist-page .head2 h1.page-title,
+.hist-page .hist-head h1.page-title,
+.hist-page .al-titles h1.page-title,
+.admin .adm-head h1.page-title,
+.ctx h1.page-title {
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 125;
+  font-weight: 800;
+  font-size: clamp(26px, 5.5vw, 32px);
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+  background: linear-gradient(100deg, #8fd3ff, var(--cyan) 48%, #9a8bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  width: fit-content;
+  max-width: 100%;
+}

@@ -12,7 +12,7 @@ export default async function WatchlistPage() {
       <div className="wrap">
         <div className="head2">
           <div>
-            <h1>Watchlist</h1>
+            <h1 className="page-title">Watchlist</h1>
             <div className="meta">Acompanhe ativos e receba alerta quando formarem o sinal que você escolher. Adicione, remova e ajuste o limiar aqui.</div>
           </div>
         </div>

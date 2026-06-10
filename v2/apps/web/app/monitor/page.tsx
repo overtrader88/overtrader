@@ -50,7 +50,7 @@ export default async function MonitorPage({
       <div className="wrap">
         <div className="head2">
           <div>
-            <h1><span className="mon-dot" /> Monitor ao vivo</h1>
+            <h1 className="page-title"><span className="mon-dot" /> Monitor ao vivo</h1>
             <div className="meta">Preço · regime · sinal dos mercados acompanhados — e o sinal surge quando forma um setup de qualidade.</div>
           </div>
           {showMonitor && status.expiresAt ? (

@@ -105,7 +105,7 @@ export default async function AdminPage() {
         <div className="adm-head">
           <span className="adm-ico"><ShieldCrownIcon /></span>
           <div>
-            <h1>Admin</h1>
+            <h1 className="page-title">Admin</h1>
             <div className="adm-sub">Painel de gestão · <a href={`mailto:${user.email}`}>{user.email}</a></div>
           </div>
         </div>

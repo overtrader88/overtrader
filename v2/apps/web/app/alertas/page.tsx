@@ -70,7 +70,7 @@ export default async function AlertasPage({
         <div className="al-head">
           <span className="al-ico"><BellIcon /></span>
           <div className="al-titles">
-            <h1>Alertas</h1>
+            <h1 className="page-title">Alertas</h1>
             <div className="al-sub"><b>{items.length} {items.length === 1 ? "alerta" : "alertas"}</b> · disparados pela watchlist</div>
           </div>
           <a href="/watchlist" className="btn primary lg al-wl"><StarIcon /> Gerenciar watchlist</a>
