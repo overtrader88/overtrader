@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { signalSide } from "@tradeai/shared";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
+import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
 import { broadcastSignal } from "@/lib/notify/dispatch";
@@ -38,6 +38,9 @@ async function handle(req: Request): Promise<NextResponse> {
   let padraoBEmitted = 0;
   let classeBEmitted = 0;
   let llmEmitted = 0;
+  let condEmitted = 0;
+  let invEmitted = 0;
+  let consEmitted = 0;
   for (const m of TRACKED_MARKETS) {
     try {
       const dto = await analyzeSymbol(m.symbol, m.assetType, m.timeframe, "complete");
@@ -73,6 +76,13 @@ async function handle(req: Request): Promise<NextResponse> {
         if (b2.reason === "emitted") classeBEmitted++;
         const llm = await emitLlmSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llm.reason === "emitted") llmEmitted++;
+        // Motores experimentais determinísticos (condicional / contrário / consenso).
+        const cond = await emitConditionalSignal(dto, m.symbol, m.assetType, m.timeframe);
+        if (cond.reason === "emitted") condEmitted++;
+        const inv = await emitContrarianSignal(dto, m.symbol, m.assetType, m.timeframe);
+        if (inv.reason === "emitted") invEmitted++;
+        const cons = await emitConsensusSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
+        if (cons.reason === "emitted") consEmitted++;
       } catch {
         classTally.error++; // erro no Motor 2/variantes nunca compromete o Motor 1.
       }
@@ -80,7 +90,7 @@ async function handle(req: Request): Promise<NextResponse> {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, motor1: tally, motor2: classTally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
 }
 
 export const GET = handle;

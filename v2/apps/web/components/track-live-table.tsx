@@ -15,7 +15,7 @@ export interface LiveItem {
   emittedAt: string | null;
 }
 
-const ENGINE_SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM" };
+const ENGINE_SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM", condicional: "Cond", contrario: "Contra", consenso: "Cons" };
 const STOP_PT: Record<string, { label: string; tone: "init" | "be" | "tp1" }> = {
   initial: { label: "stop inicial", tone: "init" },
   breakeven: { label: "stop no breakeven · risco zerado", tone: "be" },
