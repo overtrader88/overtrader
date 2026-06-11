@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { AdminUserDetail } from "./admin-user-detail";
@@ -598,18 +598,18 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
   const lastOf = (id: string) => equity[equity.length - 1]!.values[id] ?? 0;
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 160, border: "1px solid var(--border-faint,#e4e8ef)", borderRadius: 10, background: "#fff" }}>
-        <line x1={0} y1={y0} x2={W} y2={y0} stroke="#cbd5e1" strokeWidth={0.3} strokeDasharray="1,1" />
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 160, border: "1px solid var(--line-2)", borderRadius: 10, background: "var(--bg-2, #0a0d14)" }}>
+        <line x1={0} y1={y0} x2={W} y2={y0} stroke="#3a4a66" strokeWidth={0.3} strokeDasharray="1,1" />
         {ids.map((id) => (
           <polyline key={id} points={line(id)} fill="none" stroke={ENGINE_COLOR[id] ?? "#64748b"} strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
         ))}
       </svg>
-      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 8, fontSize: "0.8rem" }}>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8, fontSize: "0.8rem" }}>
         {ids.map((id) => {
           const last = lastOf(id);
           return (
-            <span key={id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 14, height: 3, background: ENGINE_COLOR[id] ?? "#64748b", display: "inline-block" }} /> {ENGINE_LABEL[id] ?? id} <b style={{ color: last >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{sgn(last, 1)} R</b>
+            <span key={id} style={{ display: "flex", alignItems: "center", gap: 6, color: "#aebccd" }}>
+              <span style={{ width: 14, height: 3, background: ENGINE_COLOR[id] ?? "#64748b", display: "inline-block", borderRadius: 2 }} /> {ENGINE_LABEL[id] ?? id} <b style={{ color: last >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)", fontVariantNumeric: "tabular-nums" }}>{sgn(last, 1)} R</b>
             </span>
           );
         })}
@@ -620,10 +620,25 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
 
 /** Tabela de recorte (classe ou TF) × motor. */
 // Metadados de motor — fonte única (ordem + rótulo curto + tag com ícone p/ listas).
-const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm"] as const;
-const ENGINE_LABEL: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM" };
-const ENGINE_TAG: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 LLM" };
-const ENGINE_COLOR: Record<string, string> = { padrao: "#2563eb", padrao_b: "#0ea5e9", classe: "#9333ea", classe_b: "#c026d3", llm: "#f59e0b" };
+const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "condicional", "contrario", "consenso"] as const;
+const ENGINE_LABEL: Record<string, string> = {
+  padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM",
+  condicional: "Condicional", contrario: "Contrário", consenso: "Consenso",
+};
+const ENGINE_TAG: Record<string, string> = {
+  padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 LLM",
+  condicional: "⚡ Condicional", contrario: "🔁 Contrário", consenso: "🤝 Consenso",
+};
+const ENGINE_COLOR: Record<string, string> = {
+  padrao: "#2563eb", padrao_b: "#0ea5e9", classe: "#9333ea", classe_b: "#c026d3", llm: "#f59e0b",
+  condicional: "#22c55e", contrario: "#94a3b8", consenso: "#06b6d4",
+};
+/** Bolinha de cor do motor — amarra coluna/tabela à linha do gráfico de equity. */
+const EngineDot = ({ id }: { id: string }) => (
+  <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: ENGINE_COLOR[id] ?? "#64748b", flex: "none" }} aria-hidden />
+);
+/** 1ª coluna fixa em tabelas largas (8 motores → scroll horizontal). */
+const STICKY_COL: React.CSSProperties = { position: "sticky", left: 0, zIndex: 1, background: "var(--panel, #0d1119)" };
 
 type BreakdownSort = "n" | "r" | "wr";
 const BREAKDOWN_SORTS: [BreakdownSort, string][] = [["n", "Amostra (n)"], ["r", "R total"], ["wr", "Win% médio"]];
@@ -666,26 +681,30 @@ function BreakdownTable({ title, rows, engineIds }: { title: string; rows: Break
         ) : null}
       </div>
       {rows.length === 0 ? <p className="note">Sem desfechos resolvidos ainda.</p> : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", minWidth: 200 + engineIds.length * 120 }}>
+        <div style={{ overflowX: "auto", border: "1px solid var(--line-2)", borderRadius: 12 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", minWidth: 160 + engineIds.length * 124 }}>
             <thead>
               <tr style={ROW}>
-                <th style={{ ...TH, textAlign: "left" }}>Grupo</th>
-                {engineIds.map((e) => <th key={e} style={{ ...TH, textAlign: "left" }}>{ENGINE_LABEL[e] ?? e}</th>)}
+                <th style={{ ...TH, ...STICKY_COL, textAlign: "left" }}>Grupo</th>
+                {engineIds.map((e) => (
+                  <th key={e} style={{ ...TH, textAlign: "left", whiteSpace: "nowrap" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} />{ENGINE_LABEL[e] ?? e}</span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {sorted.map((r) => (
                 <tr key={r.key} style={ROW}>
-                  <td style={TD}><b>{r.label}</b></td>
-                  {engineIds.map((e) => <td key={e} style={TD}>{cell(r.stats[e])}</td>)}
+                  <td style={{ ...TD, ...STICKY_COL, whiteSpace: "nowrap" }}><b>{r.label}</b></td>
+                  {engineIds.map((e) => <td key={e} style={{ ...TD, whiteSpace: "nowrap" }}>{cell(r.stats[e])}</td>)}
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ ...ROW, borderTop: "2px solid var(--border-faint,#475569)" }}>
-                <td style={{ ...TD, fontWeight: 700 }}>Total</td>
-                {engineIds.map((e) => <td key={e} style={{ ...TD, fontWeight: 700 }}>{cell(totals[e])}</td>)}
+              <tr style={{ ...ROW, borderTop: "2px solid var(--line-3, #475569)" }}>
+                <td style={{ ...TD, ...STICKY_COL, fontWeight: 700 }}>Total</td>
+                {engineIds.map((e) => <td key={e} style={{ ...TD, fontWeight: 700, whiteSpace: "nowrap" }}>{cell(totals[e])}</td>)}
               </tr>
             </tfoot>
           </table>
@@ -763,17 +782,21 @@ function DailyBoard({ daily, engines, engineIds }: { daily: DailyRow[]; engines:
     <div style={{ width: "100%" }}>
       <h3 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>Resultado diário · finalizadas + abertas</h3>
       {daily.length === 0 && !hasAnyOpen ? <p className="note">Sem operações ainda.</p> : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", minWidth: 200 + engineIds.length * 130 }}>
+        <div style={{ overflowX: "auto", border: "1px solid var(--line-2)", borderRadius: 12 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", minWidth: 160 + engineIds.length * 130 }}>
             <thead>
               <tr style={ROW}>
-                <th style={{ ...TH, textAlign: "left" }}>Dia</th>
-                {engineIds.map((e) => <th key={e} style={{ ...TH, textAlign: "right" }}>{ENGINE_LABEL[e] ?? e}</th>)}
+                <th style={{ ...TH, ...STICKY_COL, textAlign: "left" }}>Dia</th>
+                {engineIds.map((e) => (
+                  <th key={e} style={{ ...TH, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} />{ENGINE_LABEL[e] ?? e}</span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               <tr style={{ ...ROW, background: "rgba(96,165,250,0.10)" }}>
-                <td style={{ ...TD, fontWeight: 700 }}>Abertas (agora)</td>
+                <td style={{ ...TD, ...STICKY_COL, fontWeight: 700 }}>Abertas (agora)</td>
                 {engineIds.map((id) => {
                   const e = openByEngine[id];
                   return <td key={id} style={{ ...TD, textAlign: "right" }}>{e && e.open > 0 ? <>{e.open} ab · <b style={{ color: e.openUnrealizedR >= 0 ? C_GREEN : C_RED }}>{sgn(e.openUnrealizedR, 1)}R</b></> : <span style={{ color: "#64748b" }}>—</span>}</td>;
@@ -781,14 +804,14 @@ function DailyBoard({ daily, engines, engineIds }: { daily: DailyRow[]; engines:
               </tr>
               {daily.map((d) => (
                 <tr key={d.date} style={ROW}>
-                  <td style={{ ...TD, fontWeight: 600 }}>{fmtDay(d.date)}</td>
-                  {engineIds.map((id) => <td key={id} style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{dayCell(d.perEngine[id])}</td>)}
+                  <td style={{ ...TD, ...STICKY_COL, fontWeight: 600 }}>{fmtDay(d.date)}</td>
+                  {engineIds.map((id) => <td key={id} style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{dayCell(d.perEngine[id])}</td>)}
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ ...ROW, borderTop: "2px solid var(--border-faint,#475569)" }}>
-                <td style={{ ...TD, fontWeight: 700 }}>Total finalizadas</td>
+              <tr style={{ ...ROW, borderTop: "2px solid var(--line-3, #475569)" }}>
+                <td style={{ ...TD, ...STICKY_COL, fontWeight: 700 }}>Total finalizadas</td>
                 {engineIds.map((id) => {
                   const t = totals[id] ?? { wins: 0, stops: 0, totalR: 0 };
                   return <td key={id} style={{ ...TD, textAlign: "right", fontWeight: 700 }}>{t.wins + t.stops === 0 ? <span style={{ color: "#64748b" }}>—</span> : <><span style={{ color: C_GREEN }}>✅{t.wins}</span> <span style={{ color: C_RED }}>❌{t.stops}</span> <b style={{ color: t.totalR >= 0 ? C_GREEN : C_RED }}>{sgn(t.totalR, 1)}R</b></>}</td>;
@@ -876,7 +899,7 @@ function RankingTable({ engines, byClass, visibleIds }: { engines: EngineStat[];
               return (
                 <tr key={e.engine} style={ROW}>
                   <td style={{ ...TD, fontWeight: 700 }}>{!ranked0 ? "—" : i === 0 ? "🥇 1º" : `${i + 1}º`}</td>
-                  <td style={TD}>{ENGINE_TAG[e.engine] ?? e.engine}</td>
+                  <td style={{ ...TD, whiteSpace: "nowrap" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><EngineDot id={e.engine} />{ENGINE_TAG[e.engine] ?? e.engine}</span></td>
                   <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: tone ?? "#e8edf5" }}>{v == null ? "—" : m.fmt(v)}</td>
                   <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{e.decisive}</td>
                   <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{e.decisive > 0 ? `${e.winRatePct.toFixed(0)}%` : "—"}</td>
@@ -931,24 +954,46 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
   const GREEN = "var(--bull,#16a34a)";
   const YELLOW = "var(--amber,#eab308)";
   // tone: cor por VALOR (sobrepõe o destaque do melhor). null = usa o padrão.
-  const ROWS: { label: string; get: (e: EngineStat) => string; raw: (e: EngineStat) => number | null; dir: Dir; tone?: (v: number | null) => string | null; node?: (e: EngineStat) => React.ReactNode }[] = [
-    { label: "Sinais emitidos (total)", get: (e) => String(e.emittedTotal), raw: (e) => e.emittedTotal, dir: "none" },
-    { label: "Frequência", get: (e) => `${e.perDay.toFixed(1)}/dia`, raw: (e) => e.perDay, dir: "none" },
-    { label: "Abertos agora", get: (e) => String(e.open), raw: (e) => e.open, dir: "none", tone: (v) => (v && v > 0 ? YELLOW : null) },
-    { label: "Resolvidos", get: (e) => String(e.resolved), raw: (e) => e.resolved, dir: "none" },
-    { label: "Operações TP (take)", get: (e) => String(e.wins), raw: (e) => e.wins, dir: "none", tone: (v) => (v && v > 0 ? GREEN : null) },
-    { label: "Operações SL (stop)", get: (e) => String(e.losses), raw: (e) => e.losses, dir: "none", tone: (v) => (v && v > 0 ? RED : null) },
-    { label: "Assertividade (win rate)", get: (e) => `${e.winRatePct.toFixed(1)}%`, raw: (e) => e.winRatePct, dir: "higher" },
-    { label: "Stop loss (% dos decisivos)", get: (e) => (e.decisive > 0 ? `${((e.losses / e.decisive) * 100).toFixed(0)}%` : "—"), raw: (e) => (e.decisive > 0 ? (e.losses / e.decisive) * 100 : null), dir: "none", tone: (v) => (v == null ? null : RED) },
-    { label: "Stops por take", get: (e) => (e.wins > 0 ? `${(e.losses / e.wins).toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 ? e.losses / e.wins : null), dir: "none", tone: (v) => (v == null ? null : v > 1 ? RED : v < 1 ? GREEN : null) },
-    { label: "Profit factor", get: (e) => e.profitFactor.toFixed(2), raw: (e) => e.profitFactor, dir: "higher" },
-    { label: "R médio / sinal", get: (e) => sgn(e.avgR), raw: (e) => e.avgR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
-    { label: "Ganho médio (R)", get: (e) => (e.wins > 0 ? sgn(e.avgWinR) : "—"), raw: (e) => (e.wins > 0 ? e.avgWinR : null), dir: "higher", tone: (v) => (v == null ? null : GREEN) },
-    { label: "Perda média (R)", get: (e) => (e.losses > 0 ? sgn(e.avgLossR) : "—"), raw: (e) => (e.losses > 0 ? e.avgLossR : null), dir: "none", tone: (v) => (v == null ? null : RED) },
-    { label: "Payoff (ganho / |perda|)", get: (e) => (e.wins > 0 && e.losses > 0 ? `${e.payoff.toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 && e.losses > 0 ? e.payoff : null), dir: "higher", tone: (v) => (v == null ? null : v >= 1 ? GREEN : RED) },
-    { label: "R acumulado (realizado)", get: (e) => sgn(e.totalR, 1), raw: (e) => e.totalR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
-    { label: "Abertos em lucro / prejuízo / neutro", get: (e) => `${e.openInProfit} / ${e.openInLoss} / ${e.openNeutral}`, raw: () => null, dir: "none", node: (e) => (<><span style={{ color: GREEN, fontWeight: 700 }}>{e.openInProfit}</span> / <span style={{ color: RED, fontWeight: 700 }}>{e.openInLoss}</span> / <span style={{ color: "#94a3b8", fontWeight: 700 }}>{e.openNeutral}</span></>) },
-    { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
+  type MetricRow = { label: string; get: (e: EngineStat) => string; raw: (e: EngineStat) => number | null; dir: Dir; tone?: (v: number | null) => string | null; node?: (e: EngineStat) => React.ReactNode };
+  // Métricas agrupadas por tema — separadores tornam as 17 linhas escaneáveis.
+  const ROW_GROUPS: { title: string; rows: MetricRow[] }[] = [
+    {
+      title: "Atividade",
+      rows: [
+        { label: "Sinais emitidos (total)", get: (e) => String(e.emittedTotal), raw: (e) => e.emittedTotal, dir: "none" },
+        { label: "Frequência", get: (e) => `${e.perDay.toFixed(1)}/dia`, raw: (e) => e.perDay, dir: "none" },
+        { label: "Abertos agora", get: (e) => String(e.open), raw: (e) => e.open, dir: "none", tone: (v) => (v && v > 0 ? YELLOW : null) },
+        { label: "Resolvidos", get: (e) => String(e.resolved), raw: (e) => e.resolved, dir: "none" },
+      ],
+    },
+    {
+      title: "Desfechos",
+      rows: [
+        { label: "Operações TP (take)", get: (e) => String(e.wins), raw: (e) => e.wins, dir: "none", tone: (v) => (v && v > 0 ? GREEN : null) },
+        { label: "Operações SL (stop)", get: (e) => String(e.losses), raw: (e) => e.losses, dir: "none", tone: (v) => (v && v > 0 ? RED : null) },
+        { label: "Assertividade (win rate)", get: (e) => `${e.winRatePct.toFixed(1)}%`, raw: (e) => e.winRatePct, dir: "higher" },
+        { label: "Stop loss (% dos decisivos)", get: (e) => (e.decisive > 0 ? `${((e.losses / e.decisive) * 100).toFixed(0)}%` : "—"), raw: (e) => (e.decisive > 0 ? (e.losses / e.decisive) * 100 : null), dir: "none", tone: (v) => (v == null ? null : RED) },
+        { label: "Stops por take", get: (e) => (e.wins > 0 ? `${(e.losses / e.wins).toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 ? e.losses / e.wins : null), dir: "none", tone: (v) => (v == null ? null : v > 1 ? RED : v < 1 ? GREEN : null) },
+      ],
+    },
+    {
+      title: "Retorno (realizado)",
+      rows: [
+        { label: "Profit factor", get: (e) => e.profitFactor.toFixed(2), raw: (e) => e.profitFactor, dir: "higher" },
+        { label: "R médio / sinal", get: (e) => sgn(e.avgR), raw: (e) => e.avgR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
+        { label: "Ganho médio (R)", get: (e) => (e.wins > 0 ? sgn(e.avgWinR) : "—"), raw: (e) => (e.wins > 0 ? e.avgWinR : null), dir: "higher", tone: (v) => (v == null ? null : GREEN) },
+        { label: "Perda média (R)", get: (e) => (e.losses > 0 ? sgn(e.avgLossR) : "—"), raw: (e) => (e.losses > 0 ? e.avgLossR : null), dir: "none", tone: (v) => (v == null ? null : RED) },
+        { label: "Payoff (ganho / |perda|)", get: (e) => (e.wins > 0 && e.losses > 0 ? `${e.payoff.toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 && e.losses > 0 ? e.payoff : null), dir: "higher", tone: (v) => (v == null ? null : v >= 1 ? GREEN : RED) },
+        { label: "R acumulado (realizado)", get: (e) => sgn(e.totalR, 1), raw: (e) => e.totalR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
+      ],
+    },
+    {
+      title: "Posições abertas (não-realizado)",
+      rows: [
+        { label: "Abertos em lucro / prejuízo / neutro", get: (e) => `${e.openInProfit} / ${e.openInLoss} / ${e.openNeutral}`, raw: () => null, dir: "none", node: (e) => (<><span style={{ color: GREEN, fontWeight: 700 }}>{e.openInProfit}</span> / <span style={{ color: RED, fontWeight: 700 }}>{e.openInLoss}</span> / <span style={{ color: "#94a3b8", fontWeight: 700 }}>{e.openNeutral}</span></>) },
+        { label: "R não-realizado (abertos)", get: (e) => sgn(e.openUnrealizedR, 1), raw: (e) => e.openUnrealizedR, dir: "none", tone: (v) => (v == null ? null : v < 0 ? RED : v > 0 ? GREEN : null) },
+      ],
+    },
   ];
 
   // ---- listas: filtro + ordenação (client-side) ----
@@ -989,8 +1034,8 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
             const on = !hidden.has(id);
             return (
               <button key={id} type="button" onClick={() => toggleEngine(id)}
-                style={{ ...FIELD, cursor: "pointer", fontSize: "0.78rem", fontWeight: on ? 700 : 500, padding: "5px 10px", background: on ? "var(--accent,#2563eb)" : "#fff", color: on ? "#fff" : "#64748b", borderColor: on ? "var(--accent,#2563eb)" : "var(--border,#cbd5e1)" }}>
-                {ENGINE_LABEL[id]}
+                style={{ ...FIELD, cursor: "pointer", fontSize: "0.78rem", fontWeight: on ? 700 : 500, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 6, background: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 14%, transparent)" : "var(--panel-2, #0a0e15)", color: on ? "var(--ink, #e9effa)" : "var(--ink-faint, #535f74)", borderColor: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 45%, transparent)" : "var(--line-2)", opacity: on ? 1 : 0.75 }}>
+                <EngineDot id={id} />{ENGINE_LABEL[id]}
               </button>
             );
           })}
@@ -999,41 +1044,55 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
           type="button"
           onClick={() => startRefresh(() => router.refresh())}
           disabled={refreshing}
-          style={{ ...FIELD, cursor: refreshing ? "wait" : "pointer", fontWeight: 600, background: "var(--accent,#2563eb)", color: "#fff", borderColor: "var(--accent,#2563eb)", opacity: refreshing ? 0.7 : 1 }}
+          style={{ ...FIELD, cursor: refreshing ? "wait" : "pointer", fontWeight: 700, background: "var(--cyan, #54a8ff)", color: "#04121a", borderColor: "var(--cyan, #54a8ff)", opacity: refreshing ? 0.7 : 1 }}
         >
           {refreshing ? "Atualizando…" : "↻ Atualizar dados"}
         </button>
       </div>
-      <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "82ch" }}>
-        Comparação <b>forward</b> entre os motores. <b>Padrão</b> e <b>Classe</b> = motores vivos. <b>Padrão-B</b> (ATR ×1,4),
-        <b> Classe-B</b> (convicção ≥20 + ATR ×1,4) e <b>LLM</b> (decisão da IA + plano ATR) = variantes experimentais, emitidas em
-        paralelo só aqui (não aparecem no track record público). <b>Realizado</b> = fechados pelo cron; <b>Não-realizado</b> = abertos a mercado.
+      <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "92ch" }}>
+        Comparação <b>forward</b> entre os motores. <b>Padrão</b> e <b>Classe</b> = motores vivos. Experimentais (emitidos em paralelo):
+        <b> Padrão-B</b> (ATR ×1,4), <b>Classe-B</b> (convicção ≥20 + ATR ×1,4), <b>LLM</b> (decisão da IA),
+        <b> Condicional</b> (lógica por regime), <b>Contrário</b> (controle — inverso do Padrão) e <b>Consenso</b> (Padrão ∩ Classe).
+        <b> Realizado</b> = fechados pelo cron; <b>não-realizado</b> = abertos a mercado.
       </p>
 
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", minWidth: 720 }}>
+      <div style={{ overflowX: "auto", border: "1px solid var(--line-2)", borderRadius: 12 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", minWidth: 220 + cols.length * 104 }}>
           <thead>
             <tr style={ROW}>
-              <th style={{ ...TH, textAlign: "left" }}>Métrica</th>
-              {cols.map((e) => <th key={e.engine} style={{ ...TH, textAlign: "right" }}>{SHORT[e.engine] ?? e.label}</th>)}
+              <th style={{ ...TH, ...STICKY_COL, textAlign: "left" }}>Métrica</th>
+              {cols.map((e) => (
+                <th key={e.engine} style={{ ...TH, textAlign: "right", whiteSpace: "nowrap" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e.engine} />{SHORT[e.engine] ?? e.label}</span>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {ROWS.map((r, i) => {
-              const vals = cols.map((e) => r.raw(e));
-              const bi = bestIdx(vals, r.dir);
-              // tone (cor por valor) tem prioridade; senão, verde no melhor; senão, claro.
-              const hl = (best: boolean, tone: string | null): React.CSSProperties => ({ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: best || tone ? 700 : 500, color: tone ?? (best ? "var(--bull,#16a34a)" : "#e8edf5") });
-              return (
-                <tr key={i} style={ROW}>
-                  <td style={{ ...TD, color: "#aebccd" }}>{r.label}</td>
-                  {cols.map((e, j) => {
-                    const tone = r.tone ? r.tone(vals[j] ?? null) : null;
-                    return <td key={e.engine} style={hl(j === bi, tone)}>{r.node ? r.node(e) : r.get(e)}</td>;
-                  })}
+            {ROW_GROUPS.map((g) => (
+              <Fragment key={g.title}>
+                <tr>
+                  <td colSpan={cols.length + 1} style={{ ...STICKY_COL, padding: "10px 12px 5px", fontFamily: "var(--font-mono)", fontSize: "0.62rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-faint, #535f74)", borderBottom: "1px solid var(--line-2)", background: "var(--panel-2, #0a0e15)", position: "static" }}>
+                    {g.title}
+                  </td>
                 </tr>
-              );
-            })}
+                {g.rows.map((r, i) => {
+                  const vals = cols.map((e) => r.raw(e));
+                  const bi = bestIdx(vals, r.dir);
+                  // tone (cor por valor) tem prioridade; senão, verde no melhor; senão, claro.
+                  const hl = (best: boolean, tone: string | null): React.CSSProperties => ({ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: best || tone ? 700 : 500, color: tone ?? (best ? "var(--bull,#16a34a)" : "#e8edf5") });
+                  return (
+                    <tr key={i} style={ROW}>
+                      <td style={{ ...TD, ...STICKY_COL, color: "#aebccd", whiteSpace: "nowrap" }}>{r.label}</td>
+                      {cols.map((e, j) => {
+                        const tone = r.tone ? r.tone(vals[j] ?? null) : null;
+                        return <td key={e.engine} style={hl(j === bi, tone)}>{r.node ? r.node(e) : r.get(e)}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
+              </Fragment>
+            ))}
           </tbody>
         </table>
       </div>
