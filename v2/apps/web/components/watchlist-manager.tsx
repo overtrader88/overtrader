@@ -134,6 +134,17 @@ export function WatchlistManager() {
         <span>Cada alerta custa <b>{WATCHLIST_ALERT_COST} créditos</b> e vale <b>{WATCHLIST_ALERT_DAYS} dias</b> (por ativo + timeframe + direção).</span>
         {credits != null ? <span className="wm-bal">saldo: <b>{credits.toLocaleString("pt-BR")}</b> créditos</span> : null}
       </div>
+
+      {(() => {
+        const inativos = (items ?? []).filter((it) => expiryView(it.expires_at, now).kind !== "active").length;
+        if (inativos === 0) return null;
+        return (
+          <div className="wm-warn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3 2 20h20L12 3Z" /><path d="M12 10v4M12 17.5v.5" /></svg>
+            <span>Você tem <b>{inativos}</b> alerta{inativos > 1 ? "s" : ""} {inativos > 1 ? "inativos" : "inativo"} — eles <b>não estão sendo monitorados</b>. Clique em <b>ativar</b>/<b>renovar</b> na linha ({WATCHLIST_ALERT_COST} créditos · {WATCHLIST_ALERT_DAYS} dias) para voltar a receber os alertas.</span>
+          </div>
+        );
+      })()}
       {err ? <div className="lg-err" style={{ marginTop: 10 }}>{err}</div> : null}
 
       {items === null ? (

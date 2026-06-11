@@ -1728,6 +1728,9 @@ body { padding-bottom: 34px; }
 .wm-cost b { color: var(--ink); }
 .wm-bal { font-family: var(--font-mono); color: var(--ink-faint); white-space: nowrap; }
 .wm-bal b { color: var(--amber); }
+.wm-warn { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; padding: 11px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); background: var(--amber-soft); color: var(--amber); font-size: 12.5px; line-height: 1.45; }
+.wm-warn svg { flex: none; width: 18px; height: 18px; }
+.wm-warn b { color: var(--amber); font-weight: 700; }
 .wm-x { cursor: pointer; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--ink-faint); border-radius: 8px; width: 32px; height: 32px; display: grid; place-items: center; font-size: 16px; line-height: 1; transition: .15s; }
 .wm-x:hover { color: var(--bear); border-color: var(--bear); background: var(--bear-soft); }
 .wm-foot { display: flex; align-items: flex-start; gap: 12px; margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line-2); border-radius: 12px; background: color-mix(in srgb, var(--cyan) 4%, transparent); }
