@@ -63,9 +63,11 @@ export async function POST(req: Request): Promise<NextResponse> {
   const existing = existingRes.data as { id: string; expires_at: string | null } | null;
 
   const now = Date.now();
-  const active = !!existing && (existing.expires_at == null || new Date(existing.expires_at).getTime() > now);
+  // ATIVO = pago e dentro da validade. expires_at NULL (alerta legado, nunca pago)
+  // NÃO conta como ativo → precisa pagar 15 p/ ativar (só recebe quem paga).
+  const active = !!existing && existing.expires_at != null && new Date(existing.expires_at).getTime() > now;
 
-  // Cobrança: só p/ alerta NOVO ou VENCIDO, e só quando a coluna já existe (pós-migration).
+  // Cobrança: p/ alerta NOVO, VENCIDO ou LEGADO (não pago), e só quando a coluna já existe (pós-migration).
   let expiresAt: string | null | undefined = hasExpiry ? (existing?.expires_at ?? null) : undefined;
   let charged = false;
   const svc = supabaseService();

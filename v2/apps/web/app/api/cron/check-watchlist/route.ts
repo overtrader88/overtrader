@@ -64,9 +64,9 @@ async function handle(req: Request): Promise<NextResponse> {
   let skipped = 0;
   const nowMs = Date.now();
   for (const it of (items ?? []) as { id: string; user_id: string; symbol: string; timeframe: string; min_signal_strength: string; engine?: string; expires_at?: string | null }[]) {
-    // Alerta pago vencido (expires_at no passado) não é mais monitorado.
-    // expires_at null/ausente = alerta legado (grátis) → segue ativo.
-    if (it.expires_at && new Date(it.expires_at).getTime() <= nowMs) {
+    // Só entrega alerta PAGO e dentro da validade. Sem expires_at (alerta legado,
+    // nunca pago) ou vencido → não monitora (só recebe quem pagou os 15 créditos).
+    if (!it.expires_at || new Date(it.expires_at).getTime() <= nowMs) {
       skipped++;
       continue;
     }

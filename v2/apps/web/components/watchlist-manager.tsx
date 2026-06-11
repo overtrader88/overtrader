@@ -35,9 +35,10 @@ const StrengthOptions = () => (
   </>
 );
 
-/** Estado de validade de um alerta a partir do expires_at. */
-function expiryView(expiresAt: string | null | undefined, now: number): { kind: "legacy" | "active" | "dead"; label: string } {
-  if (!expiresAt) return { kind: "legacy", label: "sem prazo" }; // alerta legado (grátis)
+/** Estado de validade de um alerta a partir do expires_at.
+ *  Sem expires_at = alerta legado (nunca pago) → INATIVO (só recebe quem paga 15). */
+function expiryView(expiresAt: string | null | undefined, now: number): { kind: "inactive" | "active" | "dead"; label: string } {
+  if (!expiresAt) return { kind: "inactive", label: "inativo" };
   const ms = new Date(expiresAt).getTime() - now;
   if (ms <= 0) return { kind: "dead", label: "expirado" };
   const d = Math.floor(ms / 86_400_000);
@@ -149,16 +150,16 @@ export function WatchlistManager() {
                 <span className="wm-asset"><AssetGlyph symbol={it.symbol} size={30} /><b>{it.symbol}</b> <small>{findAsset(it.symbol)?.name ?? ""}</small>{it.engine === "classe" ? <span className="eng-chip" style={{ marginLeft: 6 }}>⚙ M2</span> : null}</span>
                 <span className="wm-tf">{it.timeframe.toUpperCase()}</span>
                 <span>
-                  <select className="wm-sel sm" value={it.min_signal_strength} onChange={(e) => setItemStrength(it, e.target.value)}>
+                  <select className="wm-sel sm" value={it.min_signal_strength} disabled={ev.kind !== "active"} onChange={(e) => setItemStrength(it, e.target.value)}>
                     <StrengthOptions />
                   </select>
                 </span>
                 <span className={`wm-exp ${ev.kind}`}>{ev.label}</span>
                 <span className="wm-row-act">
-                  {ev.kind === "dead" ? (
-                    <button type="button" className="cr-link wm-renew" onClick={() => renew(it)} disabled={busy}>renovar</button>
-                  ) : (
+                  {ev.kind === "active" ? (
                     <a className="cr-link" href={`/analise?symbol=${encodeURIComponent(it.symbol)}&tf=${it.timeframe}&view=1${it.engine === "classe" ? "&engine=classe" : ""}`}>analisar</a>
+                  ) : (
+                    <button type="button" className="cr-link wm-renew" onClick={() => renew(it)} disabled={busy}>{ev.kind === "inactive" ? "ativar" : "renovar"}</button>
                   )}
                   <button type="button" className="wm-x" onClick={() => remove(it.id)} aria-label={`Remover ${it.symbol}`}>×</button>
                 </span>

@@ -1718,8 +1718,7 @@ body { padding-bottom: 34px; }
 .wm-asset small { color: var(--ink-faint); font-size: 12px; margin-left: 2px; }
 .wm-tf { font-family: var(--font-mono); color: var(--ink-soft); font-size: 12.5px; }
 .wm-exp { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; }
-.wm-exp.legacy { color: var(--ink-faint); }
-.wm-exp.dead { color: var(--bear); font-weight: 600; }
+.wm-exp.inactive, .wm-exp.dead { color: var(--bear); font-weight: 600; }
 .wm-row-act { display: flex; gap: 14px; align-items: center; justify-content: flex-end; }
 .wm-row-act .cr-link:hover { text-decoration: underline; }
 .wm-renew { background: none; border: none; cursor: pointer; padding: 0; }
