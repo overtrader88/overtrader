@@ -158,7 +158,7 @@ export function WatchlistManager() {
                   {ev.kind === "dead" ? (
                     <button type="button" className="cr-link wm-renew" onClick={() => renew(it)} disabled={busy}>renovar</button>
                   ) : (
-                    <a className="cr-link" href={`/analise?symbol=${encodeURIComponent(it.symbol)}&tf=${it.timeframe}`}>analisar</a>
+                    <a className="cr-link" href={`/analise?symbol=${encodeURIComponent(it.symbol)}&tf=${it.timeframe}&view=1${it.engine === "classe" ? "&engine=classe" : ""}`}>analisar</a>
                   )}
                   <button type="button" className="wm-x" onClick={() => remove(it.id)} aria-label={`Remover ${it.symbol}`}>×</button>
                 </span>
