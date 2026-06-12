@@ -1,181 +1,203 @@
+/**
+ * Landing oficial (v5) — "terminal premium": o conceito "veja a IA provar"
+ * com a camada de movimento: ticker, gráfico real + scanner de IA, rede
+ * neural, contadores e reveals orquestrados. Zero dependência nova.
+ */
 import type { Metadata } from "next";
-import type { CSSProperties } from "react";
 import { ENGINE_VERSION } from "@tradeai/engine";
-import {
-  Logo,
-  ConfidenceBadge,
-  RadialGauge,
-  EquityCurve,
-  SignalBadge,
-} from "@/components/ui";
+import { Logo } from "@/components/ui";
 import { signupsOpen } from "@/lib/signups";
-import v from "./page.module.css";
+import { HeroStage } from "./hero-stage";
+import { Ticker } from "./ticker";
+import { RevealObserver } from "./reveal";
+import { CountUp } from "./count-up";
+import { Neural } from "./neural";
+import { GaugeAnim } from "./gauge";
+import s from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "Overtrader — A IA que prova antes de prometer",
   description:
-    "Análise de trading com IA, auditável. A IA valida cada sinal camada por camada — amostra, intervalo de confiança e período em cada número. Backtest público, algoritmos abertos, e o veredito honesto de quando não operar.",
+    "Análise de trading com IA, auditável. A IA valida cada sinal em 15 camadas — amostra, intervalo de confiança e período em cada número. 143 ativos em 5 mercados. Backtest público, algoritmos abertos.",
+  openGraph: {
+    title: "Overtrader — A IA que prova antes de prometer",
+    description: "Análise de trading com IA auditável: 15 camadas por sinal, 143 ativos, 5 mercados. Veja como a IA chega na conclusão.",
+    type: "website",
+    locale: "pt_BR",
+    siteName: "Overtrader",
+  },
+  twitter: {
+    card: "summary",
+    title: "Overtrader — A IA que prova antes de prometer",
+    description: "Análise de trading com IA auditável: 15 camadas por sinal, 143 ativos, 5 mercados.",
+  },
 };
 
-// As camadas que “acendem” em sequência no hero (sensação de motor rodando).
-const LAYERS = [
-  "Tendência",
-  "Momentum",
-  "Volatilidade",
-  "Suporte / Resistência",
-  "Smart Money (SMC)",
-  "Multi-timeframe",
-  "Harmônicos",
-  "Monte Carlo",
-  "Fluxo de notícias",
-  "Volume / liquidez",
+const FAQS: [string, string][] = [
+  ["Isso é um robô que opera por mim?", "Não. O Overtrader não executa ordens nem acessa sua corretora. É inteligência de análise: a IA estuda o ativo em 15 camadas e mostra o raciocínio — a decisão é sempre sua."],
+  ["Isso é recomendação de investimento?", "Não. É conteúdo informativo e educativo. O Overtrader não constitui recomendação personalizada — decisões de investimento são sempre suas."],
+  ["O que significa “prova antes de prometer”?", "Todo número exibido carrega o tamanho de amostra (n), o intervalo de confiança e o período. Se a amostra é insuficiente, o produto diz isso em vez de mostrar um número bonito."],
+  ["Como o selo de qualidade decide a cor?", "O selo só fica verde quando o limite inferior do intervalo de confiança supera o limiar — nunca sobre amostra pequena ou ruidosa."],
+  ["Preciso de cartão para testar?", "Não. São 3 análises completas vitalícias, sem cartão e sem expiração."],
 ];
 
-const EQUITY = [0, 0.3, 0.1, 0.9, 0.7, 1.6, 1.3, 2.3, 2.0, 3.1, 2.8, 3.8, 4.6];
+const STEPS: [string, string][] = [
+  ["Escolha o ativo", "143 ativos em 5 mercados: cripto, forex, ações, índices e commodities — num só motor."],
+  ["A IA roda as 15 camadas", "Tendência, momentum, SMC, multi-timeframe, harmônicos, Monte Carlo… cada camada vota com peso versionado."],
+  ["Score + selo de qualidade", "A confluência vira um score de 0–100 com amostra e intervalo de confiança. O selo avisa quando NÃO operar."],
+  ["Você decide", "Sem robô, sem auto-execução. Você vê o raciocínio inteiro e mantém o controle da operação."],
+];
+
+const FEATURES: { t: string; d: string; ic: React.ReactNode }[] = [
+  {
+    t: "Confluência multi-indicador",
+    d: "20 indicadores votam por categoria e regime. O sinal só nasce quando as camadas concordam — sem achismo.",
+    ic: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z" /><path d="m4 12.5 8 4.5 8-4.5M4 17l8 4.5L20 17" /></svg>,
+  },
+  {
+    t: "143 ativos · 5 mercados",
+    d: "Cripto, forex, ações, índices e commodities com a metodologia certa para cada classe de ativo.",
+    ic: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9s1.3-6.4 3.8-9Z" /></svg>,
+  },
+  {
+    t: "Transparência da IA",
+    d: "Indicadores, pesos e score abertos em cada análise. Você vê como a conclusão saiu — não uma caixa-preta.",
+    ic: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>,
+  },
+  {
+    t: "Selo de qualidade honesto",
+    d: "Backtest walk-forward com intervalo de confiança. O selo verde só acende quando a estatística sustenta.",
+    ic: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 5 6v5c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6l-7-3Z" /><path d="m9 12 2 2 4-4" /></svg>,
+  },
+];
 
 export default function HomePage() {
   const open = signupsOpen();
   return (
-    <div className={v.page}>
-      <div className={v.bg} aria-hidden>
-        <div className={v.beam} />
-        <div className={v.gridlines} />
+    <div className={s.page}>
+      <RevealObserver />
+      <div className={s.bg} aria-hidden>
+        <div className={s.beam} />
+        <div className={s.gridlines} />
       </div>
 
       {/* NAV */}
-      <nav className={v.nav}>
-        <div className={`${v.wrap} ${v.navRow}`}>
-          <a className={v.brand} href="/" aria-label="Overtrader">
+      <nav className={s.nav}>
+        <div className={`${s.wrap} ${s.navRow}`}>
+          <a className={s.brand} href="/" aria-label="Overtrader">
             <Logo />
-            <span className={v.name}>Overtrader</span>
-            <span className={v.ia}>IA</span>
+            <span className={s.name}>Overtrader</span>
+            <span className={s.ia}>IA</span>
           </a>
-          <div className={v.navLinks}>
+          <div className={s.navLinks}>
+            <a href="#como">Como funciona</a>
             <a href="#fosso">O diferencial</a>
             <a href="#precos">Preços</a>
             <a href="#faq">FAQ</a>
           </div>
-          <div className={v.navCtas}>
-            <a className={`${v.btn} ${v.ghost}`} href="/login">Entrar</a>
-            <a className={`${v.btn} ${v.primary}`} href="/analise">Analisar grátis</a>
+          <div className={s.navCtas}>
+            <a className={`${s.btn} ${s.ghost}`} href="/login">Entrar</a>
+            <a className={`${s.btn} ${s.primary}`} href={open ? "/login?mode=signup" : "/analise"}>Começar grátis</a>
           </div>
         </div>
       </nav>
 
+      <Ticker />
+
       {/* HERO */}
-      <header className={`${v.wrap} ${v.hero}`}>
-        <span className={`${v.eyebrow} ${v.rise} ${v.d1}`}>
-          <span className={v.dot} /> Análise de trading com IA · 100% auditável
+      <header className={`${s.wrap} ${s.hero}`}>
+        <span className={`${s.eyebrow} ${s.rise} ${s.d1}`}>
+          <span className={s.dot} /> Análise de trading com IA · 100% auditável
         </span>
-        <h1 className={`${v.h1} ${v.rise} ${v.d2}`}>
-          Veja a IA <span className={v.grad}>provar</span> o sinal.<br />
+        <h1 className={`${s.h1} ${s.rise} ${s.d2}`}>
+          Veja a IA <span className={s.grad}>provar</span> o sinal.<br />
           Camada por camada.
         </h1>
-        <p className={`${v.sub} ${v.rise} ${v.d3}`}>
+        <p className={`${s.sub} ${s.rise} ${s.d3}`}>
           Enquanto o concorrente grita <i>“acurácia 99%”</i>, a gente mostra a conta:
           <b> amostra, intervalo de confiança e período</b> em cada número. Backtest
           público, algoritmos abertos — e o veredito honesto de quando <b>não</b> operar.
         </p>
-        <div className={`${v.ctaRow} ${v.rise} ${v.d4}`}>
-          <a className={`${v.btn} ${v.primary} ${v.lg}`} href="/analise">
-            Analisar um ativo grátis <span className={v.arrow}>→</span>
+        <div className={`${s.ctaRow} ${s.rise} ${s.d4}`}>
+          <a className={`${s.btn} ${s.primary} ${s.lg}`} href={open ? "/login?mode=signup" : "/analise"}>
+            Começar grátis <span className={s.arrow}>→</span>
           </a>
-          <a className={`${v.btn} ${v.lg} ${v.glassBtn}`} href="#precos">Ver planos</a>
+          <a className={`${s.btn} ${s.lg} ${s.glassBtn}`} href="#como">Ver como funciona</a>
         </div>
-        <div className={`${v.chips} ${v.rise} ${v.d5}`}>
-          <span className={v.chip}>✓ Sem cartão</span>
-          <span className={v.chip}>✓ 3 análises vitalícias</span>
-          <span className={v.chip}>✓ Reembolso de 7 dias (CDC)</span>
+        <div className={`${s.chips} ${s.rise} ${s.d5}`}>
+          <span className={s.chip}>✓ Sem cartão</span>
+          <span className={s.chip}>✓ 3 análises vitalícias</span>
+          <span className={s.chip}>✓ Reembolso de 7 dias (CDC)</span>
         </div>
 
-        {/* SHOWCASE — o produto provando ao vivo */}
-        <div className={`${v.stage} ${v.rise} ${v.d4}`}>
-          <div className={v.showGlow} aria-hidden />
-          <section className={v.show} aria-label="Demonstração de análise">
-            <div className={v.showBar}>
-              <span className={v.live}><span className={v.liveDot} /> ANÁLISE AO VIVO</span>
-              <b>BTCUSDT</b><span className={v.tf}>4H</span>
-              <span className={v.engine}>ENGINE {ENGINE_VERSION}</span>
-            </div>
-
-            <div className={v.showGrid}>
-              {/* coluna 1 — camadas acendendo */}
-              <div className={v.col1}>
-                <div className={v.colHead}>15 camadas analisadas</div>
-                <ul className={v.layers}>
-                  {LAYERS.map((l, i) => (
-                    <li
-                      className={v.layer}
-                      key={l}
-                      style={{ "--i": i } as CSSProperties}
-                    >
-                      <span className={v.check} aria-hidden>✓</span>
-                      <span className={v.layerName}>{l}</span>
-                      <span className={v.layerOk}>ok</span>
-                    </li>
-                  ))}
-                  <li className={v.more}>+5 camadas · pesos versionados</li>
-                </ul>
-              </div>
-
-              {/* coluna 2 — veredito + força */}
-              <div className={v.col2}>
-                <RadialGauge value={72} size={172} stroke={11} caption="força do sinal" showOutOf />
-                <div className={v.verdict}>
-                  <SignalBadge direction="buy">Compra</SignalBadge>
-                  <span className={v.confl}>confluência 7/10 · votos 12 · 5 · 3</span>
-                </div>
-              </div>
-
-              {/* coluna 3 — prova estatística */}
-              <div className={v.col3}>
-                <ConfidenceBadge
-                  label="Profit factor · backtest"
-                  value={1.89}
-                  ci={[1.42, 2.51]}
-                  n={142}
-                  method="bootstrap"
-                  period="jan/24–mai/26"
-                  min={0}
-                  max={3.5}
-                />
-                <div className={v.eqWrap}>
-                  <div className={v.eqHead}><span>Curva de R acumulado</span><span className={v.eqVal}>+4,6 R</span></div>
-                  <EquityCurve data={EQUITY} height={62} gradientId="v4eq" />
-                </div>
-                <div className={v.seal}><span className={v.sealLed} /> VEREDITO: VALIDADO</div>
-              </div>
-            </div>
-          </section>
+        {/* PALCO — gráfico vivo + IA escaneando */}
+        <div className={`${s.stage} ${s.rise} ${s.d4}`}>
+          <div className={s.showGlow} aria-hidden />
+          <HeroStage engineVersion={ENGINE_VERSION} />
         </div>
       </header>
 
-      {/* PROOF STRIP */}
-      <section className={v.proof}>
-        <div className={`${v.wrap} ${v.proofGrid}`}>
+      {/* PROVA — contadores reais */}
+      <section className={s.proof}>
+        <div className={`${s.wrap} ${s.proofGrid}`}>
           {[
-            ["143", "ativos", "5 mercados num só motor"],
-            ["15", "camadas", "por sinal, pesos versionados"],
-            ["100%", "auditável", "algoritmos abertos em código"],
-            ["7 dias", "de reembolso", "art. 49 do CDC, sem pegadinha"],
-          ].map(([n, u, k]) => (
-            <div className={`${v.proofItem} ${v.reveal}`} key={u}>
-              <div className={v.proofNum}>{n}<span> {u}</span></div>
-              <div className={v.proofLabel}>{k}</div>
+            [<CountUp to={143} key="n" />, "ativos", "5 mercados num só motor"],
+            [<CountUp to={5} key="n" />, "mercados", "cripto, forex, ações, índices, commodities"],
+            [<CountUp to={15} key="n" />, "camadas", "por sinal, pesos versionados"],
+            [<CountUp to={100} suffix="%" key="n" />, "auditável", "algoritmos abertos em código"],
+          ].map(([n, u, k], i) => (
+            <div className={s.proofItem} data-rv style={{ "--rd": i } as React.CSSProperties} key={String(u)}>
+              <div className={s.proofNum}>{n}<span> {String(u)}</span></div>
+              <div className={s.proofLabel}>{String(k)}</div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* FOSSO */}
-      <section className={`${v.wrap} ${v.section}`} id="fosso">
-        <div className={v.head}>
-          <span className={v.eyebrow}><span className={v.dot} /> Transparência vs caixa-preta</span>
-          <h2 className={v.h2}>O concorrente afirma.<br />Nós mostramos a <span className={v.grad}>conta</span>.</h2>
+      {/* COMO FUNCIONA */}
+      <section className={`${s.wrap} ${s.section}`} id="como">
+        <div className={s.head} data-rv>
+          <span className={s.eyebrow}><span className={s.dot} /> Como funciona</span>
+          <h2 className={s.h2}>Do gráfico ao veredito<br />em <span className={s.grad}>4 passos</span>.</h2>
         </div>
-        <div className={`${v.compare} ${v.reveal}`}>
-          <div className={`${v.colc} ${v.us}`}>
-            <h3 className={v.cHead}>Overtrader <span className={v.badge}>PROVA</span></h3>
+        <div className={s.steps}>
+          {STEPS.map(([t, d], i) => (
+            <div className={s.step} data-rv style={{ "--rd": i } as React.CSSProperties} key={t}>
+              <span className={s.stepNum}>PASSO {String(i + 1).padStart(2, "0")}</span>
+              <h3 className={s.stepT}>{t}</h3>
+              <p className={s.stepD}>{d}</p>
+            </div>
+          ))}
+        </div>
+        <Neural />
+      </section>
+
+      {/* RECURSOS */}
+      <section className={`${s.wrap} ${s.section}`} id="recursos">
+        <div className={s.head} data-rv>
+          <span className={s.eyebrow}><span className={s.dot} /> Recursos</span>
+          <h2 className={s.h2}>Inteligência de análise.<br />Não <span className={s.grad}>caixa-preta</span>.</h2>
+        </div>
+        <div className={s.cards}>
+          {FEATURES.map((f, i) => (
+            <div className={s.card} data-rv style={{ "--rd": i } as React.CSSProperties} key={f.t}>
+              <div className={s.cardIc}>{f.ic}</div>
+              <h3 className={s.cardT}>{f.t}</h3>
+              <p className={s.cardD}>{f.d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FOSSO / DIFERENCIAL */}
+      <section className={`${s.wrap} ${s.section}`} id="fosso">
+        <div className={s.head} data-rv>
+          <span className={s.eyebrow}><span className={s.dot} /> Transparência vs caixa-preta</span>
+          <h2 className={s.h2}>O concorrente afirma.<br />Nós mostramos a <span className={s.grad}>conta</span>.</h2>
+        </div>
+        <div className={s.compare}>
+          <div className={`${s.colc} ${s.us}`} data-rv>
+            <h3 className={s.cHead}>Overtrader <span className={s.badge}>PROVA</span></h3>
             {[
               "<b>Backtest público</b> em toda análise — walk-forward, sem lookahead.",
               "<b>IC + amostra + período</b> em cada número. Sem amostra, sem selo verde.",
@@ -184,14 +206,14 @@ export default function HomePage() {
               "<b>CNPJ, Termos e reembolso de 7 dias</b> que dá pra checar.",
               "<b>Sem robôs / auto-execução</b> — você no controle.",
             ].map((t, i) => (
-              <div className={v.cmp} key={i}>
-                <span className={`${v.cmpI} ${v.ok}`} aria-hidden>✓</span>
+              <div className={s.cmp} key={i}>
+                <span className={`${s.cmpI} ${s.ok}`} aria-hidden>✓</span>
                 <span dangerouslySetInnerHTML={{ __html: t }} />
               </div>
             ))}
           </div>
-          <div className={`${v.colc} ${v.them}`}>
-            <h3 className={v.cHead}>IA caixa-preta</h3>
+          <div className={`${s.colc} ${s.them}`} data-rv style={{ "--rd": 1 } as React.CSSProperties}>
+            <h3 className={s.cHead}>IA caixa-preta</h3>
             {[
               "“Acurácia 99%” sem contexto, sem amostra, sem backtest.",
               "Número cru, sem incerteza. Win rate 100% sobre 3 trades.",
@@ -200,69 +222,78 @@ export default function HomePage() {
               "Sem CNPJ, termos ou reembolso claros.",
               "Promete robôs e lucros — o que vira reclamação.",
             ].map((t, i) => (
-              <div className={v.cmp} key={i}>
-                <span className={`${v.cmpI} ${v.no}`} aria-hidden>✕</span>
+              <div className={s.cmp} key={i}>
+                <span className={`${s.cmpI} ${s.no}`} aria-hidden>✕</span>
                 <span>{t}</span>
               </div>
             ))}
           </div>
         </div>
+        <div className={s.gaugeRow} data-rv>
+          <GaugeAnim value={72} />
+          <p className={s.gexp}>
+            <b>É assim que a IA pontua um sinal.</b> Cada camada vota com peso definido e
+            versionado; a concordância vira um <b>score de confluência de 0 a 100</b> —
+            sempre acompanhado de amostra e intervalo de confiança. Score baixo?
+            O produto diz <b>“fique de fora”</b>.
+          </p>
+        </div>
       </section>
 
       {/* PREÇOS */}
-      <section className={`${v.wrap} ${v.section}`} id="precos">
-        <div className={v.head}>
-          <span className={v.eyebrow}><span className={v.dot} /> Preços</span>
-          <h2 className={v.h2}>Comece de graça.<br />Pague quando o motor <span className={v.grad}>provar</span> o valor.</h2>
-          <p className={v.lead}>
-            Ferramentas opacas cobram <s className={v.strike}>R$337–749/mês</s>. O PRO
+      <section className={`${s.wrap} ${s.section}`} id="precos">
+        <div className={s.head} data-rv>
+          <span className={s.eyebrow}><span className={s.dot} /> Preços</span>
+          <h2 className={s.h2}>Comece de graça.<br />Pague quando o motor <span className={s.grad}>provar</span> o valor.</h2>
+          <p className={s.lead}>
+            Ferramentas opacas cobram <s className={s.strike}>R$337–749/mês</s>. O PRO
             custa R$97 — e você vê a conta por trás de cada número.
           </p>
         </div>
-        <div className={v.plans}>
-          <div className={`${v.plan} ${v.reveal}`}>
-            <div className={v.pn}>Free</div>
-            <div className={v.pp}>R$0<small>/sempre</small></div>
-            <div className={v.pd}>Para conhecer o motor e o padrão de honestidade.</div>
-            <ul className={v.list}>
-              <li><span className={v.c}>✓</span> 3 análises completas vitalícias</li>
-              <li><span className={v.c}>✓</span> Dashboard de preços ao vivo</li>
-              <li><span className={v.c}>✓</span> Selo de qualidade em toda análise</li>
+        <div className={s.plans}>
+          <div className={s.plan} data-rv>
+            <div className={s.pn}>Free</div>
+            <div className={s.pp}>R$0<small>/sempre</small></div>
+            <div className={s.pd}>Para conhecer o motor e o padrão de honestidade.</div>
+            <ul className={s.list}>
+              <li><span className={s.c}>✓</span> 3 análises completas vitalícias</li>
+              <li><span className={s.c}>✓</span> Dashboard de preços ao vivo</li>
+              <li><span className={s.c}>✓</span> Selo de qualidade em toda análise</li>
             </ul>
-            <a className={v.btn} href={open ? "/login?mode=signup" : "/login"}>{open ? "Criar conta grátis" : "Entrar"}</a>
+            <a className={s.btn} href={open ? "/login?mode=signup" : "/login"}>{open ? "Criar conta grátis" : "Entrar"}</a>
           </div>
 
-          <div className={`${v.plan} ${v.pro} ${v.reveal}`}>
-            <span className={v.tag}>Mais popular</span>
-            <div className={v.pn}>PRO</div>
-            <div className={v.pp}>R$97<small>/mês</small></div>
-            <div className={v.ppYr}>ou R$970/ano · 2 meses grátis</div>
-            <div className={v.pd}>Para quem opera com frequência e quer o motor completo.</div>
-            <ul className={v.list}>
-              <li><span className={v.c}>✓</span> Análises ilimitadas · 143 ativos</li>
-              <li><span className={v.c}>✓</span> 15 camadas + Monte Carlo + backtest</li>
-              <li><span className={v.c}>✓</span> Alertas no Telegram</li>
-              <li><span className={v.c}>✓</span> Histórico completo</li>
+          <div className={`${s.plan} ${s.pro} ${s.proRing}`} data-rv style={{ "--rd": 1 } as React.CSSProperties}>
+            <span className={s.tag}>Mais popular</span>
+            <div className={s.pn}>PRO</div>
+            <div className={s.pp}>R$97<small>/mês</small></div>
+            <div className={s.ppYr}>ou R$970/ano · 2 meses grátis</div>
+            <div className={s.pd}>Para quem opera com frequência e quer o motor completo.</div>
+            <ul className={s.list}>
+              <li><span className={s.c}>✓</span> Análises ilimitadas · 143 ativos</li>
+              <li><span className={s.c}>✓</span> 15 camadas + Monte Carlo + backtest</li>
+              <li><span className={s.c}>✓</span> Alertas no Telegram</li>
+              <li><span className={s.c}>✓</span> Histórico completo</li>
             </ul>
-            <a className={`${v.btn} ${v.primary}`} href="/planos">Assinar o PRO</a>
+            <a className={`${s.btn} ${s.primary}`} href="/planos">Assinar o PRO</a>
           </div>
 
-          <div className={`${v.plan} ${v.reveal}`}>
-            <div className={v.pn}>PRO+</div>
-            <div className={v.pp}>R$197<small>/mês</small></div>
-            <div className={v.ppYr}>ou R$1.970/ano · 2 meses grátis</div>
-            <div className={v.pd}>Para o trader avançado e profissional.</div>
-            <ul className={v.list}>
-              <li><span className={v.c}>✓</span> Tudo do PRO</li>
-              <li><span className={v.c}>✓</span> Backtest segmentado por regime</li>
-              <li><span className={v.c}>✓</span> Alertas multi-ativo prioritários</li>
-              <li><span className={v.c}>✓</span> Suporte dedicado</li>
+          <div className={s.plan} data-rv style={{ "--rd": 2 } as React.CSSProperties}>
+            <div className={s.pn}>PRO+</div>
+            <div className={s.pp}>R$197<small>/mês</small></div>
+            <div className={s.ppYr}>ou R$1.970/ano · 2 meses grátis</div>
+            <div className={s.pd}>Para o trader avançado e profissional.</div>
+            <ul className={s.list}>
+              <li><span className={s.c}>✓</span> Tudo do PRO</li>
+              <li><span className={s.c}>✓</span> Backtest segmentado por regime</li>
+              <li><span className={s.c}>✓</span> Alertas multi-ativo prioritários</li>
+              <li><span className={s.c}>✓</span> Suporte dedicado</li>
             </ul>
-            <a className={v.btn} href="/planos">Assinar o PRO+</a>
+            <a className={s.btn} href="/planos">Assinar o PRO+</a>
           </div>
         </div>
-        <div className={`${v.guarantee} ${v.reveal}`}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className={v.gIcon} aria-hidden>
+        <div className={s.guarantee} data-rv>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className={s.gIcon} aria-hidden>
             <path d="M12 3 5 6v5c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6l-7-3Z" /><path d="m9 12 2 2 4-4" />
           </svg>
           <span><b>Garantia de 7 dias.</b> Não curtiu? Reembolso integral, sem perguntas — art. 49 do CDC. CNPJ e Termos visíveis.</span>
@@ -270,60 +301,71 @@ export default function HomePage() {
       </section>
 
       {/* FAQ */}
-      <section className={`${v.wrap} ${v.section}`} id="faq">
-        <div className={v.head}>
-          <span className={v.eyebrow}><span className={v.dot} /> Dúvidas</span>
-          <h2 className={v.h2}>Tire suas dúvidas.</h2>
+      <section className={`${s.wrap} ${s.section}`} id="faq">
+        <div className={s.head} data-rv>
+          <span className={s.eyebrow}><span className={s.dot} /> Dúvidas</span>
+          <h2 className={s.h2}>Tire suas dúvidas.</h2>
         </div>
-        <div className={v.faq}>
-          {[
-            ["Isso é recomendação de investimento?", "Não. É conteúdo informativo e educativo. O Overtrader não constitui recomendação personalizada — decisões de investimento são sempre suas."],
-            ["O que significa “prova antes de prometer”?", "Todo número exibido carrega o tamanho de amostra (n), o intervalo de confiança e o período. Se a amostra é insuficiente, o produto diz isso em vez de mostrar um número bonito."],
-            ["Como o selo de qualidade decide a cor?", "O selo só fica verde quando o limite inferior do intervalo de confiança supera o limiar — nunca sobre amostra pequena ou ruidosa."],
-            ["Preciso de cartão para testar?", "Não. São 3 análises completas vitalícias, sem cartão e sem expiração."],
-          ].map(([q, a], i) => (
-            <details className={v.qa} key={i}>
-              <summary className={v.q}>{q}<span className={v.plus} aria-hidden /></summary>
-              <div className={v.a}>{a}</div>
+        <div className={s.faq} data-rv>
+          {FAQS.map(([q, a], i) => (
+            <details className={s.qa} key={i}>
+              <summary className={s.q}>{q}<span className={s.plus} aria-hidden /></summary>
+              <div className={s.a}>{a}</div>
             </details>
           ))}
         </div>
       </section>
 
       {/* CTA FINAL */}
-      <section className={`${v.wrap} ${v.section}`}>
-        <div className={`${v.final} ${v.reveal}`}>
-          <div className={v.finalGlow} aria-hidden />
-          <h2 className={v.h2}>Pare de operar no escuro.</h2>
-          <p className={v.lead}>Rode sua primeira análise auditável agora — de graça, sem cartão. Veja a conta antes de confiar nela.</p>
-          <a className={`${v.btn} ${v.primary} ${v.lg}`} href="/analise">
-            Analisar um ativo grátis <span className={v.arrow}>→</span>
+      <section className={`${s.wrap} ${s.section}`}>
+        <div className={s.final} data-rv>
+          <div className={s.finalGlow} aria-hidden />
+          <h2 className={s.h2}>Pare de operar no escuro.</h2>
+          <p className={s.lead}>Rode sua primeira análise auditável agora — de graça, sem cartão. Veja a conta antes de confiar nela.</p>
+          <a className={`${s.btn} ${s.primary} ${s.lg}`} href={open ? "/login?mode=signup" : "/analise"}>
+            Começar grátis <span className={s.arrow}>→</span>
           </a>
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer className={v.footer}>
-        <div className={`${v.wrap} ${v.footRow}`}>
-          <div className={v.brand}><Logo /><span className={v.name}>Overtrader</span><span className={v.ia}>IA</span></div>
-          <div className={v.footCol}>
-            <span className={v.footH}>Produto</span>
-            <a href="#fosso">O diferencial</a><a href="#precos">Preços</a><a href="#faq">FAQ</a>
+      <footer className={s.footer}>
+        <div className={`${s.wrap} ${s.footRow}`}>
+          <div className={s.brand}><Logo /><span className={s.name}>Overtrader</span><span className={s.ia}>IA</span></div>
+          <div className={s.footCol}>
+            <span className={s.footH}>Produto</span>
+            <a href="#como">Como funciona</a><a href="#fosso">O diferencial</a><a href="#precos">Preços</a><a href="#faq">FAQ</a>
           </div>
-          <div className={v.footCol}>
-            <span className={v.footH}>Empresa</span>
-            <a href="#">Sobre</a><a href="/roadmap">Roadmap público</a>
+          <div className={s.footCol}>
+            <span className={s.footH}>Empresa</span>
+            <a href="/roadmap">Roadmap público</a>
           </div>
-          <div className={v.footCol}>
-            <span className={v.footH}>Legal</span>
+          <div className={s.footCol}>
+            <span className={s.footH}>Legal</span>
             <a href="/termos">Termos de uso</a><a href="/privacidade">Política de privacidade</a>
           </div>
         </div>
-        <div className={`${v.wrap} ${v.legal}`}>
-          <span>© 2026 OVERTRADER · CONTEÚDO INFORMATIVO · NÃO CONSTITUI RECOMENDAÇÃO PERSONALIZADA · ENGINE {ENGINE_VERSION}</span>
+        <div className={`${s.wrap} ${s.legal}`}>
+          <span>© 2026 OVERTRADER · CONTEÚDO INFORMATIVO · NÃO CONSTITUI RECOMENDAÇÃO PERSONALIZADA · TODA OPERAÇÃO ENVOLVE RISCO DE PERDA · ENGINE {ENGINE_VERSION}</span>
           <span>FEITO COM RIGOR ESTATÍSTICO</span>
         </div>
       </footer>
+
+      {/* SEO — FAQ estruturada */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: FAQS.map(([q, a]) => ({
+              "@type": "Question",
+              name: q,
+              acceptedAnswer: { "@type": "Answer", text: a },
+            })),
+          }),
+        }}
+      />
     </div>
   );
 }
