@@ -2312,3 +2312,23 @@ h1.page-title,
   width: fit-content;
   max-width: 100%;
 }
+
+/* ============================================================
+   COERÊNCIA V5 — assinatura da landing nova nas páginas públicas.
+   --ai (violeta) = exclusivo da camada IA (mesma regra da v5).
+   ============================================================ */
+:root { --ai: #9a8bff; --ai-soft: rgba(154, 139, 255, 0.13); --ai-glow: rgba(154, 139, 255, 0.45); }
+
+/* /planos — anel de luz girando no card PRO (igual ao da landing v5) */
+@property --gring { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.planos-page .plans .plan { position: relative; }
+.planos-page .plans .plan.pro::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1.5px; pointer-events: none; background: conic-gradient(from var(--gring), transparent 0turn 0.6turn, rgba(84, 168, 255, 0.9) 0.74turn, transparent 0.9turn 1turn); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: g-ring 5.5s linear infinite; }
+@keyframes g-ring { to { --gring: 360deg; } }
+
+/* auth (login/recuperar/redefinir) — respiração violeta da IA no painel */
+.auth-page .left { background: radial-gradient(420px 240px at 0% 0%, rgba(84, 168, 255, 0.12), transparent 70%), radial-gradient(360px 220px at 85% 110%, rgba(154, 139, 255, 0.1), transparent 70%), linear-gradient(160deg, rgba(22, 30, 44, 0.85), rgba(10, 13, 20, 0.88)); }
+.auth-page .brand .name b { background: linear-gradient(100deg, #8fd3ff, var(--cyan) 48%, var(--ai)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  .planos-page .plans .plan.pro::before { animation: none; }
+}
