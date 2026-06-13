@@ -83,12 +83,18 @@ export interface LlmDecision { side: "buy" | "sell" | "neutral"; conviction: num
  * Modelo e baseURL são tunáveis por env porque os nomes de modelo mudam (ex.: a
  * DeepSeek aposenta os aliases deepseek-chat/reasoner em 24/07/2026).
  */
-interface LlmProvider { name: string; baseURL: string; apiKey: string | undefined; model: string }
+interface LlmProvider { name: string; baseURL: string; apiKey: string | undefined; model: string; extraBody?: Record<string, unknown> }
 function openAiProvider(): LlmProvider {
   return { name: "openai", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_LLM_MODEL || "gpt-4.1" };
 }
 function deepSeekProvider(): LlmProvider {
-  return { name: "deepseek", baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1", apiKey: process.env.DEEPSEEK_API_KEY, model: process.env.DEEPSEEK_MODEL || "deepseek-v4-pro" };
+  // V4 vem com THINKING ligado por padrão — desligamos (modo direto): o raciocínio
+  // estouraria o max_tokens e devolveria JSON truncado. Campo exclusivo da DeepSeek.
+  return {
+    name: "deepseek", baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1",
+    apiKey: process.env.DEEPSEEK_API_KEY, model: process.env.DEEPSEEK_MODEL || "deepseek-v4-pro",
+    extraBody: { thinking: { type: "disabled" } },
+  };
 }
 
 const LLM_DECISION_SYSTEM = [
@@ -139,6 +145,7 @@ async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: Asse
             { role: "system", content: LLM_DECISION_SYSTEM },
             { role: "user", content: `Dados medidos (JSON):\n${JSON.stringify(toDecisionFacts(dto, assetType, extras))}\n\nDecida.` },
           ],
+          ...(p.extraBody ?? {}),
         }),
       }),
       25000,

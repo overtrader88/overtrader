@@ -914,6 +914,84 @@ function RankingTable({ engines, byClass, visibleIds }: { engines: EngineStat[];
   );
 }
 
+/**
+ * DUELO LLM — placar head-to-head GPT-4.1 (motor `llm`) × DeepSeek V4-Pro
+ * (`llm_ds`), em destaque no topo da aba. Gate/geometria idênticos → compara
+ * só a DECISÃO. Honesto: sem veredito até cada lado ter ≥5 resolvidos.
+ */
+function LlmDuel({ engines }: { engines: EngineStat[] }) {
+  const gpt = engines.find((e) => e.engine === "llm");
+  const ds = engines.find((e) => e.engine === "llm_ds");
+  if (!gpt && !ds) return null;
+
+  const GREEN = "var(--bull,#16a34a)";
+  const MUTED = "#aebccd";
+  const resolvedTotal = (gpt?.resolved ?? 0) + (ds?.resolved ?? 0);
+  const dsLive = (ds?.emittedTotal ?? 0) > 0;
+
+  type M = { key: string; label: string; val: (e?: EngineStat) => number | null; fmt: (v: number) => string };
+  const METRICS: M[] = [
+    { key: "wr", label: "Assertividade", val: (e) => (e && e.decisive > 0 ? e.winRatePct : null), fmt: (v) => `${v.toFixed(0)}%` },
+    { key: "pf", label: "Profit factor", val: (e) => (e && e.decisive > 0 ? e.profitFactor : null), fmt: (v) => (isFinite(v) ? v.toFixed(2) : "∞") },
+    { key: "r", label: "R acumulado", val: (e) => (e && e.resolved > 0 ? e.totalR : null), fmt: (v) => sgn(v, 1) },
+    { key: "avg", label: "R médio / sinal", val: (e) => (e && e.resolved > 0 ? e.avgR : null), fmt: (v) => sgn(v, 2) },
+  ];
+
+  let gptWins = 0, dsWins = 0;
+  for (const m of METRICS) {
+    const a = m.val(gpt), b = m.val(ds);
+    if (a != null && b != null && a !== b) { if (a > b) gptWins++; else dsWins++; }
+  }
+  const enoughSample = (gpt?.resolved ?? 0) >= 5 && (ds?.resolved ?? 0) >= 5;
+  let verdict: React.ReactNode;
+  if (!dsLive) verdict = <>DeepSeek <b>ligada</b> — emite no próximo cron (a cada 4h). O duelo começa quando os dois resolverem sinais.</>;
+  else if (!enoughSample) verdict = <>Coletando amostra (<b>{resolvedTotal}</b> resolvidos). Sem veredito até cada motor ter <b>≥5</b> — <i>prova antes de prometer</i>.</>;
+  else if (gptWins === dsWins) verdict = <>Empate técnico ({gptWins}×{dsWins} métricas) — seguem disputando. Amostra n={resolvedTotal}.</>;
+  else {
+    const lead = gptWins > dsWins;
+    verdict = <>Liderando: <b style={{ color: lead ? ENGINE_COLOR.llm : ENGINE_COLOR.llm_ds }}>{lead ? "GPT-4.1" : "DeepSeek"}</b> ({Math.max(gptWins, dsWins)}×{Math.min(gptWins, dsWins)} métricas). Amostra n={resolvedTotal}.</>;
+  }
+
+  const side = (e: EngineStat | undefined, id: "llm" | "llm_ds") => (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
+        <span style={{ width: 9, height: 9, borderRadius: "50%", background: ENGINE_COLOR[id], boxShadow: `0 0 8px ${ENGINE_COLOR[id]}` }} />
+        <span style={{ fontWeight: 800, fontSize: "0.92rem", color: "#e8edf5" }}>{ENGINE_TAG[id]}</span>
+      </div>
+      {METRICS.map((m) => {
+        const a = m.val(e), b = m.val(id === "llm" ? ds : gpt);
+        const win = a != null && b != null && a > b;
+        return (
+          <div key={m.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", borderBottom: "1px solid var(--line-2,#1a2230)" }}>
+            <span style={{ color: MUTED, fontSize: "0.74rem" }}>{m.label}</span>
+            <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: win ? 800 : 600, color: a == null ? "#535f74" : win ? GREEN : "#e8edf5", fontSize: "0.95rem" }}>
+              {a == null ? "—" : m.fmt(a)}{win ? " ✓" : ""}
+            </span>
+          </div>
+        );
+      })}
+      <div style={{ marginTop: 8, fontSize: "0.68rem", color: MUTED, fontFamily: "var(--font-mono)" }}>
+        {e?.emittedTotal ?? 0} emit · {e?.resolved ?? 0} resolv · {e?.open ?? 0} aberto
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ border: "1px solid var(--line-2)", borderRadius: 14, padding: "15px 18px", marginBottom: 18, background: `linear-gradient(135deg, color-mix(in srgb, ${ENGINE_COLOR.llm} 8%, transparent), color-mix(in srgb, ${ENGINE_COLOR.llm_ds} 10%, transparent))` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aebccd", fontWeight: 700 }}>🥊 Duelo LLM · decisão da IA</span>
+        <span style={{ fontSize: "0.7rem", color: dsLive ? GREEN : "#eab308", fontWeight: 700 }}>{dsLive ? "● ambos ativos" : "● DeepSeek aguardando 1º cron"}</span>
+      </div>
+      <div style={{ display: "flex", gap: 18, alignItems: "stretch" }}>
+        {side(gpt, "llm")}
+        <div style={{ display: "flex", alignItems: "center", fontWeight: 800, color: "#535f74", fontSize: "0.8rem" }}>VS</div>
+        {side(ds, "llm_ds")}
+      </div>
+      <p style={{ margin: "12px 0 0", fontSize: "0.78rem", color: "#cdd8e6", borderTop: "1px solid var(--line-2)", paddingTop: 10 }}>{verdict}</p>
+    </div>
+  );
+}
+
 function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, now }: { engines: EngineStat[]; byClassEngine: ClassEngines[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; daily: DailyRow[]; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
@@ -1027,6 +1105,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
 
   return (
     <div className="motores-tab" style={{ color: "#e8edf5" }}>
+      <LlmDuel engines={engines} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: "0.78rem", color: "#aebccd" }}>Motores visíveis:</span>
@@ -1051,7 +1130,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
       </div>
       <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "92ch" }}>
         Comparação <b>forward</b> entre os motores. <b>Padrão</b> e <b>Classe</b> = motores vivos. Experimentais (emitidos em paralelo):
-        <b> Padrão-B</b> (ATR ×1,4), <b>Classe-B</b> (convicção ≥20 + ATR ×1,4), <b>LLM</b> (decisão da IA),
+        <b> Padrão-B</b> (ATR ×1,4), <b>Classe-B</b> (convicção ≥20 + ATR ×1,4), <b>GPT-4.1</b> e <b>DeepSeek</b> (decisão da IA — ver duelo acima),
         <b> Condicional</b> (lógica por regime), <b>Contrário</b> (controle — inverso do Padrão) e <b>Consenso</b> (Padrão ∩ Classe).
         <b> Realizado</b> = fechados pelo cron; <b>não-realizado</b> = abertos a mercado.
       </p>
