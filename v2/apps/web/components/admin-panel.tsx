@@ -620,17 +620,17 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
 
 /** Tabela de recorte (classe ou TF) × motor. */
 // Metadados de motor — fonte única (ordem + rótulo curto + tag com ícone p/ listas).
-const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "condicional", "contrario", "consenso"] as const;
+const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "condicional", "contrario", "consenso"] as const;
 const ENGINE_LABEL: Record<string, string> = {
-  padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "LLM",
+  padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "GPT-4.1", llm_ds: "DeepSeek",
   condicional: "Condicional", contrario: "Contrário", consenso: "Consenso",
 };
 const ENGINE_TAG: Record<string, string> = {
-  padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 LLM",
+  padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 GPT-4.1", llm_ds: "🐋 DeepSeek",
   condicional: "⚡ Condicional", contrario: "🔁 Contrário", consenso: "🤝 Consenso",
 };
 const ENGINE_COLOR: Record<string, string> = {
-  padrao: "#2563eb", padrao_b: "#0ea5e9", classe: "#9333ea", classe_b: "#c026d3", llm: "#f59e0b",
+  padrao: "#2563eb", padrao_b: "#0ea5e9", classe: "#9333ea", classe_b: "#c026d3", llm: "#f59e0b", llm_ds: "#a78bfa",
   condicional: "#22c55e", contrario: "#94a3b8", consenso: "#06b6d4",
 };
 /** Bolinha de cor do motor — amarra coluna/tabela à linha do gráfico de equity. */
@@ -1145,7 +1145,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
                 const st = STATUS_PT[o.status];
                 return (
                   <tr key={i} style={ROW}>
-                    <td style={TD}>{o.engine === "classe" ? "⚙ Classe" : o.engine === "padrao_b" ? "Padrão-B" : o.engine === "classe_b" ? "⚙ Classe-B" : o.engine === "llm" ? "🤖 LLM" : "Padrão"}</td>
+                    <td style={TD}>{ENGINE_TAG[o.engine] ?? o.engine}</td>
                     <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
                     <td style={{ ...TD, color: o.side === "sell" ? "var(--bear,#dc2626)" : "var(--bull,#16a34a)" }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
                     <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{o.entry.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}</td>

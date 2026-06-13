@@ -24,6 +24,12 @@ const serverSchema = z.object({
 
   // IA (obrigatório p/ narrativa)
   OPENAI_API_KEY: z.string().min(1),
+  OPENAI_LLM_MODEL: z.string().optional(), // modelo do MOTOR LLM·GPT (default gpt-4.1)
+
+  // DeepSeek (opcional) — MOTOR LLM·DS, concorre com o da OpenAI. API compatível.
+  DEEPSEEK_API_KEY: z.string().optional(),
+  DEEPSEEK_MODEL: z.string().optional(),   // default deepseek-v4-pro
+  DEEPSEEK_BASE_URL: z.string().url().optional(), // default https://api.deepseek.com/v1
 
   // Admin + cron
   ADMIN_EMAILS: z.string().min(1),

@@ -76,6 +76,21 @@ export async function generateNarrative(dto: FullAnalysis): Promise<string | nul
 // ===================== MOTOR LLM (decisão pela IA) =====================
 export interface LlmDecision { side: "buy" | "sell" | "neutral"; conviction: number; rationale: string }
 
+/**
+ * Provedores do MOTOR LLM. A decisão usa o protocolo OpenAI (chat/completions +
+ * response_format json), que a DeepSeek implementa de forma compatível — por
+ * isso o mesmo núcleo serve aos dois, trocando só baseURL/key/model.
+ * Modelo e baseURL são tunáveis por env porque os nomes de modelo mudam (ex.: a
+ * DeepSeek aposenta os aliases deepseek-chat/reasoner em 24/07/2026).
+ */
+interface LlmProvider { name: string; baseURL: string; apiKey: string | undefined; model: string }
+function openAiProvider(): LlmProvider {
+  return { name: "openai", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_LLM_MODEL || "gpt-4.1" };
+}
+function deepSeekProvider(): LlmProvider {
+  return { name: "deepseek", baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1", apiKey: process.env.DEEPSEEK_API_KEY, model: process.env.DEEPSEEK_MODEL || "deepseek-v4-pro" };
+}
+
 const LLM_DECISION_SYSTEM = [
   "Você é um MOTOR DE DECISÃO de trading. A partir dos dados MEDIDOS, decida a direção e a convicção.",
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}.",
@@ -107,19 +122,18 @@ function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras: ClassE
   };
 }
 
-/** Decisão do MOTOR LLM (estruturada, temp 0). `null` se IA off/falha. Independente do Motor 1. */
-export async function generateLlmDecision(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) return null;
+/** Núcleo da decisão (estruturada, temp 0) via um provedor OpenAI-compatível. `null` se key ausente/falha. */
+async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  if (!p.apiKey) return null;
   try {
     const res = await withTimeout(
-      fetch("https://api.openai.com/v1/chat/completions", {
+      fetch(`${p.baseURL}/chat/completions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.apiKey}` },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: p.model,
           temperature: 0,
-          max_tokens: 160,
+          max_tokens: 200,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: LLM_DECISION_SYSTEM },
@@ -127,7 +141,7 @@ export async function generateLlmDecision(dto: FullAnalysis, assetType: AssetTyp
           ],
         }),
       }),
-      20000,
+      25000,
     );
     if (!res.ok) return null;
     const data = (await res.json()) as ChatResponse;
@@ -141,6 +155,16 @@ export async function generateLlmDecision(dto: FullAnalysis, assetType: AssetTyp
   } catch {
     return null;
   }
+}
+
+/** MOTOR LLM (OpenAI, gpt-4.1 por padrão). `null` se IA off/falha. Independente do Motor 1. */
+export function generateLlmDecision(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  return runLlmDecision(openAiProvider(), dto, assetType, extras);
+}
+
+/** MOTOR LLM·DS (DeepSeek V4-Pro). Concorre lado a lado com o da OpenAI; `null` sem DEEPSEEK_API_KEY. */
+export function generateLlmDecisionDS(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  return runLlmDecision(deepSeekProvider(), dto, assetType, extras);
 }
 
 /** Gera a narrativa do MOTOR 2 (leitura por classe), grounded na leitura + dados da família. */

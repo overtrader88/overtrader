@@ -68,11 +68,11 @@ function breakdownBy(rows: Row[], keyOf: (r: Row) => string, labelOf: (k: string
 const ENGINE_LABELS: Record<string, string> = {
   padrao: "Motor padrão", classe: "Motor por classe",
   padrao_b: "Padrão-B (ATR largo)", classe_b: "Classe-B (convicção alta)",
-  llm: "Motor LLM (decisão da IA)",
+  llm: "Motor LLM · GPT-4.1 (decisão da IA)", llm_ds: "Motor LLM · DeepSeek V4-Pro",
   condicional: "Condicional (lógica por regime)", contrario: "Contrário (controle — inverso do padrão)",
   consenso: "Consenso (padrão ∩ classe)",
 };
-const ENGINE_IDS = ["padrao", "padrao_b", "classe", "classe_b", "llm", "condicional", "contrario", "consenso"] as const;
+const ENGINE_IDS = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "condicional", "contrario", "consenso"] as const;
 const DAY = 86_400_000;
 
 /** Marca a mercado: R não-realizado de uma posição aberta dado o preço atual. */

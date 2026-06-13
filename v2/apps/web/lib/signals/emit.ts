@@ -10,7 +10,7 @@ import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
-import { generateLlmDecision } from "@/lib/analysis/narrative";
+import { generateLlmDecision, generateLlmDecisionDS, type LlmDecision } from "@/lib/analysis/narrative";
 
 export type EmitReason = "emitted" | "neutral" | "low-seal" | "open-exists" | "no-db" | "error";
 export type ClassEmitReason = EmitReason | "low-conviction" | "no-geometry";
@@ -192,12 +192,15 @@ export async function emitClassSignalB(
  * MOTOR LLM (experimental, forward): a DECISÃO (direção + convicção) é da LLM, a
  * partir dos dados brutos (independente do Motor 1). Plano por ATR (determinístico).
  * Carimba quando: lado acionável + convicção ≥ 60. Sem backtest (seal 'yellow').
+ * O gate/geometria é IDÊNTICO entre provedores → experimento controlado da DECISÃO
+ * (gpt-4.1 vs DeepSeek V4-Pro): só o modelo muda, o resto é constante.
  */
-export async function emitLlmSignal(
-  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+async function emitLlmWith(
+  decide: () => Promise<LlmDecision | null>, engine: string, engineVersion: string,
+  dto: FullAnalysis, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  const dec = await generateLlmDecision(dto, assetType, extras);
-  if (!dec) return { reason: "error", id: null }; // IA indisponível/falha
+  const dec = await decide();
+  if (!dec) return { reason: "error", id: null }; // IA indisponível/falha (ou key ausente)
   if (dec.side === "neutral") return { reason: "neutral", id: null };
   if (dec.conviction < 60) return { reason: "low-conviction", id: null };
   const plan = buildClassPlan(dto, dec.side);
@@ -207,8 +210,22 @@ export async function emitLlmSignal(
     : (dec.conviction >= 80 ? "STRONG_SELL" : "SELL");
   return recordVariant({
     symbol, assetType, timeframe, direction, side: dec.side, seal: "yellow", plan,
-    regime: dto.analysis.meta?.regime ?? null, engine: "llm", engineVersion: `${ENGINE_VERSION}+llm`,
+    regime: dto.analysis.meta?.regime ?? null, engine, engineVersion,
   });
+}
+
+/** MOTOR LLM·GPT — decisão da OpenAI (gpt-4.1). */
+export function emitLlmSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  return emitLlmWith(() => generateLlmDecision(dto, assetType, extras), "llm", `${ENGINE_VERSION}+llm`, dto, symbol, assetType, timeframe);
+}
+
+/** MOTOR LLM·DS — decisão da DeepSeek (V4-Pro). No-op gracioso sem DEEPSEEK_API_KEY. */
+export function emitLlmDsSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  return emitLlmWith(() => generateLlmDecisionDS(dto, assetType, extras), "llm_ds", `${ENGINE_VERSION}+llm-ds`, dto, symbol, assetType, timeframe);
 }
 
 /* =====================================================================
