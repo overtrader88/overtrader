@@ -174,6 +174,40 @@ export function generateLlmDecisionDS(dto: FullAnalysis, assetType: AssetType, e
   return runLlmDecision(deepSeekProvider(), dto, assetType, extras);
 }
 
+/** Diagnóstico de um provedor: ping mínimo que revela o motivo REAL da falha
+ *  (chave ausente no deploy / 401 valor errado / 400 modelo errado). Nunca
+ *  vaza a key — `detail` é só o corpo de erro do provedor (que mascara a key). */
+export interface LlmProbe { provider: string; model: string; baseURL: string; configured: boolean; ok: boolean; status: number | null; ms: number; detail: string }
+async function probeOne(p: LlmProvider): Promise<LlmProbe> {
+  const base = { provider: p.name, model: p.model, baseURL: p.baseURL };
+  if (!p.apiKey) return { ...base, configured: false, ok: false, status: null, ms: 0, detail: "API key AUSENTE neste deploy — env não setada (ou escopo/redeploy faltando na Vercel)." };
+  const t0 = Date.now();
+  try {
+    const res = await withTimeout(
+      fetch(`${p.baseURL}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.apiKey}` },
+        body: JSON.stringify({
+          model: p.model, temperature: 0, max_tokens: 40,
+          response_format: { type: "json_object" },
+          messages: [{ role: "system", content: 'Responda em JSON: {"ok":true}.' }, { role: "user", content: "ping" }],
+          ...(p.extraBody ?? {}),
+        }),
+      }),
+      20000,
+    );
+    const body = await res.text();
+    return { ...base, configured: true, ok: res.ok, status: res.status, ms: Date.now() - t0, detail: res.ok ? "OK — chave e modelo respondendo." : body.slice(0, 300) };
+  } catch (e) {
+    return { ...base, configured: true, ok: false, status: null, ms: Date.now() - t0, detail: `falha de rede/timeout: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+/** Sonda OpenAI + DeepSeek em paralelo (diagnóstico admin). */
+export function probeLlmProviders(): Promise<LlmProbe[]> {
+  return Promise.all([probeOne(openAiProvider()), probeOne(deepSeekProvider())]);
+}
+
 /** Gera a narrativa do MOTOR 2 (leitura por classe), grounded na leitura + dados da família. */
 export async function generateClassNarrative(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<string | null> {
   const key = process.env.OPENAI_API_KEY;
