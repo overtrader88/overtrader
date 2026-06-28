@@ -119,6 +119,19 @@ const LLM_SURVIVAL_SYSTEM = [
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
 ].join("\n");
 
+/** Sistema do MOTOR LLM especialista em NÍVEIS: volume + suporte/resistência + Fibonacci. */
+const LLM_VSF_SYSTEM = [
+  "Você é um MOTOR DE DECISÃO especialista em PRICE ACTION POR NÍVEIS. Decida com base PRINCIPALMENTE em três pilares, usando SÓ os níveis fornecidos:",
+  "1) VOLUME: o POC e a área de valor (VAH/VAL) do perfil de volume são ímãs e barreiras de preço; OBV/MFI/CMF confirmam ou divergem do movimento.",
+  "2) SUPORTE/RESISTÊNCIA: order blocks, zonas de liquidez e FVGs marcam ONDE o preço reage — compra perto de suporte forte, venda perto de resistência forte.",
+  "3) FIBONACCI: as PRZ dos padrões harmônicos são zonas de reversão (confluência de retrações/extensões de Fibonacci).",
+  "REGRAS:",
+  "- O melhor trade é onde os TRÊS pilares CONFLUEM (ex.: preço numa PRZ de Fibonacci que coincide com um order block de suporte E o limite da área de valor por volume).",
+  "- 'compra' perto de suporte/PRZ bullish com volume confirmando; 'venda' perto de resistência/PRZ bearish. Preço no meio do range, sem nível próximo → 'neutro'.",
+  "- conviccao alta (≥80) SOMENTE com confluência clara dos pilares perto do preço atual. Sinal solto em um pilar só → convicção baixa ou 'neutro'. NÃO invente níveis além dos fornecidos.",
+  "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
+].join("\n");
+
 /** Fatos BRUTOS p/ a decisão da LLM — sem o veredito do Motor 1 (independência). */
 function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): unknown {
   const a = dto.analysis;
@@ -142,8 +155,9 @@ function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras: ClassE
 }
 
 /** Núcleo da decisão (estruturada, temp 0) via um provedor OpenAI-compatível. `null` se key ausente/falha. */
-async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, system: string = LLM_DECISION_SYSTEM): Promise<LlmDecision | null> {
+async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, system: string = LLM_DECISION_SYSTEM, factsOverride?: unknown): Promise<LlmDecision | null> {
   if (!p.apiKey) return null;
+  const facts = factsOverride ?? toDecisionFacts(dto, assetType, extras);
   try {
     const res = await withTimeout(
       fetch(`${p.baseURL}/chat/completions`, {
@@ -156,7 +170,7 @@ async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: Asse
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },
-            { role: "user", content: `Dados medidos (JSON):\n${JSON.stringify(toDecisionFacts(dto, assetType, extras))}\n\nDecida.` },
+            { role: "user", content: `Dados medidos (JSON):\n${JSON.stringify(facts)}\n\nDecida.` },
           ],
           ...(p.extraBody ?? {}),
         }),
@@ -195,6 +209,44 @@ export function generateLlmDecisionSurv(dto: FullAnalysis, assetType: AssetType,
 /** MOTOR LLM SOBREVIVÊNCIA (DeepSeek) — idem, no provedor DeepSeek. */
 export function generateLlmDecisionDsSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
   return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_SURVIVAL_SYSTEM);
+}
+
+/** Fatos focados em NÍVEIS (volume + S/R + Fibonacci) — alimenta o motor VSF com os
+ *  números REAIS do dto (POC/área de valor, order blocks/liquidez/FVG, PRZ harmônicas). */
+function toLevelsFacts(dto: FullAnalysis): unknown {
+  const a = dto.analysis;
+  const price = a.risk?.entry ?? null;
+  const vp = dto.volumeProfile;
+  const smc = dto.smc;
+  const harm = dto.harmonics;
+  const volInd = (a.indicators ?? []).filter((i) => (i.category ?? "").toLowerCase().includes("vol"))
+    .map((i) => ({ nome: i.name, voto: i.vote, valor: typeof i.value === "number" ? i.value : null }));
+  return {
+    ativo: a.meta.asset, timeframe: a.meta.timeframe, preco_atual: price, regime: a.meta?.regime ?? null,
+    volume: {
+      perfil: vp ? { poc: vp.poc, area_valor_alta: vp.vah, area_valor_baixa: vp.val } : null,
+      indicadores: volInd,
+    },
+    suporte_resistencia: smc ? {
+      vies: smc.bias, estrutura: smc.marketStructure,
+      order_blocks: (smc.orderBlocks ?? []).slice(0, 4).map((o) => ({ tipo: o.type, topo: o.zoneTop, base: o.zoneBottom })),
+      zonas_liquidez: (smc.liquidityZones ?? []).slice(0, 4).map((z) => ({ tipo: z.type, nivel: z.level, varrida: z.swept })),
+      fvgs: (smc.fvgs ?? []).slice(0, 3).map((f) => ({ tipo: f.type, topo: f.zoneTop, base: f.zoneBottom })),
+    } : null,
+    fibonacci_harmonicos: harm?.patterns?.length
+      ? harm.patterns.slice(0, 3).map((p) => ({ direcao: p.direction, prz_baixo: p.prz.low, prz_alto: p.prz.high, conclusao_pct: p.completion, qualidade: p.quality }))
+      : null,
+  };
+}
+
+/** MOTOR VSF (GPT) — decisão por volume + suporte/resistência + Fibonacci. */
+export function generateLlmDecisionVsf(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_VSF_SYSTEM, toLevelsFacts(dto));
+}
+
+/** MOTOR VSF (DeepSeek) — idem, no provedor DeepSeek. */
+export function generateLlmDecisionDsVsf(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SYSTEM, toLevelsFacts(dto));
 }
 
 /** Diagnóstico de um provedor: ping mínimo que revela o motivo REAL da falha

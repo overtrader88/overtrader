@@ -10,7 +10,7 @@ import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
-import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, type LlmDecision } from "@/lib/analysis/narrative";
+import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, type LlmDecision } from "@/lib/analysis/narrative";
 
 export type EmitReason = "emitted" | "neutral" | "low-seal" | "open-exists" | "no-db" | "error";
 export type ClassEmitReason = EmitReason | "low-conviction" | "no-geometry";
@@ -240,6 +240,20 @@ export function emitLlmDsSurvSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
   return emitLlmWith(() => generateLlmDecisionDsSurv(dto, assetType, extras), "llm_ds_surv", `${ENGINE_VERSION}+ds-surv`, dto, symbol, assetType, timeframe);
+}
+
+/** MOTOR VSF·GPT — decisão por volume + suporte/resistência + Fibonacci. */
+export function emitLlmVsfSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  return emitLlmWith(() => generateLlmDecisionVsf(dto, assetType, extras), "llm_vsf", `${ENGINE_VERSION}+vsf`, dto, symbol, assetType, timeframe);
+}
+
+/** MOTOR VSF·DS — idem, decisão da DeepSeek. No-op gracioso sem DEEPSEEK_API_KEY. */
+export function emitLlmDsVsfSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  return emitLlmWith(() => generateLlmDecisionDsVsf(dto, assetType, extras), "llm_ds_vsf", `${ENGINE_VERSION}+ds-vsf`, dto, symbol, assetType, timeframe);
 }
 
 /* =====================================================================

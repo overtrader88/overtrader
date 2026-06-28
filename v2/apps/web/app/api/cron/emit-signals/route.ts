@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { signalSide } from "@tradeai/shared";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitLlmDsSignal, emitLlmSurvSignal, emitLlmDsSurvSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
+import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitLlmDsSignal, emitLlmSurvSignal, emitLlmDsSurvSignal, emitLlmVsfSignal, emitLlmDsVsfSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
 import { broadcastSignal } from "@/lib/notify/dispatch";
@@ -41,6 +41,8 @@ async function handle(req: Request): Promise<NextResponse> {
   let llmDsEmitted = 0;
   let llmSurvEmitted = 0;
   let llmDsSurvEmitted = 0;
+  let llmVsfEmitted = 0;
+  let llmDsVsfEmitted = 0;
   let condEmitted = 0;
   let invEmitted = 0;
   let consEmitted = 0;
@@ -86,6 +88,11 @@ async function handle(req: Request): Promise<NextResponse> {
         if (llmSurv.reason === "emitted") llmSurvEmitted++;
         const llmDsSurv = await emitLlmDsSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llmDsSurv.reason === "emitted") llmDsSurvEmitted++;
+        // Motores VSF (volume + suporte/resistência + Fibonacci) — GPT e DeepSeek.
+        const llmVsf = await emitLlmVsfSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
+        if (llmVsf.reason === "emitted") llmVsfEmitted++;
+        const llmDsVsf = await emitLlmDsVsfSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
+        if (llmDsVsf.reason === "emitted") llmDsVsfEmitted++;
         // Motores experimentais determinísticos (condicional / contrário / consenso).
         const cond = await emitConditionalSignal(dto, m.symbol, m.assetType, m.timeframe);
         if (cond.reason === "emitted") condEmitted++;
@@ -100,7 +107,7 @@ async function handle(req: Request): Promise<NextResponse> {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, llmSurvEmitted, llmDsSurvEmitted, condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, llmSurvEmitted, llmDsSurvEmitted, llmVsfEmitted, llmDsVsfEmitted, condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
 }
 
 export const GET = handle;
