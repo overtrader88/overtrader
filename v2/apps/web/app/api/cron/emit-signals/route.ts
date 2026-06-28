@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { signalSide } from "@tradeai/shared";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitLlmDsSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
+import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitLlmDsSignal, emitLlmSurvSignal, emitLlmDsSurvSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
 import { broadcastSignal } from "@/lib/notify/dispatch";
@@ -39,6 +39,8 @@ async function handle(req: Request): Promise<NextResponse> {
   let classeBEmitted = 0;
   let llmEmitted = 0;
   let llmDsEmitted = 0;
+  let llmSurvEmitted = 0;
+  let llmDsSurvEmitted = 0;
   let condEmitted = 0;
   let invEmitted = 0;
   let consEmitted = 0;
@@ -79,6 +81,11 @@ async function handle(req: Request): Promise<NextResponse> {
         if (llm.reason === "emitted") llmEmitted++;
         const llmDs = await emitLlmDsSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llmDs.reason === "emitted") llmDsEmitted++;
+        // Motores de SOBREVIVÊNCIA (mentalidade de capital finito) — GPT e DeepSeek.
+        const llmSurv = await emitLlmSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
+        if (llmSurv.reason === "emitted") llmSurvEmitted++;
+        const llmDsSurv = await emitLlmDsSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
+        if (llmDsSurv.reason === "emitted") llmDsSurvEmitted++;
         // Motores experimentais determinísticos (condicional / contrário / consenso).
         const cond = await emitConditionalSignal(dto, m.symbol, m.assetType, m.timeframe);
         if (cond.reason === "emitted") condEmitted++;
@@ -93,7 +100,7 @@ async function handle(req: Request): Promise<NextResponse> {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, llmSurvEmitted, llmDsSurvEmitted, condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
 }
 
 export const GET = handle;

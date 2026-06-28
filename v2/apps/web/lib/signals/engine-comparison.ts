@@ -10,7 +10,7 @@ import type { AssetType, Timeframe } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
-import type { EngineComparison, EngineStat, ClassEngines, OpenPosition, GroupStat, BreakdownRow, EquityPoint, ClosedOpRow, DailyRow, DailyCell } from "@/components/admin-shared";
+import type { EngineComparison, EngineStat, ClassEngines, OpenPosition, GroupStat, BreakdownRow, EquityPoint, ClosedOpRow, DailyRow, DailyCell, SurvivalArena, SurvivalLine } from "@/components/admin-shared";
 
 interface Row {
   engine: string | null;
@@ -31,6 +31,63 @@ const ASSET_PT: Record<string, string> = {
   crypto: "Cripto", forex: "Forex", commodities: "Commodities", indices: "Índices", stocks: "Ações",
 };
 const isWin = (o: SignalOutcome) => o === "TP1" || o === "TP2" || o === "TP3";
+
+// ===== RINGUE DE SOBREVIVÊNCIA — banca que aposta fração por trade e MORRE se quebrar =====
+const SURV_START = 100;       // banca inicial
+const SURV_FLOOR = 33;        // morre se cair abaixo de 33% (−67%)
+const RISK_NORMAL = 0.05;     // 5% da banca por trade (convicção normal)
+const RISK_STRONG = 0.10;     // 10% se convicção alta (direção STRONG_*)
+const survFraction = (direction: string) => (/^STRONG/.test(direction) ? RISK_STRONG : RISK_NORMAL);
+
+/** Replay determinístico de UMA conta de sobrevivência sobre os trades de um motor. */
+function survivalLine(engine: string, label: string, flavor: "mente" | "gestao", provider: "gpt" | "ds", rows: Row[], open: OpenPosition[]): SurvivalLine {
+  const resolved = rows
+    .filter((r) => (r.engine ?? "padrao") === engine && r.outcome != null && r.pnl_r != null && r.resolved_at)
+    .sort((a, b) => new Date(a.resolved_at!).getTime() - new Date(b.resolved_at!).getTime());
+  let equity = SURV_START, peak = SURV_START, maxDD = 0;
+  let lives = 1, deaths = 0, lifeTrades = 0, survivedSum = 0;
+  const curve: number[] = [];
+  for (const r of resolved) {
+    equity = equity * (1 + Number(r.pnl_r) * survFraction(r.direction));
+    lifeTrades++;
+    if (equity <= SURV_FLOOR) {
+      deaths++; survivedSum += lifeTrades; curve.push(0); // marca a morte
+      equity = SURV_START; peak = SURV_START; lifeTrades = 0; lives++; // reencarna
+    } else {
+      peak = Math.max(peak, equity);
+      maxDD = Math.max(maxDD, (peak - equity) / peak);
+      curve.push(Math.round((equity / SURV_START) * 100) / 100);
+    }
+  }
+  // posições abertas: marca a mercado sobre a vida atual (aproximação multiplicativa)
+  const openList = open.filter((o) => o.engine === engine);
+  let liveEquity = equity;
+  for (const o of openList) liveEquity = liveEquity * (1 + (o.unrealizedR ?? 0) * survFraction(o.direction));
+  const x = (v: number) => Math.round((v / SURV_START) * 100) / 100;
+  return {
+    engine, label, flavor, provider,
+    alive: liveEquity > SURV_FLOOR,
+    equity: x(liveEquity), realizedEquity: x(equity),
+    lives, deaths, resolved: resolved.length,
+    avgTradesPerLife: Math.round(((survivedSum + lifeTrades) / lives) * 10) / 10,
+    currentLifeTrades: lifeTrades,
+    maxDrawdownPct: Math.round(maxDD * 100),
+    peakEquity: x(peak), curve: curve.slice(-40), open: openList.length,
+  };
+}
+
+/** Ringue: 4 contas — GPT/DeepSeek × mente(prompt sobrevivência)/gestão(decisão normal + sizing). */
+function buildSurvival(rows: Row[], open: OpenPosition[]): SurvivalArena {
+  return {
+    start: SURV_START, floorPct: SURV_FLOOR, riskNormalPct: RISK_NORMAL * 100, riskStrongPct: RISK_STRONG * 100,
+    lines: [
+      survivalLine("llm_surv", "GPT · mente", "mente", "gpt", rows, open),
+      survivalLine("llm", "GPT · gestão", "gestao", "gpt", rows, open),
+      survivalLine("llm_ds_surv", "DeepSeek · mente", "mente", "ds", rows, open),
+      survivalLine("llm_ds", "DeepSeek · gestão", "gestao", "ds", rows, open),
+    ],
+  };
+}
 
 /** Estatística de um grupo de sinais resolvidos. */
 function groupStat(resolved: { outcome: SignalOutcome; pnlR: number }[]): GroupStat {
@@ -69,10 +126,11 @@ const ENGINE_LABELS: Record<string, string> = {
   padrao: "Motor padrão", classe: "Motor por classe",
   padrao_b: "Padrão-B (ATR largo)", classe_b: "Classe-B (convicção alta)",
   llm: "Motor LLM · GPT-4.1 (decisão da IA)", llm_ds: "Motor LLM · DeepSeek V4-Pro",
+  llm_surv: "Sobrevivência · GPT (capital finito)", llm_ds_surv: "Sobrevivência · DeepSeek (capital finito)",
   condicional: "Condicional (lógica por regime)", contrario: "Contrário (controle — inverso do padrão)",
   consenso: "Consenso (padrão ∩ classe)",
 };
-const ENGINE_IDS = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "condicional", "contrario", "consenso"] as const;
+const ENGINE_IDS = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "condicional", "contrario", "consenso"] as const;
 const DAY = 86_400_000;
 
 /** Marca a mercado: R não-realizado de uma posição aberta dado o preço atual. */
@@ -222,5 +280,7 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 30);
 
-  return { engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily };
+  const survival = buildSurvival(rows, open);
+
+  return { engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, survival };
 }

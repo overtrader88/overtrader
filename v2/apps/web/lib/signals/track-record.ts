@@ -38,9 +38,9 @@ export interface LiveSignal {
   emittedAt: string;
 }
 
-export type EngineFilter = "padrao" | "padrao_b" | "classe" | "classe_b" | "llm" | "llm_ds" | "condicional" | "contrario" | "consenso";
+export type EngineFilter = "padrao" | "padrao_b" | "classe" | "classe_b" | "llm" | "llm_ds" | "llm_surv" | "llm_ds_surv" | "condicional" | "contrario" | "consenso";
 /** Todos os motores — usado na visão consolidada ("Todos"). */
-const ALL_ENGINES = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "condicional", "contrario", "consenso"];
+const ALL_ENGINES = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "condicional", "contrario", "consenso"];
 
 export interface TrackRecordData {
   configured: boolean;

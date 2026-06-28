@@ -112,8 +112,36 @@ export interface ClassEngines {
   engines: EngineStat[];
 }
 
+/** Uma "conta de sobrevivência": banca que aposta fração por trade e MORRE se quebrar (reencarna). */
+export interface SurvivalLine {
+  engine: string;           // llm_surv | llm | llm_ds_surv | llm_ds
+  label: string;            // "GPT · mente", "GPT · gestão"…
+  flavor: "mente" | "gestao";
+  provider: "gpt" | "ds";
+  alive: boolean;           // vida atual ainda viva?
+  equity: number;           // capital atual em × da banca inicial (1.43 = +43%), inclui abertos a mercado
+  realizedEquity: number;   // só dos fechados (× da banca inicial)
+  lives: number;            // vidas totais (1 + mortes)
+  deaths: number;
+  resolved: number;         // trades resolvidos considerados
+  avgTradesPerLife: number; // trades médios até quebrar (ou até agora)
+  currentLifeTrades: number;
+  maxDrawdownPct: number;   // pior queda pico→vale dentro de uma vida
+  peakEquity: number;       // melhor capital atingido (× banca)
+  curve: number[];          // pontos de capital (× banca) p/ sparkline; 0 = morte
+  open: number;             // posições abertas agora
+}
+export interface SurvivalArena {
+  start: number;            // banca inicial (100)
+  floorPct: number;         // morre abaixo deste % da banca (ex.: 33 = −67%)
+  riskNormalPct: number;    // % arriscado por trade (convicção normal)
+  riskStrongPct: number;    // % arriscado por trade (convicção alta / STRONG)
+  lines: SurvivalLine[];
+}
+
 export interface EngineComparison {
   engines: EngineStat[];
+  survival?: SurvivalArena | null;
   /** Stats por classe de ativo × motor — alimenta o filtro de classe no ranking. */
   byClassEngine: ClassEngines[];
   open: OpenPosition[];

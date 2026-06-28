@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { AdminUserDetail } from "./admin-user-detail";
 import { NotifyButton } from "./admin-notify-button";
-import { type AdminExtra, type EngineStat, type ClassEngines, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, type DailyRow, type DailyCell, MRR_PRICE } from "./admin-shared";
+import { type AdminExtra, type EngineStat, type ClassEngines, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, type DailyRow, type DailyCell, type SurvivalArena, type SurvivalLine, MRR_PRICE } from "./admin-shared";
 
 const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
 
@@ -567,6 +567,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
           equity={extra.engines?.equity ?? []}
           closed={extra.engines?.closed ?? []}
           daily={extra.engines?.daily ?? []}
+          survival={extra.engines?.survival ?? null}
           now={now}
         />
       ) : null}
@@ -620,17 +621,20 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
 
 /** Tabela de recorte (classe ou TF) × motor. */
 // Metadados de motor — fonte única (ordem + rótulo curto + tag com ícone p/ listas).
-const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "condicional", "contrario", "consenso"] as const;
+const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "condicional", "contrario", "consenso"] as const;
 const ENGINE_LABEL: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "GPT-4.1", llm_ds: "DeepSeek",
+  llm_surv: "Sobrev·GPT", llm_ds_surv: "Sobrev·DS",
   condicional: "Condicional", contrario: "Contrário", consenso: "Consenso",
 };
 const ENGINE_TAG: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 GPT-4.1", llm_ds: "🐋 DeepSeek",
+  llm_surv: "🛡 Sobrev·GPT", llm_ds_surv: "🛡 Sobrev·DS",
   condicional: "⚡ Condicional", contrario: "🔁 Contrário", consenso: "🤝 Consenso",
 };
 const ENGINE_COLOR: Record<string, string> = {
   padrao: "#2563eb", padrao_b: "#0ea5e9", classe: "#9333ea", classe_b: "#c026d3", llm: "#f59e0b", llm_ds: "#a78bfa",
+  llm_surv: "#f97316", llm_ds_surv: "#c084fc",
   condicional: "#22c55e", contrario: "#94a3b8", consenso: "#06b6d4",
 };
 /** Bolinha de cor do motor — amarra coluna/tabela à linha do gráfico de equity. */
@@ -992,7 +996,79 @@ function LlmDuel({ engines }: { engines: EngineStat[] }) {
   );
 }
 
-function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, now }: { engines: EngineStat[]; byClassEngine: ClassEngines[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; daily: DailyRow[]; now: number }) {
+/**
+ * RINGUE DE SOBREVIVÊNCIA — 4 contas de capital finito (GPT/DeepSeek ×
+ * mente/gestão) que apostam fração por trade e MORREM se quebrarem (reencarnam).
+ * Mente = decisão com prompt de sobrevivência; gestão = decisão normal + sizing.
+ */
+function SurvivalArenaCard({ survival }: { survival: SurvivalArena | null }) {
+  if (!survival) return null;
+  const GREEN = "var(--bull,#16a34a)", RED = "var(--bear,#dc2626)", MUTED = "#aebccd";
+  const start = survival.start, floorDD = 100 - survival.floorPct;
+  const fmtX = (v: number) => `${v.toFixed(2)}×`;
+  const hasData = survival.lines.some((l) => l.resolved > 0);
+
+  const spark = (curve: number[], color: string) => {
+    if (curve.length < 2) return <div style={{ height: 34, marginTop: 8 }} />;
+    const W = 200, H = 34;
+    const maxV = Math.max(1.05, ...curve), minV = Math.min(0, ...curve), range = maxV - minV || 1;
+    const xy = (v: number, i: number) => `${((i / (curve.length - 1)) * W).toFixed(1)},${(H - ((v - minV) / range) * H).toFixed(1)}`;
+    const baseY = (H - ((1 - minV) / range) * H).toFixed(1);
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 34, marginTop: 8, display: "block" }} aria-hidden>
+        <line x1="0" y1={baseY} x2={W} y2={baseY} stroke="var(--line-2,#1a2230)" strokeWidth="1" strokeDasharray="3 3" />
+        <polyline points={curve.map(xy).join(" ")} fill="none" stroke={color} strokeWidth="1.6" />
+        {curve.map((v, i) => (v === 0 ? <circle key={i} cx={(i / (curve.length - 1)) * W} cy={H - 2} r="2.4" fill={RED} /> : null))}
+      </svg>
+    );
+  };
+
+  const card = (l: SurvivalLine) => {
+    const col = ENGINE_COLOR[l.engine] ?? "#64748b";
+    const up = l.equity >= 1;
+    return (
+      <div key={l.engine} style={{ flex: "1 1 200px", minWidth: 185, border: "1px solid var(--line-2)", borderRadius: 12, padding: "12px 14px", background: "var(--panel-2,#0a0e15)", opacity: l.alive ? 1 : 0.6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+          <span style={{ width: 9, height: 9, borderRadius: "50%", background: col, flex: "none" }} />
+          <b style={{ fontSize: "0.84rem" }}>{l.label}</b>
+          <span style={{ marginLeft: "auto", fontSize: "0.62rem", fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: l.alive ? "rgba(22,163,74,.15)" : "rgba(220,38,38,.15)", color: l.alive ? GREEN : RED }}>{l.alive ? "VIVO" : "MORTO"}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
+          <span style={{ fontSize: "1.5rem", fontWeight: 800, fontVariantNumeric: "tabular-nums", color: up ? GREEN : RED }}>{fmtX(l.equity)}</span>
+          <span style={{ fontSize: "0.64rem", color: MUTED }}>capital</span>
+        </div>
+        {spark(l.curve, col)}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 10px", marginTop: 8, fontSize: "0.69rem", color: MUTED }}>
+          <span>Vidas: <b style={{ color: "#e8edf5" }}>{l.lives}</b>{l.deaths > 0 ? ` (${l.deaths}✝)` : ""}</span>
+          <span>Trades/vida: <b style={{ color: "#e8edf5" }}>{l.avgTradesPerLife}</b></span>
+          <span>Pior queda: <b style={{ color: l.maxDrawdownPct >= 50 ? RED : "#e8edf5" }}>−{l.maxDrawdownPct}%</b></span>
+          <span>Pico: <b style={{ color: "#e8edf5" }}>{fmtX(l.peakEquity)}</b></span>
+        </div>
+        <div style={{ marginTop: 6, fontSize: "0.63rem", color: MUTED, fontFamily: "var(--font-mono)" }}>{l.resolved} resolv · {l.open} aberto</div>
+      </div>
+    );
+  };
+
+  const withData = survival.lines.filter((l) => l.resolved > 0);
+  const best = withData.length ? [...withData].sort((a, b) => b.equity - a.equity)[0]! : null;
+  const totalDeaths = survival.lines.reduce((s, l) => s + l.deaths, 0);
+  const verdict: React.ReactNode = !hasData
+    ? <>Aguardando trades resolvidos. Cada conta começa com <b>{start}</b>, arrisca <b>{survival.riskNormalPct}%</b>/trade (<b>{survival.riskStrongPct}%</b> em convicção alta) e <b>morre</b> se cair <b>−{floorDD}%</b> — aí reencarna e conta a vida.</>
+    : <>Melhor sobrevivente até agora: <b style={{ color: best ? (ENGINE_COLOR[best.engine] ?? "#e8edf5") : "#e8edf5" }}>{best?.label}</b> com <b>{best ? fmtX(best.equity) : "—"}</b>. {totalDeaths > 0 ? <>Já houve <b>{totalDeaths}</b> quebra(s) ✝.</> : <>Ninguém quebrou ainda.</>} Regra: arrisca {survival.riskNormalPct}–{survival.riskStrongPct}%/trade, morre em −{floorDD}%.</>;
+
+  return (
+    <div style={{ border: "1px solid var(--line-2)", borderRadius: 14, padding: "15px 18px", marginBottom: 18, background: `linear-gradient(135deg, color-mix(in srgb, ${ENGINE_COLOR.llm_surv} 8%, transparent), color-mix(in srgb, ${ENGINE_COLOR.llm_ds_surv} 10%, transparent))` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aebccd", fontWeight: 700 }}>🛡 Ringue de Sobrevivência · se quebrar, morre</span>
+        <span style={{ fontSize: "0.66rem", color: MUTED }}>mente = IA pensa em sobreviver · gestão = decisão normal + aposta fracionada</span>
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>{survival.lines.map(card)}</div>
+      <p style={{ margin: "12px 0 0", fontSize: "0.78rem", color: "#cdd8e6", borderTop: "1px solid var(--line-2)", paddingTop: 10 }}>{verdict}</p>
+    </div>
+  );
+}
+
+function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, survival, now }: { engines: EngineStat[]; byClassEngine: ClassEngines[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; daily: DailyRow[]; survival: SurvivalArena | null; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   // Motores visíveis (colunas do comparativo + recortes).
@@ -1106,6 +1182,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
   return (
     <div className="motores-tab" style={{ color: "#e8edf5" }}>
       <LlmDuel engines={engines} />
+      <SurvivalArenaCard survival={survival} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: "0.78rem", color: "#aebccd" }}>Motores visíveis:</span>
@@ -1131,6 +1208,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
       <p className="note" style={{ fontSize: "0.82rem", marginBottom: 14, maxWidth: "92ch" }}>
         Comparação <b>forward</b> entre os motores. <b>Padrão</b> e <b>Classe</b> = motores vivos. Experimentais (emitidos em paralelo):
         <b> Padrão-B</b> (ATR ×1,4), <b>Classe-B</b> (convicção ≥20 + ATR ×1,4), <b>GPT-4.1</b> e <b>DeepSeek</b> (decisão da IA — ver duelo acima),
+        <b> Sobrev·GPT/DS</b> (mentalidade de capital finito — ver ringue acima),
         <b> Condicional</b> (lógica por regime), <b>Contrário</b> (controle — inverso do Padrão) e <b>Consenso</b> (Padrão ∩ Classe).
         <b> Realizado</b> = fechados pelo cron; <b>não-realizado</b> = abertos a mercado.
       </p>

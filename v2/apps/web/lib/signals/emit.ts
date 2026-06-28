@@ -10,7 +10,7 @@ import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
-import { generateLlmDecision, generateLlmDecisionDS, type LlmDecision } from "@/lib/analysis/narrative";
+import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, type LlmDecision } from "@/lib/analysis/narrative";
 
 export type EmitReason = "emitted" | "neutral" | "low-seal" | "open-exists" | "no-db" | "error";
 export type ClassEmitReason = EmitReason | "low-conviction" | "no-geometry";
@@ -226,6 +226,20 @@ export function emitLlmDsSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
   return emitLlmWith(() => generateLlmDecisionDS(dto, assetType, extras), "llm_ds", `${ENGINE_VERSION}+llm-ds`, dto, symbol, assetType, timeframe);
+}
+
+/** MOTOR SOBREVIVÊNCIA·GPT — decisão com mentalidade de capital finito (prompt de sobrevivência). */
+export function emitLlmSurvSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  return emitLlmWith(() => generateLlmDecisionSurv(dto, assetType, extras), "llm_surv", `${ENGINE_VERSION}+surv`, dto, symbol, assetType, timeframe);
+}
+
+/** MOTOR SOBREVIVÊNCIA·DS — idem, decisão da DeepSeek. No-op gracioso sem DEEPSEEK_API_KEY. */
+export function emitLlmDsSurvSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  return emitLlmWith(() => generateLlmDecisionDsSurv(dto, assetType, extras), "llm_ds_surv", `${ENGINE_VERSION}+ds-surv`, dto, symbol, assetType, timeframe);
 }
 
 /* =====================================================================

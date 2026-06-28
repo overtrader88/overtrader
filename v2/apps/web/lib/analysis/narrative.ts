@@ -106,6 +106,19 @@ const LLM_DECISION_SYSTEM = [
   "NÃO escreva nada fora do JSON.",
 ].join("\n");
 
+/** Sistema do MOTOR LLM com MENTALIDADE DE SOBREVIVÊNCIA — a convicção vira tamanho
+ *  de aposta; quebrar a banca = morte. Tende a ser mais seletivo (mais 'neutro'). */
+const LLM_SURVIVAL_SYSTEM = [
+  "Você é um MOTOR DE DECISÃO com MENTALIDADE DE SOBREVIVÊNCIA. Você opera uma conta de capital FINITO que é a SUA vida: se ela quebrar, você MORRE — não há segunda chance.",
+  "Sua 'conviccao' define DIRETAMENTE o tamanho da aposta (convicção alta = aposta grande). Por isso, calibre com honestidade brutal.",
+  "REGRAS DE SOBREVIVÊNCIA (nesta ordem):",
+  "1) Preservar capital vem ANTES de buscar lucro. Um trade que você NÃO faz nunca te mata; uma sequência de apostas grandes em sinais fracos, sim.",
+  "2) Só decida 'compra' ou 'venda' quando o edge for CLARO (confluência forte + estrutura SMC + multi-timeframe alinhados + regime a favor). Na menor dúvida: 'neutro'.",
+  "3) conviccao ≥80 SOMENTE quando você apostaria pesado com o próprio dinheiro. Sinal mediano → conviccao 60-70 ou 'neutro'. Não infle convicção.",
+  "4) Pense assimétrico: prefira trades onde o ganho potencial é MUITO maior que a perda. Evite risco de ruína.",
+  "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
+].join("\n");
+
 /** Fatos BRUTOS p/ a decisão da LLM — sem o veredito do Motor 1 (independência). */
 function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): unknown {
   const a = dto.analysis;
@@ -129,7 +142,7 @@ function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras: ClassE
 }
 
 /** Núcleo da decisão (estruturada, temp 0) via um provedor OpenAI-compatível. `null` se key ausente/falha. */
-async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, system: string = LLM_DECISION_SYSTEM): Promise<LlmDecision | null> {
   if (!p.apiKey) return null;
   try {
     const res = await withTimeout(
@@ -142,7 +155,7 @@ async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: Asse
           max_tokens: 200,
           response_format: { type: "json_object" },
           messages: [
-            { role: "system", content: LLM_DECISION_SYSTEM },
+            { role: "system", content: system },
             { role: "user", content: `Dados medidos (JSON):\n${JSON.stringify(toDecisionFacts(dto, assetType, extras))}\n\nDecida.` },
           ],
           ...(p.extraBody ?? {}),
@@ -172,6 +185,16 @@ export function generateLlmDecision(dto: FullAnalysis, assetType: AssetType, ext
 /** MOTOR LLM·DS (DeepSeek V4-Pro). Concorre lado a lado com o da OpenAI; `null` sem DEEPSEEK_API_KEY. */
 export function generateLlmDecisionDS(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
   return runLlmDecision(deepSeekProvider(), dto, assetType, extras);
+}
+
+/** MOTOR LLM SOBREVIVÊNCIA (GPT) — mesma IA, mas com mentalidade de capital finito. */
+export function generateLlmDecisionSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_SURVIVAL_SYSTEM);
+}
+
+/** MOTOR LLM SOBREVIVÊNCIA (DeepSeek) — idem, no provedor DeepSeek. */
+export function generateLlmDecisionDsSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_SURVIVAL_SYSTEM);
 }
 
 /** Diagnóstico de um provedor: ping mínimo que revela o motivo REAL da falha
