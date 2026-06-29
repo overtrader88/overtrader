@@ -168,8 +168,9 @@ export default async function TrackRecordPage({
             </div>
             {activeTab.key === "todos" ? (
               <p className="note" style={{ maxWidth: "70ch", margin: "0 0 14px" }}>
-                Visão <b>consolidada dos 5 motores</b> — 2 de produção (padrão e por classe) + 3 experimentais (Padrão-B, Classe-B,
-                LLM) em teste forward. A coluna de cada linha mostra de qual motor é o sinal. Selecione um motor acima para vê-lo isolado.
+                Visão <b>consolidada de todos os motores</b> — os de produção (padrão e por classe) mais as variantes
+                experimentais (incluindo as famílias de IA: GPT/DeepSeek, sobrevivência e volume/S-R/Fibonacci) em teste forward.
+                A coluna de cada linha mostra de qual motor é o sinal. Selecione um motor acima para vê-lo isolado.
               </p>
             ) : null}
             {activeTab.key === "classe" ? (

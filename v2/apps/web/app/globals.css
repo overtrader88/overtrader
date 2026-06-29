@@ -2182,7 +2182,7 @@ body { padding-bottom: 34px; }
 .liqz-now { text-align: center; font: 600 10px/1 var(--mono, monospace); color: var(--cyan); padding: 7px 0; letter-spacing: .04em; }
 
 /* ===== Track record — abas de motor ===== */
-.tr-tabs { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--hair); border-radius: 9px; background: color-mix(in srgb, var(--ink) 4%, transparent); margin-bottom: 14px; }
+.tr-tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 3px; border: 1px solid var(--hair); border-radius: 9px; background: color-mix(in srgb, var(--ink) 4%, transparent); margin-bottom: 14px; max-width: 100%; }
 .tr-tab { font: 600 12px/1 inherit; padding: 7px 14px; border-radius: 7px; color: var(--ink-soft); text-decoration: none; transition: .15s; white-space: nowrap; }
 .tr-tab:hover { color: var(--ink); }
 .tr-tab.on { background: var(--cyan); color: #04121a; box-shadow: 0 1px 8px rgba(60,200,255,.3); }
