@@ -610,7 +610,7 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
           const last = lastOf(id);
           return (
             <span key={id} style={{ display: "flex", alignItems: "center", gap: 6, color: "#aebccd" }}>
-              <span style={{ width: 14, height: 3, background: ENGINE_COLOR[id] ?? "#64748b", display: "inline-block", borderRadius: 2 }} /> {ENGINE_LABEL[id] ?? id} <b style={{ color: last >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)", fontVariantNumeric: "tabular-nums" }}>{sgn(last, 1)} R</b>
+              <span style={{ width: 14, height: 3, background: ENGINE_COLOR[id] ?? "#64748b", display: "inline-block", borderRadius: 2 }} /> <EngineName id={id} text={ENGINE_LABEL[id] ?? id} /> <b style={{ color: last >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)", fontVariantNumeric: "tabular-nums" }}>{sgn(last, 1)} R</b>
             </span>
           );
         })}
@@ -643,6 +643,13 @@ const ENGINE_COLOR: Record<string, string> = {
 /** Bolinha de cor do motor — amarra coluna/tabela à linha do gráfico de equity. */
 const EngineDot = ({ id }: { id: string }) => (
   <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: ENGINE_COLOR[id] ?? "#64748b", flex: "none" }} aria-hidden />
+);
+/** Motores baseados em LLM (IA) — o nome deles aparece em AMARELO na aba Motores. */
+const LLM_ENGINES = new Set(["llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv"]);
+const isLlmEngine = (id: string) => LLM_ENGINES.has(id);
+/** Nome do motor — destacado em amarelo quando é LLM. */
+const EngineName = ({ id, text }: { id: string; text: string }) => (
+  <span style={isLlmEngine(id) ? { color: "var(--amber,#eab308)", fontWeight: 700 } : undefined}>{text}</span>
 );
 /** 1ª coluna fixa em tabelas largas (8 motores → scroll horizontal). */
 const STICKY_COL: React.CSSProperties = { position: "sticky", left: 0, zIndex: 1, background: "var(--panel, #0d1119)" };
@@ -695,7 +702,7 @@ function BreakdownTable({ title, rows, engineIds }: { title: string; rows: Break
                 <th style={{ ...TH, ...STICKY_COL, textAlign: "left" }}>Grupo</th>
                 {engineIds.map((e) => (
                   <th key={e} style={{ ...TH, textAlign: "left", whiteSpace: "nowrap" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} />{ENGINE_LABEL[e] ?? e}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} /><EngineName id={e} text={ENGINE_LABEL[e] ?? e} /></span>
                   </th>
                 ))}
               </tr>
@@ -796,7 +803,7 @@ function DailyBoard({ daily, engines, engineIds }: { daily: DailyRow[]; engines:
                 <th style={{ ...TH, ...STICKY_COL, textAlign: "left" }}>Dia</th>
                 {engineIds.map((e) => (
                   <th key={e} style={{ ...TH, textAlign: "right", whiteSpace: "nowrap" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} />{ENGINE_LABEL[e] ?? e}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} /><EngineName id={e} text={ENGINE_LABEL[e] ?? e} /></span>
                   </th>
                 ))}
               </tr>
@@ -906,7 +913,7 @@ function RankingTable({ engines, byClass, visibleIds }: { engines: EngineStat[];
               return (
                 <tr key={e.engine} style={ROW}>
                   <td style={{ ...TD, fontWeight: 700 }}>{!ranked0 ? "—" : i === 0 ? "🥇 1º" : `${i + 1}º`}</td>
-                  <td style={{ ...TD, whiteSpace: "nowrap" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><EngineDot id={e.engine} />{ENGINE_TAG[e.engine] ?? e.engine}</span></td>
+                  <td style={{ ...TD, whiteSpace: "nowrap" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><EngineDot id={e.engine} /><EngineName id={e.engine} text={ENGINE_TAG[e.engine] ?? e.engine} /></span></td>
                   <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: tone ?? "#e8edf5" }}>{v == null ? "—" : m.fmt(v)}</td>
                   <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{e.decisive}</td>
                   <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{e.decisive > 0 ? `${e.winRatePct.toFixed(0)}%` : "—"}</td>
@@ -963,7 +970,7 @@ function LlmDuel({ engines }: { engines: EngineStat[] }) {
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
         <span style={{ width: 9, height: 9, borderRadius: "50%", background: ENGINE_COLOR[id], boxShadow: `0 0 8px ${ENGINE_COLOR[id]}` }} />
-        <span style={{ fontWeight: 800, fontSize: "0.92rem", color: "#e8edf5" }}>{ENGINE_TAG[id]}</span>
+        <span style={{ fontWeight: 800, fontSize: "0.92rem" }}><EngineName id={id} text={ENGINE_TAG[id] ?? id} /></span>
       </div>
       {METRICS.map((m) => {
         const a = m.val(e), b = m.val(id === "llm" ? ds : gpt);
@@ -1122,8 +1129,8 @@ function VsCompare({ engines }: { engines: EngineStat[] }) {
             <thead>
               <tr style={ROW}>
                 <th style={{ ...TH, textAlign: "left" }}>Métrica</th>
-                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(a)}{ENGINE_LABEL[a]}</span></th>
-                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(b)}{ENGINE_LABEL[b]}</span></th>
+                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(a)}<EngineName id={a} text={ENGINE_LABEL[a] ?? a} /></span></th>
+                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(b)}<EngineName id={b} text={ENGINE_LABEL[b] ?? b} /></span></th>
               </tr>
             </thead>
             <tbody>
@@ -1266,7 +1273,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
             return (
               <button key={id} type="button" onClick={() => toggleEngine(id)}
                 style={{ ...FIELD, cursor: "pointer", fontSize: "0.78rem", fontWeight: on ? 700 : 500, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 6, background: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 14%, transparent)" : "var(--panel-2, #0a0e15)", color: on ? "var(--ink, #e9effa)" : "var(--ink-faint, #535f74)", borderColor: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 45%, transparent)" : "var(--line-2)", opacity: on ? 1 : 0.75 }}>
-                <EngineDot id={id} />{ENGINE_LABEL[id]}
+                <EngineDot id={id} /><EngineName id={id} text={ENGINE_LABEL[id] ?? id} />
               </button>
             );
           })}
@@ -1296,7 +1303,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
               <th style={{ ...TH, ...STICKY_COL, textAlign: "left" }}>Métrica</th>
               {cols.map((e) => (
                 <th key={e.engine} style={{ ...TH, textAlign: "right", whiteSpace: "nowrap" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e.engine} />{SHORT[e.engine] ?? e.label}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e.engine} /><EngineName id={e.engine} text={SHORT[e.engine] ?? e.label} /></span>
                 </th>
               ))}
             </tr>
@@ -1378,7 +1385,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
                 const st = STATUS_PT[o.status];
                 return (
                   <tr key={i} style={ROW}>
-                    <td style={TD}>{ENGINE_TAG[o.engine] ?? o.engine}</td>
+                    <td style={TD}><EngineName id={o.engine} text={ENGINE_TAG[o.engine] ?? o.engine} /></td>
                     <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
                     <td style={{ ...TD, color: o.side === "sell" ? "var(--bear,#dc2626)" : "var(--bull,#16a34a)" }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
                     <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{o.entry.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}</td>
@@ -1432,7 +1439,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
                   : o.outcome === "SL" ? { label: "Stop", color: RED } : { label: "Expirou", color: "#94a3b8" };
                 return (
                   <tr key={i} style={ROW}>
-                    <td style={TD}>{ENGINE_TAG[o.engine] ?? o.engine}</td>
+                    <td style={TD}><EngineName id={o.engine} text={ENGINE_TAG[o.engine] ?? o.engine} /></td>
                     <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
                     <td style={{ ...TD, color: o.side === "sell" ? RED : GREEN }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
                     <td style={{ ...TD, color: oc.color, fontWeight: 600 }}>{oc.label}</td>
