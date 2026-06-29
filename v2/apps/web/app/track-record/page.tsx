@@ -7,24 +7,26 @@ import { TrackLiveTable } from "@/components/track-live-table";
 
 export const dynamic = "force-dynamic";
 
-const ENGINE_TABS: { key: string; label: string; filter?: EngineFilter; tm?: boolean; beta?: boolean; experimental?: boolean }[] = [
-  { key: "todos", label: "Todos" },
-  { key: "padrao", label: "Motor padrão", filter: "padrao" },
-  { key: "classe", label: "Motor por classe", filter: "classe" },
-  { key: "padrao_b", label: "Padrão-B", filter: "padrao_b", tm: true, experimental: true },
-  { key: "classe_b", label: "Classe-B", filter: "classe_b", tm: true, experimental: true },
-  { key: "llm", label: "LLM · GPT-4.1", filter: "llm", tm: true, beta: true, experimental: true },
-  { key: "llm_ds", label: "LLM · DeepSeek", filter: "llm_ds", tm: true, beta: true, experimental: true },
-  { key: "llm_surv", label: "Sobrev. · GPT", filter: "llm_surv", tm: true, beta: true, experimental: true },
-  { key: "llm_ds_surv", label: "Sobrev. · DeepSeek", filter: "llm_ds_surv", tm: true, beta: true, experimental: true },
-  { key: "llm_vsf", label: "Vol/S-R/Fib · GPT", filter: "llm_vsf", tm: true, beta: true, experimental: true },
-  { key: "llm_ds_vsf", label: "Vol/S-R/Fib · DeepSeek", filter: "llm_ds_vsf", tm: true, beta: true, experimental: true },
-  { key: "llm_vsf_surv", label: "VSF+Sobrev · GPT", filter: "llm_vsf_surv", tm: true, beta: true, experimental: true },
-  { key: "llm_ds_vsf_surv", label: "VSF+Sobrev · DeepSeek", filter: "llm_ds_vsf_surv", tm: true, beta: true, experimental: true },
-  { key: "condicional", label: "Condicional", filter: "condicional", tm: true, experimental: true },
-  { key: "contrario", label: "Contrário", filter: "contrario", tm: true, experimental: true },
-  { key: "consenso", label: "Consenso", filter: "consenso", tm: true, experimental: true },
+const ENGINE_TABS: { key: string; label: string; filter?: EngineFilter; tm?: boolean; beta?: boolean; experimental?: boolean; group: string }[] = [
+  { key: "todos", label: "Todos", group: "geral" },
+  { key: "padrao", label: "Motor padrão", filter: "padrao", group: "producao" },
+  { key: "classe", label: "Motor por classe", filter: "classe", group: "producao" },
+  { key: "padrao_b", label: "Padrão-B", filter: "padrao_b", tm: true, experimental: true, group: "ab" },
+  { key: "classe_b", label: "Classe-B", filter: "classe_b", tm: true, experimental: true, group: "ab" },
+  { key: "llm", label: "LLM · GPT-4.1", filter: "llm", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "llm_ds", label: "LLM · DeepSeek", filter: "llm_ds", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "llm_surv", label: "Sobrev. · GPT", filter: "llm_surv", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "llm_ds_surv", label: "Sobrev. · DeepSeek", filter: "llm_ds_surv", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "llm_vsf", label: "Vol/S-R/Fib · GPT", filter: "llm_vsf", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "llm_ds_vsf", label: "Vol/S-R/Fib · DeepSeek", filter: "llm_ds_vsf", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "llm_vsf_surv", label: "VSF+Sobrev · GPT", filter: "llm_vsf_surv", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "llm_ds_vsf_surv", label: "VSF+Sobrev · DeepSeek", filter: "llm_ds_vsf_surv", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "condicional", label: "Condicional", filter: "condicional", tm: true, experimental: true, group: "det" },
+  { key: "contrario", label: "Contrário", filter: "contrario", tm: true, experimental: true, group: "det" },
+  { key: "consenso", label: "Consenso", filter: "consenso", tm: true, experimental: true, group: "det" },
 ];
+/** Rótulo curto de cada grupo de motores (mostrado no separador entre famílias). */
+const GROUP_LABEL: Record<string, string> = { producao: "Produção", ab: "Variantes A/B", ia: "Inteligência (LLM)", det: "Determinísticos" };
 
 /** Rótulo curto do motor — usado na tag por linha na visão consolidada. */
 const ENGINE_SHORT: Record<string, string> = {
@@ -161,13 +163,23 @@ export default async function TrackRecordPage({
             </div>
 
             <div className="tr-tabs">
-              {ENGINE_TABS.map((t) => (
-                <a key={t.key} href={t.key === "todos" ? "/track-record" : `/track-record?engine=${t.key}`}
-                  className={`tr-tab${t.key === activeTab.key ? " on" : ""}`}>
-                  {t.label}{t.tm ? <span className="tr-tm">™</span> : null}
-                  {t.beta ? <span className="tr-beta">BETA</span> : null}
-                </a>
-              ))}
+              {ENGINE_TABS.flatMap((t, i) => {
+                const prev = ENGINE_TABS[i - 1];
+                const node = (
+                  <a key={t.key} href={t.key === "todos" ? "/track-record" : `/track-record?engine=${t.key}`}
+                    className={`tr-tab${t.key === activeTab.key ? " on" : ""}`}>
+                    {t.label}{t.tm ? <span className="tr-tm">™</span> : null}
+                    {t.beta ? <span className="tr-beta">BETA</span> : null}
+                  </a>
+                );
+                if (i > 0 && prev && prev.group !== t.group) {
+                  return [
+                    <span key={`sep-${t.group}`} className="tr-sep" aria-hidden>{GROUP_LABEL[t.group] ?? ""}</span>,
+                    node,
+                  ];
+                }
+                return [node];
+              })}
             </div>
             {activeTab.key === "todos" ? (
               <p className="note" style={{ maxWidth: "70ch", margin: "0 0 14px" }}>
