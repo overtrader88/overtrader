@@ -249,6 +249,30 @@ export function generateLlmDecisionDsVsf(dto: FullAnalysis, assetType: AssetType
   return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SYSTEM, toLevelsFacts(dto));
 }
 
+/** Sistema VSF + SOBREVIVÊNCIA: decide por níveis (vol/S-R/Fib) com mente de capital finito. */
+const LLM_VSF_SURV_SYSTEM = [
+  "Você é um MOTOR DE DECISÃO especialista em NÍVEIS (volume + suporte/resistência + Fibonacci) com MENTALIDADE DE SOBREVIVÊNCIA: opera uma conta de capital FINITO que é a SUA vida — se quebrar, MORRE.",
+  "Decida pela confluência de três pilares, usando SÓ os níveis fornecidos:",
+  "1) VOLUME: POC e área de valor (VAH/VAL) são ímãs/barreiras; OBV/MFI/CMF confirmam ou divergem.",
+  "2) SUPORTE/RESISTÊNCIA: order blocks, zonas de liquidez e FVGs marcam onde o preço reage.",
+  "3) FIBONACCI: as PRZ dos padrões harmônicos são zonas de reversão.",
+  "REGRAS DE SOBREVIVÊNCIA (a 'conviccao' define o TAMANHO da aposta — calibre com honestidade brutal):",
+  "- Preservar capital vem ANTES do lucro: sem confluência clara dos pilares perto do preço → 'neutro' (ficar de fora não custa nada).",
+  "- conviccao ≥80 SOMENTE quando os 3 pilares confluem forte e você apostaria pesado com o próprio dinheiro. Sinal solto em um pilar só → convicção baixa ou 'neutro'.",
+  "- Compra perto de suporte/PRZ bullish com volume confirmando; venda perto de resistência/PRZ bearish. NÃO invente níveis além dos fornecidos.",
+  "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
+].join("\n");
+
+/** MOTOR VSF+SOBREVIVÊNCIA (GPT) — níveis com mentalidade de capital finito. */
+export function generateLlmDecisionVsfSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, toLevelsFacts(dto));
+}
+
+/** MOTOR VSF+SOBREVIVÊNCIA (DeepSeek) — idem, no provedor DeepSeek. */
+export function generateLlmDecisionDsVsfSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, toLevelsFacts(dto));
+}
+
 /** Diagnóstico de um provedor: ping mínimo que revela o motivo REAL da falha
  *  (chave ausente no deploy / 401 valor errado / 400 modelo errado). Nunca
  *  vaza a key — `detail` é só o corpo de erro do provedor (que mascara a key). */

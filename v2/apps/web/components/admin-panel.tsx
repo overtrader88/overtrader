@@ -621,20 +621,23 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
 
 /** Tabela de recorte (classe ou TF) × motor. */
 // Metadados de motor — fonte única (ordem + rótulo curto + tag com ícone p/ listas).
-const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "condicional", "contrario", "consenso"] as const;
+const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "condicional", "contrario", "consenso"] as const;
 const ENGINE_LABEL: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "GPT-4.1", llm_ds: "DeepSeek",
   llm_surv: "Sobrev·GPT", llm_ds_surv: "Sobrev·DS", llm_vsf: "VSF·GPT", llm_ds_vsf: "VSF·DS",
+  llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS",
   condicional: "Condicional", contrario: "Contrário", consenso: "Consenso",
 };
 const ENGINE_TAG: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 GPT-4.1", llm_ds: "🐋 DeepSeek",
   llm_surv: "🛡 Sobrev·GPT", llm_ds_surv: "🛡 Sobrev·DS", llm_vsf: "📊 VSF·GPT", llm_ds_vsf: "📊 VSF·DS",
+  llm_vsf_surv: "📊🛡 VSF+S·GPT", llm_ds_vsf_surv: "📊🛡 VSF+S·DS",
   condicional: "⚡ Condicional", contrario: "🔁 Contrário", consenso: "🤝 Consenso",
 };
 const ENGINE_COLOR: Record<string, string> = {
   padrao: "#2563eb", padrao_b: "#0ea5e9", classe: "#9333ea", classe_b: "#c026d3", llm: "#f59e0b", llm_ds: "#a78bfa",
   llm_surv: "#f97316", llm_ds_surv: "#c084fc", llm_vsf: "#14b8a6", llm_ds_vsf: "#ec4899",
+  llm_vsf_surv: "#0d9488", llm_ds_vsf_surv: "#db2777",
   condicional: "#22c55e", contrario: "#94a3b8", consenso: "#06b6d4",
 };
 /** Bolinha de cor do motor — amarra coluna/tabela à linha do gráfico de equity. */
@@ -1068,6 +1071,77 @@ function SurvivalArenaCard({ survival }: { survival: SurvivalArena | null }) {
   );
 }
 
+/**
+ * VS — comparador livre: escolha DOIS motores e veja o head-to-head das métricas
+ * realizadas. Vencedor de cada métrica em verde. Usa os EngineStat já carregados.
+ */
+function VsCompare({ engines }: { engines: EngineStat[] }) {
+  const byId = useMemo(() => new Map(engines.map((e) => [e.engine, e])), [engines]);
+  const available = ENGINE_ORDER.filter((id) => byId.has(id));
+  const [a, setA] = useState<string>(available[0] ?? "llm");
+  const [b, setB] = useState<string>(available.find((id) => id !== (available[0] ?? "llm")) ?? available[1] ?? "llm_ds");
+  const ea = byId.get(a), eb = byId.get(b);
+  const GREEN = "var(--bull,#16a34a)", MUTED = "#aebccd";
+
+  type VRow = { label: string; get: (e: EngineStat) => string; raw: (e: EngineStat) => number | null; dir: "higher" | "none" };
+  const ROWS: VRow[] = [
+    { label: "Sinais emitidos", get: (e) => String(e.emittedTotal), raw: () => null, dir: "none" },
+    { label: "Resolvidos", get: (e) => String(e.resolved), raw: () => null, dir: "none" },
+    { label: "Abertos agora", get: (e) => String(e.open), raw: () => null, dir: "none" },
+    { label: "Assertividade", get: (e) => `${e.winRatePct.toFixed(1)}%`, raw: (e) => (e.decisive > 0 ? e.winRatePct : null), dir: "higher" },
+    { label: "Profit factor", get: (e) => (isFinite(e.profitFactor) ? e.profitFactor.toFixed(2) : "∞"), raw: (e) => (e.decisive > 0 ? e.profitFactor : null), dir: "higher" },
+    { label: "R médio / sinal", get: (e) => (e.resolved > 0 ? sgn(e.avgR) : "—"), raw: (e) => (e.resolved > 0 ? e.avgR : null), dir: "higher" },
+    { label: "R acumulado", get: (e) => (e.resolved > 0 ? sgn(e.totalR, 1) : "—"), raw: (e) => (e.resolved > 0 ? e.totalR : null), dir: "higher" },
+    { label: "Payoff", get: (e) => (e.wins > 0 && e.losses > 0 ? `${e.payoff.toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 && e.losses > 0 ? e.payoff : null), dir: "higher" },
+  ];
+
+  const dot = (id: string) => <span style={{ width: 9, height: 9, borderRadius: "50%", background: ENGINE_COLOR[id] ?? "#64748b", display: "inline-block", flex: "none" }} />;
+  const sel = (val: string, set: (v: string) => void) => (
+    <select value={val} onChange={(e) => set(e.target.value)}
+      style={{ ...FIELD, cursor: "pointer", fontWeight: 700, padding: "6px 9px", maxWidth: 180 }}>
+      {available.map((id) => <option key={id} value={id} style={{ background: "#0a0e15" }}>{ENGINE_LABEL[id] ?? id}</option>)}
+    </select>
+  );
+  const cell = (e: EngineStat | undefined, r: VRow, other: EngineStat | undefined): React.CSSProperties => {
+    const mine = e ? r.raw(e) : null, their = other ? r.raw(other) : null;
+    const win = r.dir === "higher" && mine != null && their != null && mine > their;
+    return { ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: win ? 800 : 600, color: win ? GREEN : "#e8edf5" };
+  };
+
+  return (
+    <div style={{ border: "1px solid var(--line-2)", borderRadius: 14, padding: "15px 18px", marginBottom: 18, background: "var(--panel-2,#0a0e15)" }}>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aebccd", fontWeight: 700, marginBottom: 12 }}>⚔ Comparar dois motores (VS)</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{dot(a)}{sel(a, setA)}</span>
+        <b style={{ color: "#535f74", fontSize: "0.85rem" }}>VS</b>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{dot(b)}{sel(b, setB)}</span>
+      </div>
+      {ea && eb ? (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", color: "#e8edf5" }}>
+            <thead>
+              <tr style={ROW}>
+                <th style={{ ...TH, textAlign: "left" }}>Métrica</th>
+                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(a)}{ENGINE_LABEL[a]}</span></th>
+                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(b)}{ENGINE_LABEL[b]}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {ROWS.map((r) => (
+                <tr key={r.label} style={ROW}>
+                  <td style={{ ...TD, color: MUTED, whiteSpace: "nowrap" }}>{r.label}</td>
+                  <td style={cell(ea, r, eb)}>{r.get(ea)}</td>
+                  <td style={cell(eb, r, ea)}>{r.get(eb)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <p className="note">Selecione dois motores.</p>}
+    </div>
+  );
+}
+
 function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, survival, now }: { engines: EngineStat[]; byClassEngine: ClassEngines[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; daily: DailyRow[]; survival: SurvivalArena | null; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
@@ -1182,6 +1256,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
   return (
     <div className="motores-tab" style={{ color: "#e8edf5" }}>
       <LlmDuel engines={engines} />
+      <VsCompare engines={engines} />
       <SurvivalArenaCard survival={survival} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1209,7 +1284,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
         Comparação <b>forward</b> entre os motores. <b>Padrão</b> e <b>Classe</b> = motores vivos. Experimentais (emitidos em paralelo):
         <b> Padrão-B</b> (ATR ×1,4), <b>Classe-B</b> (convicção ≥20 + ATR ×1,4), <b>GPT-4.1</b> e <b>DeepSeek</b> (decisão da IA — ver duelo acima),
         <b> Sobrev·GPT/DS</b> (mentalidade de capital finito — ver ringue acima),
-        <b> VSF·GPT/DS</b> (volume + suporte/resistência + Fibonacci),
+        <b> VSF·GPT/DS</b> (volume + suporte/resistência + Fibonacci) e <b>VSF+S·GPT/DS</b> (idem, com mente de sobrevivência),
         <b> Condicional</b> (lógica por regime), <b>Contrário</b> (controle — inverso do Padrão) e <b>Consenso</b> (Padrão ∩ Classe).
         <b> Realizado</b> = fechados pelo cron; <b>não-realizado</b> = abertos a mercado.
       </p>

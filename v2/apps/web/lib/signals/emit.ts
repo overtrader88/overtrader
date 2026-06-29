@@ -10,7 +10,7 @@ import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
-import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, type LlmDecision } from "@/lib/analysis/narrative";
+import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, type LlmDecision } from "@/lib/analysis/narrative";
 
 export type EmitReason = "emitted" | "neutral" | "low-seal" | "open-exists" | "no-db" | "error";
 export type ClassEmitReason = EmitReason | "low-conviction" | "no-geometry";
@@ -254,6 +254,20 @@ export function emitLlmDsVsfSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
   return emitLlmWith(() => generateLlmDecisionDsVsf(dto, assetType, extras), "llm_ds_vsf", `${ENGINE_VERSION}+ds-vsf`, dto, symbol, assetType, timeframe);
+}
+
+/** MOTOR VSF+SOBREVIVÊNCIA·GPT — níveis com mente de capital finito. */
+export function emitLlmVsfSurvSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  return emitLlmWith(() => generateLlmDecisionVsfSurv(dto, assetType, extras), "llm_vsf_surv", `${ENGINE_VERSION}+vsf-surv`, dto, symbol, assetType, timeframe);
+}
+
+/** MOTOR VSF+SOBREVIVÊNCIA·DS — idem, decisão da DeepSeek. No-op gracioso sem DEEPSEEK_API_KEY. */
+export function emitLlmDsVsfSurvSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  return emitLlmWith(() => generateLlmDecisionDsVsfSurv(dto, assetType, extras), "llm_ds_vsf_surv", `${ENGINE_VERSION}+ds-vsf-surv`, dto, symbol, assetType, timeframe);
 }
 
 /* =====================================================================
