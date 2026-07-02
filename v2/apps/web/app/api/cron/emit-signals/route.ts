@@ -81,24 +81,25 @@ async function handle(req: Request): Promise<NextResponse> {
         if (b1.reason === "emitted") padraoBEmitted++;
         const b2 = await emitClassSignalB(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (b2.reason === "emitted") classeBEmitted++;
-        const llm = await emitLlmSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
+        // Os 8 motores LLM em PARALELO (decisões independentes entre si): com 12
+        // mercados, sequencial estourava o maxDuration=300s da função na Vercel.
+        const [llm, llmDs, llmSurv, llmDsSurv, llmVsf, llmDsVsf, llmVsfSurv, llmDsVsfSurv] = await Promise.all([
+          emitLlmSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
+          emitLlmDsSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
+          emitLlmSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
+          emitLlmDsSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
+          emitLlmVsfSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
+          emitLlmDsVsfSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
+          emitLlmVsfSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
+          emitLlmDsVsfSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
+        ]);
         if (llm.reason === "emitted") llmEmitted++;
-        const llmDs = await emitLlmDsSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llmDs.reason === "emitted") llmDsEmitted++;
-        // Motores de SOBREVIVÊNCIA (mentalidade de capital finito) — GPT e DeepSeek.
-        const llmSurv = await emitLlmSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llmSurv.reason === "emitted") llmSurvEmitted++;
-        const llmDsSurv = await emitLlmDsSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llmDsSurv.reason === "emitted") llmDsSurvEmitted++;
-        // Motores VSF (volume + suporte/resistência + Fibonacci) — GPT e DeepSeek.
-        const llmVsf = await emitLlmVsfSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llmVsf.reason === "emitted") llmVsfEmitted++;
-        const llmDsVsf = await emitLlmDsVsfSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llmDsVsf.reason === "emitted") llmDsVsfEmitted++;
-        // VSF + SOBREVIVÊNCIA (níveis com mente de capital finito) — GPT e DeepSeek.
-        const llmVsfSurv = await emitLlmVsfSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llmVsfSurv.reason === "emitted") llmVsfSurvEmitted++;
-        const llmDsVsfSurv = await emitLlmDsVsfSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (llmDsVsfSurv.reason === "emitted") llmDsVsfSurvEmitted++;
         // Motores experimentais determinísticos (condicional / contrário / consenso).
         const cond = await emitConditionalSignal(dto, m.symbol, m.assetType, m.timeframe);
