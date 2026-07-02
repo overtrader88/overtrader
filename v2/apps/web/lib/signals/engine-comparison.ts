@@ -32,12 +32,8 @@ const ASSET_PT: Record<string, string> = {
 };
 const isWin = (o: SignalOutcome) => o === "TP1" || o === "TP2" || o === "TP3";
 
-// ===== RINGUE DE SOBREVIVÊNCIA — banca que aposta fração por trade e MORRE se quebrar =====
-const SURV_START = 100;       // banca inicial
-const SURV_FLOOR = 33;        // morre se cair abaixo de 33% (−67%)
-const RISK_NORMAL = 0.05;     // 5% da banca por trade (convicção normal)
-const RISK_STRONG = 0.10;     // 10% se convicção alta (direção STRONG_*)
-const survFraction = (direction: string) => (/^STRONG/.test(direction) ? RISK_STRONG : RISK_NORMAL);
+// ===== RINGUE DE SOBREVIVÊNCIA — regras da banca em lib/signals/survival.ts (fonte única) =====
+import { SURV_START, SURV_FLOOR, RISK_NORMAL, RISK_STRONG, survFraction } from "./survival";
 
 /** Replay determinístico de UMA conta de sobrevivência sobre os trades de um motor. */
 function survivalLine(engine: string, label: string, flavor: "mente" | "gestao", provider: "gpt" | "ds", rows: Row[], open: OpenPosition[]): SurvivalLine {

@@ -11,6 +11,7 @@ import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
 import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, type LlmDecision } from "@/lib/analysis/narrative";
+import { replayBank, type BankState } from "./survival";
 
 export type EmitReason = "emitted" | "neutral" | "low-seal" | "open-exists" | "no-db" | "error";
 export type ClassEmitReason = EmitReason | "low-conviction" | "no-geometry";
@@ -188,30 +189,107 @@ export async function emitClassSignalB(
   });
 }
 
+/** Stop dos motores LLM: ATR ×1.4 — o forward mostrou (padrão vs padrão-B e o
+ *  Contrário TAMBÉM negativo) que o stop ×1.0 fica dentro do ruído e stopa os
+ *  dois lados. Mudança versionada no engineVersion (~a14). */
+const LLM_ATR_SCALE = 1.4;
+
+/** Estado da banca de sobrevivência do motor (replay dos resolvidos). `null` = sem histórico/DB. */
+async function fetchBank(engine: string): Promise<BankState | null> {
+  const sb = supabaseService();
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb
+      .from("signals")
+      .select("pnl_r, direction")
+      .eq("engine", engine)
+      .not("outcome", "is", null)
+      .not("resolved_at", "is", null)
+      .order("resolved_at", { ascending: true })
+      .limit(500);
+    if (error || !data?.length) return null;
+    return replayBank(data.map((r) => ({ pnlR: Number(r.pnl_r ?? 0), direction: String(r.direction ?? "") })));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Plano por NÍVEL (família VSF): o stop vai atrás do nível que JUSTIFICA o trade
+ * (compra → abaixo do suporte: order block bullish / liquidez / VAL; venda →
+ * espelhado), com folga de 0.25×ATR. Alvos preservam a estrutura de RR da casa
+ * (mesmos ratios tp/sl do computeRiskFrom). Guarda-corpo: stop entre 0.6 e 2.5
+ * ATR do preço; fora disso devolve null e o chamador cai no plano ATR (~a14fb).
+ */
+function buildVsfPlan(dto: FullAnalysis, side: "buy" | "sell"): { entry: number; stopLoss: number; takeProfit1: number; takeProfit2: number; takeProfit3: number } | null {
+  const entry = dto.analysis?.risk?.entry;
+  if (!entry || !(entry > 0)) return null;
+  const atrVal = dto.atr && dto.atr > 0 ? dto.atr : dto.analysis.meta?.atrRatio ? dto.analysis.meta.atrRatio * entry : 0;
+  if (!(atrVal > 0)) return null;
+  const smc = dto.smc;
+  const vp = dto.volumeProfile;
+  const levels: number[] = [];
+  if (side === "buy") {
+    for (const o of smc?.orderBlocks ?? []) if (o.type === "bullish" && o.zoneBottom < entry) levels.push(o.zoneBottom);
+    for (const z of smc?.liquidityZones ?? []) if (z.type === "sell_stops_below" && z.level < entry) levels.push(z.level);
+    if (vp && vp.val < entry) levels.push(vp.val);
+  } else {
+    for (const o of smc?.orderBlocks ?? []) if (o.type === "bearish" && o.zoneTop > entry) levels.push(o.zoneTop);
+    for (const z of smc?.liquidityZones ?? []) if (z.type === "buy_stops_above" && z.level > entry) levels.push(z.level);
+    if (vp && vp.vah > entry) levels.push(vp.vah);
+  }
+  if (levels.length === 0) return null;
+  const buffer = atrVal * 0.25;
+  // nível protegido mais PRÓXIMO do preço (maior suporte abaixo / menor resistência acima)
+  const stopLoss = side === "buy" ? Math.max(...levels) - buffer : Math.min(...levels) + buffer;
+  const dist = Math.abs(entry - stopLoss);
+  if (dist < atrVal * 0.6 || dist > atrVal * 2.5) return null;
+  const { slMult, tp1Mult, tp2Mult, tp3Mult } = DEFAULT_ENGINE_CONFIG.risk;
+  const k = dist / slMult; // mantém os RRs da casa com o stop ancorado no nível
+  const dir = side === "buy" ? 1 : -1;
+  return {
+    entry, stopLoss,
+    takeProfit1: entry + dir * k * tp1Mult,
+    takeProfit2: entry + dir * k * tp2Mult,
+    takeProfit3: entry + dir * k * tp3Mult,
+  };
+}
+
 /**
  * MOTOR LLM (experimental, forward): a DECISÃO (direção + convicção) é da LLM, a
- * partir dos dados brutos (independente do Motor 1). Plano por ATR (determinístico).
+ * partir dos dados brutos (independente do Motor 1). Plano determinístico:
+ * ATR ×1.4 (~a14) ou, na família VSF, stop por nível (~lvl; fallback ~a14fb).
  * Carimba quando: lado acionável + convicção ≥ 60. Sem backtest (seal 'yellow').
- * O gate/geometria é IDÊNTICO entre provedores → experimento controlado da DECISÃO
- * (gpt-4.1 vs DeepSeek V4-Pro): só o modelo muda, o resto é constante.
+ * Gate idêntico entre provedores → experimento controlado da DECISÃO.
+ * A convicção e o racional são persistidos no sinal (colunas da migration 0014;
+ * best-effort — sem elas o update falha silencioso e nada quebra).
  */
 async function emitLlmWith(
   decide: () => Promise<LlmDecision | null>, engine: string, engineVersion: string,
   dto: FullAnalysis, symbol: string, assetType: AssetType, timeframe: Timeframe,
+  useLevelPlan = false,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
   const dec = await decide();
   if (!dec) return { reason: "error", id: null }; // IA indisponível/falha (ou key ausente)
   if (dec.side === "neutral") return { reason: "neutral", id: null };
   if (dec.conviction < 60) return { reason: "low-conviction", id: null };
-  const plan = buildClassPlan(dto, dec.side);
+  let plan = useLevelPlan ? buildVsfPlan(dto, dec.side) : null;
+  const planTag = plan ? "~lvl" : useLevelPlan ? "~a14fb" : "~a14";
+  if (!plan) plan = buildClassPlan(dto, dec.side, LLM_ATR_SCALE);
   if (!plan) return { reason: "no-geometry", id: null };
   const direction: SignalDirection = dec.side === "buy"
     ? (dec.conviction >= 80 ? "STRONG_BUY" : "BUY")
     : (dec.conviction >= 80 ? "STRONG_SELL" : "SELL");
-  return recordVariant({
+  const res = await recordVariant({
     symbol, assetType, timeframe, direction, side: dec.side, seal: "yellow", plan,
-    regime: dto.analysis.meta?.regime ?? null, engine, engineVersion,
+    regime: dto.analysis.meta?.regime ?? null, engine, engineVersion: `${engineVersion}${planTag}`,
   });
+  if (res.reason === "emitted" && res.id) {
+    try {
+      await supabaseService()?.from("signals").update({ conviction: dec.conviction, rationale: dec.rationale || null }).eq("id", res.id);
+    } catch { /* colunas ainda não migradas — segue sem persistir */ }
+  }
+  return res;
 }
 
 /** MOTOR LLM·GPT — decisão da OpenAI (gpt-4.1). */
@@ -228,46 +306,50 @@ export function emitLlmDsSignal(
   return emitLlmWith(() => generateLlmDecisionDS(dto, assetType, extras), "llm_ds", `${ENGINE_VERSION}+llm-ds`, dto, symbol, assetType, timeframe);
 }
 
-/** MOTOR SOBREVIVÊNCIA·GPT — decisão com mentalidade de capital finito (prompt de sobrevivência). */
-export function emitLlmSurvSignal(
+/** MOTOR SOBREVIVÊNCIA·GPT — mentalidade de capital finito + FEEDBACK da banca real. */
+export async function emitLlmSurvSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  return emitLlmWith(() => generateLlmDecisionSurv(dto, assetType, extras), "llm_surv", `${ENGINE_VERSION}+surv`, dto, symbol, assetType, timeframe);
+  const bank = await fetchBank("llm_surv");
+  return emitLlmWith(() => generateLlmDecisionSurv(dto, assetType, extras, bank), "llm_surv", `${ENGINE_VERSION}+surv`, dto, symbol, assetType, timeframe);
 }
 
 /** MOTOR SOBREVIVÊNCIA·DS — idem, decisão da DeepSeek. No-op gracioso sem DEEPSEEK_API_KEY. */
-export function emitLlmDsSurvSignal(
+export async function emitLlmDsSurvSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  return emitLlmWith(() => generateLlmDecisionDsSurv(dto, assetType, extras), "llm_ds_surv", `${ENGINE_VERSION}+ds-surv`, dto, symbol, assetType, timeframe);
+  const bank = await fetchBank("llm_ds_surv");
+  return emitLlmWith(() => generateLlmDecisionDsSurv(dto, assetType, extras, bank), "llm_ds_surv", `${ENGINE_VERSION}+ds-surv`, dto, symbol, assetType, timeframe);
 }
 
-/** MOTOR VSF·GPT — decisão por volume + suporte/resistência + Fibonacci. */
+/** MOTOR VSF·GPT — volume + S/R + Fibonacci; stop ancorado no nível (~lvl). */
 export function emitLlmVsfSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  return emitLlmWith(() => generateLlmDecisionVsf(dto, assetType, extras), "llm_vsf", `${ENGINE_VERSION}+vsf`, dto, symbol, assetType, timeframe);
+  return emitLlmWith(() => generateLlmDecisionVsf(dto, assetType, extras), "llm_vsf", `${ENGINE_VERSION}+vsf`, dto, symbol, assetType, timeframe, true);
 }
 
 /** MOTOR VSF·DS — idem, decisão da DeepSeek. No-op gracioso sem DEEPSEEK_API_KEY. */
 export function emitLlmDsVsfSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  return emitLlmWith(() => generateLlmDecisionDsVsf(dto, assetType, extras), "llm_ds_vsf", `${ENGINE_VERSION}+ds-vsf`, dto, symbol, assetType, timeframe);
+  return emitLlmWith(() => generateLlmDecisionDsVsf(dto, assetType, extras), "llm_ds_vsf", `${ENGINE_VERSION}+ds-vsf`, dto, symbol, assetType, timeframe, true);
 }
 
-/** MOTOR VSF+SOBREVIVÊNCIA·GPT — níveis com mente de capital finito. */
-export function emitLlmVsfSurvSignal(
+/** MOTOR VSF+SOBREVIVÊNCIA·GPT — níveis + capital finito + feedback da banca. */
+export async function emitLlmVsfSurvSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  return emitLlmWith(() => generateLlmDecisionVsfSurv(dto, assetType, extras), "llm_vsf_surv", `${ENGINE_VERSION}+vsf-surv`, dto, symbol, assetType, timeframe);
+  const bank = await fetchBank("llm_vsf_surv");
+  return emitLlmWith(() => generateLlmDecisionVsfSurv(dto, assetType, extras, bank), "llm_vsf_surv", `${ENGINE_VERSION}+vsf-surv`, dto, symbol, assetType, timeframe, true);
 }
 
 /** MOTOR VSF+SOBREVIVÊNCIA·DS — idem, decisão da DeepSeek. No-op gracioso sem DEEPSEEK_API_KEY. */
-export function emitLlmDsVsfSurvSignal(
+export async function emitLlmDsVsfSurvSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  return emitLlmWith(() => generateLlmDecisionDsVsfSurv(dto, assetType, extras), "llm_ds_vsf_surv", `${ENGINE_VERSION}+ds-vsf-surv`, dto, symbol, assetType, timeframe);
+  const bank = await fetchBank("llm_ds_vsf_surv");
+  return emitLlmWith(() => generateLlmDecisionDsVsfSurv(dto, assetType, extras, bank), "llm_ds_vsf_surv", `${ENGINE_VERSION}+ds-vsf-surv`, dto, symbol, assetType, timeframe, true);
 }
 
 /* =====================================================================

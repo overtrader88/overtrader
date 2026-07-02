@@ -6,6 +6,7 @@
  */
 import { toNarrativeFacts } from "./narrative-facts";
 import { withTimeout } from "@/lib/http/with-timeout";
+import { SURV_START, SURV_FLOOR, type BankState } from "@/lib/signals/survival";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "./engines";
 import type { FullAnalysis } from "./full";
 import type { AssetType } from "@tradeai/shared";
@@ -97,10 +98,20 @@ function deepSeekProvider(): LlmProvider {
   };
 }
 
+/** Régua FIXA de convicção — compartilhada por todos os motores LLM. Combate a
+ *  inflação de convicção (ex.: DeepSeek emitindo ≥80 em ~100% dos sinais). */
+const CONVICTION_RUBRIC = [
+  "CALIBRAÇÃO DA CONVICÇÃO (régua fixa — distribua de verdade):",
+  "<60 = sem edge claro → responda 'neutro'; 60-69 = inclinação clara porém comum (a maioria dos seus sinais deve cair AQUI);",
+  "70-79 = confluência forte de múltiplas evidências; 80-89 = confluência EXCEPCIONAL, você apostaria pesado (rare — poucas por semana);",
+  "≥90 = raríssimo (pouquíssimas por ano). Inflar convicção é erro grave: convicção alta em sinal comum destrói a calibração.",
+].join(" ");
+
 const LLM_DECISION_SYSTEM = [
   "Você é um MOTOR DE DECISÃO de trading. A partir dos dados MEDIDOS, decida a direção e a convicção.",
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}.",
   "conviccao = sua confiança na direção (0–100; 50 = indeciso).",
+  CONVICTION_RUBRIC,
   "Pondere a CONFLUÊNCIA dos indicadores, a estrutura (SMC), o multi-timeframe, o regime e os dados macro/da classe fornecidos.",
   "Seja honesto: sinais conflitantes ou fracos → 'neutro' ou convicção baixa. NÃO invente dados além dos fornecidos.",
   "NÃO escreva nada fora do JSON.",
@@ -116,6 +127,8 @@ const LLM_SURVIVAL_SYSTEM = [
   "2) Só decida 'compra' ou 'venda' quando o edge for CLARO (confluência forte + estrutura SMC + multi-timeframe alinhados + regime a favor). Na menor dúvida: 'neutro'.",
   "3) conviccao ≥80 SOMENTE quando você apostaria pesado com o próprio dinheiro. Sinal mediano → conviccao 60-70 ou 'neutro'. Não infle convicção.",
   "4) Pense assimétrico: prefira trades onde o ganho potencial é MUITO maior que a perda. Evite risco de ruína.",
+  "5) Você recebe 'banca_sobrevivencia' (capital atual, drawdown, sequência recente, mortes). Após perdas seguidas ou drawdown alto, exija MAIS confluência e REDUZA a convicção — proteger a vida vem primeiro.",
+  CONVICTION_RUBRIC,
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
 ].join("\n");
 
@@ -129,6 +142,7 @@ const LLM_VSF_SYSTEM = [
   "- O melhor trade é onde os TRÊS pilares CONFLUEM (ex.: preço numa PRZ de Fibonacci que coincide com um order block de suporte E o limite da área de valor por volume).",
   "- 'compra' perto de suporte/PRZ bullish com volume confirmando; 'venda' perto de resistência/PRZ bearish. Preço no meio do range, sem nível próximo → 'neutro'.",
   "- conviccao alta (≥80) SOMENTE com confluência clara dos pilares perto do preço atual. Sinal solto em um pilar só → convicção baixa ou 'neutro'. NÃO invente níveis além dos fornecidos.",
+  CONVICTION_RUBRIC,
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
 ].join("\n");
 
@@ -137,6 +151,8 @@ function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras: ClassE
   const a = dto.analysis;
   return {
     ativo: a.meta.asset, timeframe: a.meta.timeframe, classe: assetType,
+    // preço atual: sem ele a LLM não consegue situar os níveis (ex.: preço vs EMAs).
+    preco_atual: a.risk?.entry ?? null,
     regime: a.meta?.regime ?? null, adx: a.meta?.adxValue ?? null,
     indicadores: (a.indicators ?? []).map((i) => ({ nome: i.name, cat: i.category, voto: i.vote, valor: typeof i.value === "number" ? i.value : null })),
     smc: dto.smc ? { vies: dto.smc.bias, estrutura: dto.smc.marketStructure } : null,
@@ -201,14 +217,33 @@ export function generateLlmDecisionDS(dto: FullAnalysis, assetType: AssetType, e
   return runLlmDecision(deepSeekProvider(), dto, assetType, extras);
 }
 
+/** Estado da banca em formato de FATO pro prompt (ciclo fechado da sobrevivência). */
+function bankFacts(bank: BankState | null | undefined): unknown {
+  if (!bank) return { capital: SURV_START, situacao: "banca cheia — sem trades resolvidos ainda" };
+  return {
+    capital: Math.round(bank.equity * 10) / 10,
+    capital_inicial: SURV_START,
+    morre_abaixo_de: SURV_FLOOR,
+    queda_do_pico_pct: bank.peak > 0 ? Math.round(((bank.peak - bank.equity) / bank.peak) * 100) : 0,
+    pior_queda_pct: bank.maxDrawdownPct,
+    ultimos_5_trades: bank.lastResults.join("") || "—", // G=ganho P=perda
+    trades_da_vida_atual: bank.lifeTrades,
+    mortes_anteriores: bank.deaths,
+  };
+}
+
+/** Mescla o estado da banca nos fatos (a família *_surv decide VENDO a própria vida). */
+const withBank = (facts: unknown, bank: BankState | null | undefined): unknown =>
+  ({ ...(facts as Record<string, unknown>), banca_sobrevivencia: bankFacts(bank) });
+
 /** MOTOR LLM SOBREVIVÊNCIA (GPT) — mesma IA, mas com mentalidade de capital finito. */
-export function generateLlmDecisionSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
-  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_SURVIVAL_SYSTEM);
+export function generateLlmDecisionSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, bank?: BankState | null): Promise<LlmDecision | null> {
+  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_SURVIVAL_SYSTEM, withBank(toDecisionFacts(dto, assetType, extras), bank));
 }
 
 /** MOTOR LLM SOBREVIVÊNCIA (DeepSeek) — idem, no provedor DeepSeek. */
-export function generateLlmDecisionDsSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
-  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_SURVIVAL_SYSTEM);
+export function generateLlmDecisionDsSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, bank?: BankState | null): Promise<LlmDecision | null> {
+  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_SURVIVAL_SYSTEM, withBank(toDecisionFacts(dto, assetType, extras), bank));
 }
 
 /** Fatos focados em NÍVEIS (volume + S/R + Fibonacci) — alimenta o motor VSF com os
@@ -260,17 +295,19 @@ const LLM_VSF_SURV_SYSTEM = [
   "- Preservar capital vem ANTES do lucro: sem confluência clara dos pilares perto do preço → 'neutro' (ficar de fora não custa nada).",
   "- conviccao ≥80 SOMENTE quando os 3 pilares confluem forte e você apostaria pesado com o próprio dinheiro. Sinal solto em um pilar só → convicção baixa ou 'neutro'.",
   "- Compra perto de suporte/PRZ bullish com volume confirmando; venda perto de resistência/PRZ bearish. NÃO invente níveis além dos fornecidos.",
+  "- Você recebe 'banca_sobrevivencia' (capital atual, drawdown, sequência recente, mortes). Após perdas seguidas ou drawdown alto, exija MAIS confluência e REDUZA a convicção — proteger a vida vem primeiro.",
+  CONVICTION_RUBRIC,
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
 ].join("\n");
 
 /** MOTOR VSF+SOBREVIVÊNCIA (GPT) — níveis com mentalidade de capital finito. */
-export function generateLlmDecisionVsfSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
-  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, toLevelsFacts(dto));
+export function generateLlmDecisionVsfSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, bank?: BankState | null): Promise<LlmDecision | null> {
+  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, withBank(toLevelsFacts(dto), bank));
 }
 
 /** MOTOR VSF+SOBREVIVÊNCIA (DeepSeek) — idem, no provedor DeepSeek. */
-export function generateLlmDecisionDsVsfSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
-  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, toLevelsFacts(dto));
+export function generateLlmDecisionDsVsfSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, bank?: BankState | null): Promise<LlmDecision | null> {
+  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, withBank(toLevelsFacts(dto), bank));
 }
 
 /** Diagnóstico de um provedor: ping mínimo que revela o motivo REAL da falha

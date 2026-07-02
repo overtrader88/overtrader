@@ -20,4 +20,10 @@ export const TRACKED_MARKETS: TrackedMarket[] = [
   { symbol: "SOLUSDT", assetType: "crypto", timeframe: "1d" },
   { symbol: "XAUUSD", assetType: "commodities", timeframe: "4h" },
   { symbol: "XAUUSD", assetType: "commodities", timeframe: "1d" },
+  // Expansão 02/07: +forex e +índice p/ acelerar a amostra do comparativo de
+  // motores (mais desfechos/dia) e testar as famílias fora de cripto/metal.
+  { symbol: "EURUSD", assetType: "forex", timeframe: "4h" },
+  { symbol: "EURUSD", assetType: "forex", timeframe: "1d" },
+  { symbol: "SPX", assetType: "indices", timeframe: "4h" },
+  { symbol: "SPX", assetType: "indices", timeframe: "1d" },
 ];
