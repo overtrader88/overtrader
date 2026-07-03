@@ -11,6 +11,7 @@ import { isEngine, computeClassReading, buildClassPlan, type EngineId, type Clas
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { checkAnalysisCredit, chargeAnalysis } from "@/lib/credits";
 import { AiNarrative } from "@/components/ai-narrative";
+import { WarCouncil } from "@/components/war-council";
 import { NewsCard } from "@/components/news-card";
 import { FundamentalCard } from "@/components/fundamental-card";
 import { PriceChart } from "@/components/price-chart";
@@ -811,6 +812,10 @@ export default async function AnalisePage({
             <Panel>
               <PanelLabel>Leitura do analista · IA{isClasse ? " · Motor 2 (por classe)" : ""}</PanelLabel>
               <AiNarrative symbol={symbol} assetType={assetType} timeframe={timeframe} engine={engine} />
+            </Panel>
+            <Panel>
+              <PanelLabel>Conselho de Guerra · interrogue esta análise</PanelLabel>
+              <WarCouncil analysisId={savedId} dto={dto} />
             </Panel>
             {!isClasse ? <LevelsAndSeal dto={dto} /> : null}
             {dto.backtest && dto.equityCurve && dto.quality ? (

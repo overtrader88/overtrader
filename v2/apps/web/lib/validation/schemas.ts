@@ -39,6 +39,24 @@ export const watchlistCreateSchema = z.object({
 });
 export type WatchlistCreate = z.infer<typeof watchlistCreateSchema>;
 
+/**
+ * POST /api/war-council — pergunta ao Conselho de Guerra ancorada numa análise:
+ * ou `analysisId` (snapshot salvo no histórico) ou o `dto` serializado (análise
+ * recém-gerada, ainda sem id no cliente). Histórico capado em ~10 turnos.
+ */
+export const warCouncilSchema = z
+  .object({
+    analysisId: z.string().uuid().optional(),
+    dto: z.unknown().optional(),
+    question: z.string().trim().min(3).max(600),
+    history: z
+      .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(4000) }))
+      .max(24)
+      .default([]),
+  })
+  .refine((v) => !!v.analysisId || v.dto != null, { message: "Informe analysisId ou o dto da análise." });
+export type WarCouncilInput = z.infer<typeof warCouncilSchema>;
+
 /** Webhook HUBLA — modelo mínimo do que consumimos (idempotência por event id). */
 export const hublaWebhookSchema = z.object({
   type: z.string().min(1),

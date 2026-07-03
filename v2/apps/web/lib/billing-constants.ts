@@ -15,3 +15,6 @@ export const SIMULATOR_FREE_PER_DAY = 3;
 
 /** Custo, em créditos, de cada simulação além da cota grátis diária. */
 export const SIMULATOR_CREDIT_COST = 1;
+
+/** Custo, em créditos, de cada pergunta ao Conselho de Guerra (chat pós-análise). */
+export const WAR_COUNCIL_COST = 1;
