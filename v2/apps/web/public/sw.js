@@ -2,7 +2,7 @@
    Recebe a notificação (push) e trata o clique abrindo /ao-vivo. */
 self.addEventListener("push", (event) => {
   let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch (e) { data = {}; }
+  try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
   const title = data.title || "Overtrader";
   const options = {
     body: data.body || "",
