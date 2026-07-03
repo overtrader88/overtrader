@@ -38,9 +38,12 @@ export interface LiveSignal {
   emittedAt: string;
 }
 
-export type EngineFilter = "padrao" | "padrao_b" | "classe" | "classe_b" | "llm" | "llm_ds" | "llm_surv" | "llm_ds_surv" | "llm_vsf" | "llm_ds_vsf" | "llm_vsf_surv" | "llm_ds_vsf_surv" | "evo_gpt" | "evo_ds" | "condicional" | "contrario" | "consenso";
-/** Todos os motores — usado na visão consolidada ("Todos"). */
+/** `humano_<slug>` = competidor HUMANO (desafio Humanos vs Máquinas) — dinâmico, sem registry estático. */
+export type EngineFilter = "padrao" | "padrao_b" | "classe" | "classe_b" | "llm" | "llm_ds" | "llm_surv" | "llm_ds_surv" | "llm_vsf" | "llm_ds_vsf" | "llm_vsf_surv" | "llm_ds_vsf_surv" | "evo_gpt" | "evo_ds" | "condicional" | "contrario" | "consenso" | `humano_${string}`;
+/** Todos os motores estáticos — a visão consolidada ("Todos") soma estes + os humanos (humano_*). */
 const ALL_ENGINES = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds", "condicional", "contrario", "consenso"];
+/** Filtro PostgREST da visão consolidada: motores estáticos OU prefixo humano_. */
+const ALL_ENGINES_OR = `engine.in.(${ALL_ENGINES.join(",")}),engine.like.humano_*`;
 
 export interface TrackRecordData {
   configured: boolean;
@@ -79,10 +82,10 @@ export async function getTrackRecord(engine?: EngineFilter): Promise<TrackRecord
     .select("symbol, timeframe, direction, seal, engine, outcome, pnl_r, regime, emitted_at, resolved_at")
     .not("outcome", "is", null)
     .order("resolved_at", { ascending: false });
-  // "Todos" (sem filtro) = visão CONSOLIDADA dos 5 motores. Selecionar um motor
-  // mostra só ele (variantes experimentais são rotuladas na página).
+  // "Todos" (sem filtro) = visão CONSOLIDADA dos motores + competidores humanos.
+  // Selecionar um motor mostra só ele (variantes experimentais são rotuladas na página).
   if (engine) q = q.eq("engine", engine);
-  else q = q.in("engine", ALL_ENGINES);
+  else q = q.or(ALL_ENGINES_OR);
   const { data, error } = await q;
   if (error) return engine ? emptyConfigured : empty;
 
@@ -115,7 +118,7 @@ export async function getTrackRecord(engine?: EngineFilter): Promise<TrackRecord
     .order("emitted_at", { ascending: false })
     .limit(20);
   if (engine) openQ = openQ.eq("engine", engine);
-  else openQ = openQ.in("engine", ALL_ENGINES);
+  else openQ = openQ.or(ALL_ENGINES_OR);
   const { data: openData, count } = await openQ;
 
   const live: LiveSignal[] = (openData ?? []).map((r) => {

@@ -6,7 +6,6 @@ export default defineConfig({
   // do package não processam CSS (quebrava em worktrees sem node_modules na raiz).
   css: { postcss: { plugins: [] } },
   test: {
-    include: ["test/**/*.test.ts", "src/**/*.test.ts"],
     environment: "node",
   },
 });

@@ -127,10 +127,10 @@ export interface ClassEngines {
 
 /** Uma "conta de sobrevivência": banca que aposta fração por trade e MORRE se quebrar (reencarna). */
 export interface SurvivalLine {
-  engine: string;           // llm_surv | llm | llm_ds_surv | llm_ds
-  label: string;            // "GPT · mente", "GPT · gestão"…
-  flavor: "mente" | "gestao";
-  provider: "gpt" | "ds";
+  engine: string;           // llm_surv | llm | llm_ds_surv | llm_ds | humano_<slug>
+  label: string;            // "GPT · mente", "GPT · gestão", "🧑 Joao"…
+  flavor: "mente" | "gestao" | "humano";
+  provider: "gpt" | "ds" | "humano";
   alive: boolean;           // vida atual ainda viva?
   equity: number;           // capital atual em × da banca inicial (1.43 = +43%), inclui abertos a mercado
   realizedEquity: number;   // só dos fechados (× da banca inicial)

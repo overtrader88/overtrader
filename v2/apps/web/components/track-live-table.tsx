@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AssetGlyph } from "@/components/asset-glyph";
+import { isHumanEngine, humanEngineTag } from "@/lib/signals/human";
 
 export interface LiveItem {
   symbol: string;
@@ -101,7 +102,7 @@ export function TrackLiveTable({ rows, showEngine }: { rows: LiveItem[]; showEng
             <span className="trk-asset">
               <AssetGlyph symbol={l.symbol} size={30} />
               <span className="trk-sym"><b>{l.symbol}</b> · {l.timeframe.toUpperCase()}</span>
-              {showEngine ? <span className="trk-eng">{ENGINE_SHORT[l.engine] ?? l.engine}</span> : null}
+              {showEngine ? <span className="trk-eng">{ENGINE_SHORT[l.engine] ?? (isHumanEngine(l.engine) ? humanEngineTag(l.engine) : l.engine)}</span> : null}
             </span>
             <span className={`trk-dir ${buy ? "up" : "dn"}`}>{buy ? "↗ Compra" : "↘ Venda"}</span>
             <span className="trk-prog">

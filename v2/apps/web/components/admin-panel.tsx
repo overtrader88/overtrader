@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { AdminUserDetail } from "./admin-user-detail";
 import { NotifyButton } from "./admin-notify-button";
+import { AdminHumanSignal } from "./admin-human-signal";
+import { isHumanEngine, humanEngineLabel, humanEngineTag, HUMAN_ENGINE_COLOR } from "@/lib/signals/human";
 import { type AdminExtra, type EngineStat, type ClassEngines, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, type DailyRow, type DailyCell, type SurvivalArena, type SurvivalLine, type EvoInfo, MRR_PRICE } from "./admin-shared";
 
 const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
@@ -588,7 +590,7 @@ const STATUS_PT: Record<OpenPosition["status"], { label: string; color: string }
 /** Curva de R acumulado por motor (SVG) — uma linha por motor visível. */
 function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: string[] }) {
   if (equity.length < 2) return <p className="note">A curva aparece quando houver ≥2 desfechos resolvidos.</p>;
-  const ids = ENGINE_ORDER.filter((id) => engineIds.includes(id));
+  const ids = engineIds; // já vem ordenado (motores estáticos + humanos)
   const W = 100, H = 40, PAD = 2;
   const vals = [0, ...equity.flatMap((e) => ids.map((id) => e.values[id] ?? 0))];
   const min = Math.min(...vals), max = Math.max(...vals);
@@ -603,7 +605,7 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 160, border: "1px solid var(--line-2)", borderRadius: 10, background: "var(--bg-2, #0a0d14)" }}>
         <line x1={0} y1={y0} x2={W} y2={y0} stroke="#3a4a66" strokeWidth={0.3} strokeDasharray="1,1" />
         {ids.map((id) => (
-          <polyline key={id} points={line(id)} fill="none" stroke={ENGINE_COLOR[id] ?? "#64748b"} strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
+          <polyline key={id} points={line(id)} fill="none" stroke={engineColor(id)} strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
         ))}
       </svg>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8, fontSize: "0.8rem" }}>
@@ -611,7 +613,7 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
           const last = lastOf(id);
           return (
             <span key={id} style={{ display: "flex", alignItems: "center", gap: 6, color: "#aebccd" }}>
-              <span style={{ width: 14, height: 3, background: ENGINE_COLOR[id] ?? "#64748b", display: "inline-block", borderRadius: 2 }} /> <EngineName id={id} text={ENGINE_LABEL[id] ?? id} /> <b style={{ color: last >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)", fontVariantNumeric: "tabular-nums" }}>{sgn(last, 1)} R</b>
+              <span style={{ width: 14, height: 3, background: engineColor(id), display: "inline-block", borderRadius: 2 }} /> <EngineName id={id} text={engineLabel(id)} /> <b style={{ color: last >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)", fontVariantNumeric: "tabular-nums" }}>{sgn(last, 1)} R</b>
             </span>
           );
         })}
@@ -641,16 +643,21 @@ const ENGINE_COLOR: Record<string, string> = {
   llm_vsf_surv: "#0d9488", llm_ds_vsf_surv: "#db2777", evo_gpt: "#84cc16", evo_ds: "#e879f9",
   condicional: "#22c55e", contrario: "#94a3b8", consenso: "#06b6d4",
 };
+// Competidores HUMANOS ("humano_<slug>", desafio Humanos vs Máquinas) são
+// DINÂMICOS — não entram nos registries estáticos acima; resolvem por fallback.
+const engineLabel = (id: string): string => ENGINE_LABEL[id] ?? (isHumanEngine(id) ? humanEngineLabel(id) : id);
+const engineTag = (id: string): string => ENGINE_TAG[id] ?? (isHumanEngine(id) ? humanEngineTag(id) : id);
+const engineColor = (id: string): string => ENGINE_COLOR[id] ?? (isHumanEngine(id) ? HUMAN_ENGINE_COLOR : "#64748b");
 /** Bolinha de cor do motor — amarra coluna/tabela à linha do gráfico de equity. */
 const EngineDot = ({ id }: { id: string }) => (
-  <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: ENGINE_COLOR[id] ?? "#64748b", flex: "none" }} aria-hidden />
+  <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: engineColor(id), flex: "none" }} aria-hidden />
 );
 /** Motores baseados em LLM (IA) — o nome deles aparece em AMARELO na aba Motores. */
 const LLM_ENGINES = new Set(["llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds"]);
 const isLlmEngine = (id: string) => LLM_ENGINES.has(id);
-/** Nome do motor — destacado em amarelo quando é LLM. */
+/** Nome do motor — amarelo quando é LLM, rosa quando é competidor humano. */
 const EngineName = ({ id, text }: { id: string; text: string }) => (
-  <span style={isLlmEngine(id) ? { color: "var(--amber,#eab308)", fontWeight: 700 } : undefined}>{text}</span>
+  <span style={isLlmEngine(id) ? { color: "var(--amber,#eab308)", fontWeight: 700 } : isHumanEngine(id) ? { color: HUMAN_ENGINE_COLOR, fontWeight: 700 } : undefined}>{text}</span>
 );
 /** 1ª coluna fixa em tabelas largas (8 motores → scroll horizontal). */
 const STICKY_COL: React.CSSProperties = { position: "sticky", left: 0, zIndex: 1, background: "var(--panel, #0d1119)" };
@@ -703,7 +710,7 @@ function BreakdownTable({ title, rows, engineIds }: { title: string; rows: Break
                 <th style={{ ...TH, ...STICKY_COL, textAlign: "left" }}>Grupo</th>
                 {engineIds.map((e) => (
                   <th key={e} style={{ ...TH, textAlign: "left", whiteSpace: "nowrap" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} /><EngineName id={e} text={ENGINE_LABEL[e] ?? e} /></span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} /><EngineName id={e} text={engineLabel(e)} /></span>
                   </th>
                 ))}
               </tr>
@@ -770,7 +777,8 @@ function FilterSelect({ value, onChange, options }: { value: string; onChange: (
     </select>
   );
 }
-const ENGINE_FILTER_OPTS: [string, string][] = [["all", "Todos os motores"], ...ENGINE_ORDER.map((e) => [e, ENGINE_LABEL[e]!] as [string, string])];
+/** Opções de filtro por motor — dinâmicas (motores estáticos + humanos presentes). */
+const engineFilterOpts = (ids: string[]): [string, string][] => [["all", "Todos os motores"], ...ids.map((e) => [e, engineLabel(e)] as [string, string])];
 const SIDE_OPTS: [string, string][] = [["all", "Compra e venda"], ["buy", "Só compra"], ["sell", "Só venda"]];
 const OPEN_STATUS_OPTS: [string, string][] = [["all", "Todas situações"], ["lucro", "Lucro"], ["prejuizo", "Prejuízo"], ["neutro", "Neutro"]];
 const CLOSED_OUTCOME_OPTS: [string, string][] = [["all", "Todos desfechos"], ["take", "Take"], ["stop", "Stop"], ["exp", "Expirou"]];
@@ -804,7 +812,7 @@ function DailyBoard({ daily, engines, engineIds }: { daily: DailyRow[]; engines:
                 <th style={{ ...TH, ...STICKY_COL, textAlign: "left" }}>Dia</th>
                 {engineIds.map((e) => (
                   <th key={e} style={{ ...TH, textAlign: "right", whiteSpace: "nowrap" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} /><EngineName id={e} text={ENGINE_LABEL[e] ?? e} /></span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e} /><EngineName id={e} text={engineLabel(e)} /></span>
                   </th>
                 ))}
               </tr>
@@ -914,7 +922,7 @@ function RankingTable({ engines, byClass, visibleIds }: { engines: EngineStat[];
               return (
                 <tr key={e.engine} style={ROW}>
                   <td style={{ ...TD, fontWeight: 700 }}>{!ranked0 ? "—" : i === 0 ? "🥇 1º" : `${i + 1}º`}</td>
-                  <td style={{ ...TD, whiteSpace: "nowrap" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><EngineDot id={e.engine} /><EngineName id={e.engine} text={ENGINE_TAG[e.engine] ?? e.engine} /></span></td>
+                  <td style={{ ...TD, whiteSpace: "nowrap" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><EngineDot id={e.engine} /><EngineName id={e.engine} text={engineTag(e.engine)} /></span></td>
                   <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: tone ?? "#e8edf5" }}>{v == null ? "—" : m.fmt(v)}</td>
                   <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{e.decisive}</td>
                   <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{e.decisive > 0 ? `${e.winRatePct.toFixed(0)}%` : "—"}</td>
@@ -1035,7 +1043,7 @@ function SurvivalArenaCard({ survival }: { survival: SurvivalArena | null }) {
   };
 
   const card = (l: SurvivalLine) => {
-    const col = ENGINE_COLOR[l.engine] ?? "#64748b";
+    const col = engineColor(l.engine);
     const up = l.equity >= 1;
     return (
       <div key={l.engine} style={{ flex: "1 1 200px", minWidth: 185, border: "1px solid var(--line-2)", borderRadius: 12, padding: "12px 14px", background: "var(--panel-2,#0a0e15)", opacity: l.alive ? 1 : 0.6 }}>
@@ -1065,7 +1073,7 @@ function SurvivalArenaCard({ survival }: { survival: SurvivalArena | null }) {
   const totalDeaths = survival.lines.reduce((s, l) => s + l.deaths, 0);
   const verdict: React.ReactNode = !hasData
     ? <>Aguardando trades resolvidos. Cada conta começa com <b>{start}</b>, arrisca <b>{survival.riskNormalPct}%</b>/trade (<b>{survival.riskStrongPct}%</b> em convicção alta) e <b>morre</b> se cair <b>−{floorDD}%</b> — aí reencarna e conta a vida.</>
-    : <>Melhor sobrevivente até agora: <b style={{ color: best ? (ENGINE_COLOR[best.engine] ?? "#e8edf5") : "#e8edf5" }}>{best?.label}</b> com <b>{best ? fmtX(best.equity) : "—"}</b>. {totalDeaths > 0 ? <>Já houve <b>{totalDeaths}</b> quebra(s) ✝.</> : <>Ninguém quebrou ainda.</>} Regra: arrisca {survival.riskNormalPct}–{survival.riskStrongPct}%/trade, morre em −{floorDD}%.</>;
+    : <>Melhor sobrevivente até agora: <b style={{ color: best ? engineColor(best.engine) : "#e8edf5" }}>{best?.label}</b> com <b>{best ? fmtX(best.equity) : "—"}</b>. {totalDeaths > 0 ? <>Já houve <b>{totalDeaths}</b> quebra(s) ✝.</> : <>Ninguém quebrou ainda.</>} Regra: arrisca {survival.riskNormalPct}–{survival.riskStrongPct}%/trade, morre em −{floorDD}%.</>;
 
   return (
     <div style={{ border: "1px solid var(--line-2)", borderRadius: 14, padding: "15px 18px", marginBottom: 18, background: `linear-gradient(135deg, color-mix(in srgb, ${ENGINE_COLOR.llm_surv} 8%, transparent), color-mix(in srgb, ${ENGINE_COLOR.llm_ds_surv} 10%, transparent))` }}>
@@ -1085,7 +1093,8 @@ function SurvivalArenaCard({ survival }: { survival: SurvivalArena | null }) {
  */
 function VsCompare({ engines }: { engines: EngineStat[] }) {
   const byId = useMemo(() => new Map(engines.map((e) => [e.engine, e])), [engines]);
-  const available = ENGINE_ORDER.filter((id) => byId.has(id));
+  // Ordem canônica + competidores humanos (dinâmicos) no fim.
+  const available = [...ENGINE_ORDER.filter((id) => byId.has(id)), ...engines.map((e) => e.engine).filter(isHumanEngine)];
   const [a, setA] = useState<string>(available[0] ?? "llm");
   const [b, setB] = useState<string>(available.find((id) => id !== (available[0] ?? "llm")) ?? available[1] ?? "llm_ds");
   const ea = byId.get(a), eb = byId.get(b);
@@ -1103,11 +1112,11 @@ function VsCompare({ engines }: { engines: EngineStat[] }) {
     { label: "Payoff", get: (e) => (e.wins > 0 && e.losses > 0 ? `${e.payoff.toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 && e.losses > 0 ? e.payoff : null), dir: "higher" },
   ];
 
-  const dot = (id: string) => <span style={{ width: 9, height: 9, borderRadius: "50%", background: ENGINE_COLOR[id] ?? "#64748b", display: "inline-block", flex: "none" }} />;
+  const dot = (id: string) => <span style={{ width: 9, height: 9, borderRadius: "50%", background: engineColor(id), display: "inline-block", flex: "none" }} />;
   const sel = (val: string, set: (v: string) => void) => (
     <select value={val} onChange={(e) => set(e.target.value)}
       style={{ ...FIELD, cursor: "pointer", fontWeight: 700, padding: "6px 9px", maxWidth: 180 }}>
-      {available.map((id) => <option key={id} value={id} style={{ background: "#0a0e15" }}>{ENGINE_LABEL[id] ?? id}</option>)}
+      {available.map((id) => <option key={id} value={id} style={{ background: "#0a0e15" }}>{engineLabel(id)}</option>)}
     </select>
   );
   const cell = (e: EngineStat | undefined, r: VRow, other: EngineStat | undefined): React.CSSProperties => {
@@ -1130,8 +1139,8 @@ function VsCompare({ engines }: { engines: EngineStat[] }) {
             <thead>
               <tr style={ROW}>
                 <th style={{ ...TH, textAlign: "left" }}>Métrica</th>
-                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(a)}<EngineName id={a} text={ENGINE_LABEL[a] ?? a} /></span></th>
-                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(b)}<EngineName id={b} text={ENGINE_LABEL[b] ?? b} /></span></th>
+                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(a)}<EngineName id={a} text={engineLabel(a)} /></span></th>
+                <th style={{ ...TH, textAlign: "right" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>{dot(b)}<EngineName id={b} text={engineLabel(b)} /></span></th>
               </tr>
             </thead>
             <tbody>
@@ -1201,14 +1210,23 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
   const openCtl = useTableControls("unrealizedR");
   const closedCtl = useTableControls("resolvedAt");
 
-  if (engines.every((e) => e.emittedTotal === 0)) return <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>;
+  // Ordem canônica + competidores HUMANOS (dinâmicos, vindos do server quando têm sinal).
+  const allIds: string[] = [...ENGINE_ORDER, ...engines.map((e) => e.engine).filter(isHumanEngine)];
 
-  const SHORT = ENGINE_LABEL;
-  const visibleIds = ENGINE_ORDER.filter((e) => !hidden.has(e));
+  if (engines.every((e) => e.emittedTotal === 0)) {
+    return (
+      <div className="motores-tab" style={{ color: "#e8edf5" }}>
+        <AdminHumanSignal />
+        <p className="note">Sem sinais ainda. O comparativo aparece quando os motores começam a emitir/resolver.</p>
+      </div>
+    );
+  }
+
+  const visibleIds = allIds.filter((e) => !hidden.has(e));
   const cols = engines.filter((e) => !hidden.has(e.engine));
   const toggleEngine = (id: string) => setHidden((h) => {
     const n = new Set(h);
-    if (n.has(id)) n.delete(id); else if (ENGINE_ORDER.length - n.size > 1) n.add(id); // garante ≥1 visível
+    if (n.has(id)) n.delete(id); else if (allIds.length - n.size > 1) n.add(id); // garante ≥1 visível
     return n;
   });
 
@@ -1299,6 +1317,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
 
   return (
     <div className="motores-tab" style={{ color: "#e8edf5" }}>
+      <AdminHumanSignal />
       <LlmDuel engines={engines} />
       <VsCompare engines={engines} />
       <SurvivalArenaCard survival={survival} />
@@ -1306,12 +1325,12 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: "0.78rem", color: "#aebccd" }}>Motores visíveis:</span>
-          {ENGINE_ORDER.map((id) => {
+          {allIds.map((id) => {
             const on = !hidden.has(id);
             return (
               <button key={id} type="button" onClick={() => toggleEngine(id)}
                 style={{ ...FIELD, cursor: "pointer", fontSize: "0.78rem", fontWeight: on ? 700 : 500, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 6, background: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 14%, transparent)" : "var(--panel-2, #0a0e15)", color: on ? "var(--ink, #e9effa)" : "var(--ink-faint, #535f74)", borderColor: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 45%, transparent)" : "var(--line-2)", opacity: on ? 1 : 0.75 }}>
-                <EngineDot id={id} /><EngineName id={id} text={ENGINE_LABEL[id] ?? id} />
+                <EngineDot id={id} /><EngineName id={id} text={engineLabel(id)} />
               </button>
             );
           })}
@@ -1331,6 +1350,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
         <b> Sobrev·GPT/DS</b> (mentalidade de capital finito — ver ringue acima),
         <b> VSF·GPT/DS</b> (volume + suporte/resistência + Fibonacci) e <b>VSF+S·GPT/DS</b> (idem, com mente de sobrevivência),
         <b> Condicional</b> (lógica por regime), <b>Contrário</b> (controle — inverso do Padrão) e <b>Consenso</b> (Padrão ∩ Classe).
+        Competidores <b style={{ color: HUMAN_ENGINE_COLOR }}>🧑 humanos</b> (desafio Humanos vs Máquinas — sinais manuais registrados acima) entram nas mesmas colunas.
         <b> Realizado</b> = fechados pelo cron; <b>não-realizado</b> = abertos a mercado.
       </p>
 
@@ -1341,7 +1361,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
               <th style={{ ...TH, ...STICKY_COL, textAlign: "left" }}>Métrica</th>
               {cols.map((e) => (
                 <th key={e.engine} style={{ ...TH, textAlign: "right", whiteSpace: "nowrap" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e.engine} /><EngineName id={e.engine} text={SHORT[e.engine] ?? e.label} /></span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EngineDot id={e.engine} /><EngineName id={e.engine} text={engineLabel(e.engine)} /></span>
                 </th>
               ))}
             </tr>
@@ -1399,7 +1419,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
       ) : (
         <>
           <div style={FILTER_BAR}>
-            <FilterSelect value={openEng} onChange={setOpenEng} options={ENGINE_FILTER_OPTS} />
+            <FilterSelect value={openEng} onChange={setOpenEng} options={engineFilterOpts(allIds)} />
             <FilterSelect value={openSide} onChange={setOpenSide} options={SIDE_OPTS} />
             <FilterSelect value={openStatus} onChange={setOpenStatus} options={OPEN_STATUS_OPTS} />
           </div>
@@ -1423,7 +1443,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
                 const st = STATUS_PT[o.status];
                 return (
                   <tr key={i} style={ROW}>
-                    <td style={TD}><EngineName id={o.engine} text={ENGINE_TAG[o.engine] ?? o.engine} /></td>
+                    <td style={TD}><EngineName id={o.engine} text={engineTag(o.engine)} /></td>
                     <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
                     <td style={{ ...TD, color: o.side === "sell" ? "var(--bear,#dc2626)" : "var(--bull,#16a34a)" }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
                     <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{o.entry.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}</td>
@@ -1452,7 +1472,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
       ) : (
         <>
           <div style={FILTER_BAR}>
-            <FilterSelect value={closedEng} onChange={setClosedEng} options={ENGINE_FILTER_OPTS} />
+            <FilterSelect value={closedEng} onChange={setClosedEng} options={engineFilterOpts(allIds)} />
             <FilterSelect value={closedSide} onChange={setClosedSide} options={SIDE_OPTS} />
             <FilterSelect value={closedOutcome} onChange={setClosedOutcome} options={CLOSED_OUTCOME_OPTS} />
           </div>
@@ -1477,7 +1497,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
                   : o.outcome === "SL" ? { label: "Stop", color: RED } : { label: "Expirou", color: "#94a3b8" };
                 return (
                   <tr key={i} style={ROW}>
-                    <td style={TD}><EngineName id={o.engine} text={ENGINE_TAG[o.engine] ?? o.engine} /></td>
+                    <td style={TD}><EngineName id={o.engine} text={engineTag(o.engine)} /></td>
                     <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
                     <td style={{ ...TD, color: o.side === "sell" ? RED : GREEN }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
                     <td style={{ ...TD, color: oc.color, fontWeight: 600 }} title={o.autopsy ?? undefined}>{oc.label}{o.autopsy ? <span style={{ marginLeft: 5, cursor: "help" }} aria-label="autópsia disponível">🔬</span> : null}</td>
