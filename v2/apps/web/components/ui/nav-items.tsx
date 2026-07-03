@@ -1,6 +1,6 @@
 /** Itens + ícones da navegação principal — compartilhados pelo AppBar (desktop)
  *  e pelo MobileNav (menu hambúrguer). Puro/presentational. */
-export type NavKey = "dashboard" | "analise" | "ao-vivo" | "monitor" | "historico" | "alertas" | "track-record";
+export type NavKey = "dashboard" | "analise" | "ao-vivo" | "monitor" | "historico" | "alertas" | "track-record" | "simulador";
 
 export const NAV_ITEMS: { key: NavKey; label: string; href: string }[] = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard" },
@@ -8,6 +8,7 @@ export const NAV_ITEMS: { key: NavKey; label: string; href: string }[] = [
   { key: "ao-vivo", label: "Trading ao vivo", href: "/ao-vivo" },
   { key: "monitor", label: "Monitor", href: "/monitor" },
   { key: "track-record", label: "Track record", href: "/track-record" },
+  { key: "simulador", label: "Simulador", href: "/simulador" },
   { key: "historico", label: "Histórico", href: "/historico" },
   { key: "alertas", label: "Alertas", href: "/alertas" },
 ];
@@ -23,5 +24,6 @@ export function NavIcon({ k }: { k: NavKey }) {
     case "track-record": return <svg {...p}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>;
     case "historico": return <svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>;
     case "alertas": return <svg {...p}><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>;
+    case "simulador": return <svg {...p}><path d="M12 8v4l2.5 1.5" /><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6" /><path d="M18 2v4h-4" /></svg>;
   }
 }

@@ -2334,3 +2334,88 @@ h1.page-title,
 @media (prefers-reduced-motion: reduce) {
   .planos-page .plans .plan.pro::before { animation: none; }
 }
+
+/* ============================================================
+   SIMULADOR — Máquina do Tempo (/simulador). Reusa a casca
+   .analysis-page (panels, ladder, note); aqui ficam só o aviso
+   GRITANTE de simulação, o formulário e os controles do tempo.
+   ============================================================ */
+.sim-page .wrap { padding-top: 26px; padding-bottom: 70px; }
+.sim-head { margin-bottom: 18px; }
+.sim-eyebrow { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--amber); }
+.sim-title { font-family: var(--font-display); font-variation-settings: "wdth" 125; font-weight: 800; font-size: clamp(26px, 5.5vw, 34px); line-height: 1.05; margin: 6px 0 8px; }
+.sim-sub { color: var(--ink-soft); font-size: 14px; max-width: 68ch; line-height: 1.55; }
+.sim-body { display: flex; flex-direction: column; gap: 14px; }
+
+/* aviso GRITANTE — faixa listrada âmbar, impossível de ignorar */
+.sim-warn { position: relative; display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px 14px 18px; border: 1px solid color-mix(in srgb, var(--amber) 55%, transparent); border-radius: 10px; background: var(--amber-soft); overflow: hidden; }
+.sim-warn::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 6px; background: repeating-linear-gradient(-45deg, var(--amber) 0 8px, #0a0d14 8px 16px); }
+.sim-warn-tag { flex: none; font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; color: #04060c; background: var(--amber); padding: 5px 10px; border-radius: 4px; box-shadow: 0 0 18px var(--amber-soft); margin-left: 6px; }
+.sim-warn p { margin: 0; font-size: 13px; line-height: 1.55; color: var(--ink); }
+.sim-warn p b { color: var(--amber); }
+
+/* formulário */
+.sim-form { display: grid; grid-template-columns: 2fr 1.3fr 1.1fr auto; gap: 12px; align-items: end; }
+.sim-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sim-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+.sim-input { font-family: var(--font-mono); font-size: 13px; color: var(--ink); background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 12px; width: 100%; }
+.sim-input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cyan) 18%, transparent); }
+.sim-input::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+.sim-go { white-space: nowrap; }
+.sim-quota { margin-top: 12px; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft); }
+.sim-quota .ok { color: var(--bull); }
+.sim-quota .am { color: var(--amber); }
+.sim-error { margin-top: 10px; padding: 9px 13px; border: 1px solid color-mix(in srgb, var(--bear) 45%, transparent); border-radius: 8px; background: rgba(255, 107, 138, 0.08); color: var(--bear); font-size: 12.5px; }
+
+/* faixa de contexto da viagem */
+.sim-hud { display: flex; flex-wrap: wrap; gap: 8px; }
+.sim-hud-chip { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--ink-soft); border: 1px solid var(--line-2); background: var(--bg-2); padding: 6px 10px; border-radius: 99px; }
+.sim-hud-chip b { color: var(--ink); }
+.sim-hud-chip.warn { color: #04060c; background: var(--amber); border-color: transparent; font-weight: 700; box-shadow: 0 0 16px var(--amber-soft); }
+
+/* veredito daquele dia */
+.sim-verdict { display: flex; gap: 18px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.sim-vd-big { font-family: var(--font-display); font-variation-settings: "wdth" 125; font-weight: 800; font-size: clamp(26px, 5vw, 40px); letter-spacing: 0.02em; line-height: 1; }
+.sim-vd-sub { margin: 8px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.55; max-width: 62ch; }
+.sim-vd-meta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-faint); }
+.sim-vd-meta b { color: var(--ink); }
+.sim-vd-meta .ok { color: var(--bull); }
+.sim-vd-meta .no { color: var(--bear); }
+.sim-vd-seal { display: flex; align-items: center; gap: 10px; border: 1px solid color-mix(in srgb, var(--sc) 40%, transparent); background: color-mix(in srgb, var(--sc) 8%, transparent); border-radius: 10px; padding: 10px 14px; }
+.sim-vd-seal .led { width: 10px; height: 10px; border-radius: 50%; background: var(--sc); box-shadow: 0 0 12px var(--sc); flex: none; }
+.sim-vd-seal .txt { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--sc); display: flex; flex-direction: column; gap: 2px; }
+.sim-vd-seal .txt small { font-weight: 400; color: var(--ink-faint); letter-spacing: 0.04em; }
+
+/* controles do tempo */
+.sim-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.sim-step { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-faint); }
+.sim-step b { color: var(--cyan); }
+.sim-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.sim-btns .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* eventos revelados */
+.sim-events { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.sim-ev { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; padding: 8px 12px; background: var(--bg-2); border: 1px solid var(--line); border-left: 2px solid var(--line-2); border-radius: 3px; font-size: 12.5px; }
+.sim-ev .when { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+.sim-ev .what { color: var(--ink); }
+.sim-ev.bull { border-left-color: var(--bull); }
+.sim-ev.bear { border-left-color: var(--bear); }
+
+/* desfecho */
+.sim-outcome { border-radius: 10px; padding: 16px; border: 1px solid var(--line-2); background: var(--bg-2); }
+.sim-outcome .so-big { font-family: var(--font-display); font-variation-settings: "wdth" 125; font-weight: 800; font-size: clamp(22px, 4vw, 32px); letter-spacing: 0.02em; }
+.sim-outcome.win { border-color: color-mix(in srgb, var(--bull) 45%, transparent); }
+.sim-outcome.win .so-big { color: var(--bull); text-shadow: 0 0 30px rgba(43, 212, 158, 0.35); }
+.sim-outcome.loss { border-color: color-mix(in srgb, var(--bear) 45%, transparent); }
+.sim-outcome.loss .so-big { color: var(--bear); text-shadow: 0 0 30px rgba(255, 107, 138, 0.35); }
+.sim-outcome.flat .so-big { color: var(--ink-soft); }
+.sim-outcome .so-stats { display: flex; flex-wrap: wrap; gap: 16px; margin: 10px 0 8px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+.sim-outcome .so-stats b { color: var(--ink); font-size: 14px; }
+
+.sim-foot { font-family: var(--font-mono); font-size: 11px; color: var(--amber); border: 1px dashed color-mix(in srgb, var(--amber) 45%, transparent); background: var(--amber-soft); border-radius: 8px; padding: 10px 14px; }
+
+@media (max-width: 860px) {
+  .sim-form { grid-template-columns: 1fr 1fr; }
+  .sim-go { grid-column: 1 / -1; }
+  .sim-verdict { flex-direction: column; }
+}
