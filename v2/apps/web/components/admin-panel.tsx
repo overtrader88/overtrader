@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminUserRow, type AdminUser } from "./admin-user-row";
 import { AdminUserDetail } from "./admin-user-detail";
 import { NotifyButton } from "./admin-notify-button";
-import { type AdminExtra, type EngineStat, type ClassEngines, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, type DailyRow, type DailyCell, type SurvivalArena, type SurvivalLine, MRR_PRICE } from "./admin-shared";
+import { type AdminExtra, type EngineStat, type ClassEngines, type OpenPosition, type BreakdownRow, type EquityPoint, type ClosedOpRow, type DailyRow, type DailyCell, type SurvivalArena, type SurvivalLine, type EvoInfo, MRR_PRICE } from "./admin-shared";
 
 const ANALYSIS_COST = 0.013; // R$ por análise (LLM + dados)
 
@@ -568,6 +568,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
           closed={extra.engines?.closed ?? []}
           daily={extra.engines?.daily ?? []}
           survival={extra.engines?.survival ?? null}
+          evo={extra.engines?.evo ?? null}
           now={now}
         />
       ) : null}
@@ -621,23 +622,23 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
 
 /** Tabela de recorte (classe ou TF) × motor. */
 // Metadados de motor — fonte única (ordem + rótulo curto + tag com ícone p/ listas).
-const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "condicional", "contrario", "consenso"] as const;
+const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds", "condicional", "contrario", "consenso"] as const;
 const ENGINE_LABEL: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "GPT-4.1", llm_ds: "DeepSeek",
   llm_surv: "Sobrev·GPT", llm_ds_surv: "Sobrev·DS", llm_vsf: "VSF·GPT", llm_ds_vsf: "VSF·DS",
-  llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS",
+  llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS", evo_gpt: "Evo·GPT", evo_ds: "Evo·DS",
   condicional: "Condicional", contrario: "Contrário", consenso: "Consenso",
 };
 const ENGINE_TAG: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 GPT-4.1", llm_ds: "🐋 DeepSeek",
   llm_surv: "🛡 Sobrev·GPT", llm_ds_surv: "🛡 Sobrev·DS", llm_vsf: "📊 VSF·GPT", llm_ds_vsf: "📊 VSF·DS",
-  llm_vsf_surv: "📊🛡 VSF+S·GPT", llm_ds_vsf_surv: "📊🛡 VSF+S·DS",
+  llm_vsf_surv: "📊🛡 VSF+S·GPT", llm_ds_vsf_surv: "📊🛡 VSF+S·DS", evo_gpt: "🧬 Evo·GPT", evo_ds: "🧬 Evo·DS",
   condicional: "⚡ Condicional", contrario: "🔁 Contrário", consenso: "🤝 Consenso",
 };
 const ENGINE_COLOR: Record<string, string> = {
   padrao: "#2563eb", padrao_b: "#0ea5e9", classe: "#9333ea", classe_b: "#c026d3", llm: "#f59e0b", llm_ds: "#a78bfa",
   llm_surv: "#f97316", llm_ds_surv: "#c084fc", llm_vsf: "#14b8a6", llm_ds_vsf: "#ec4899",
-  llm_vsf_surv: "#0d9488", llm_ds_vsf_surv: "#db2777",
+  llm_vsf_surv: "#0d9488", llm_ds_vsf_surv: "#db2777", evo_gpt: "#84cc16", evo_ds: "#e879f9",
   condicional: "#22c55e", contrario: "#94a3b8", consenso: "#06b6d4",
 };
 /** Bolinha de cor do motor — amarra coluna/tabela à linha do gráfico de equity. */
@@ -645,7 +646,7 @@ const EngineDot = ({ id }: { id: string }) => (
   <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: ENGINE_COLOR[id] ?? "#64748b", flex: "none" }} aria-hidden />
 );
 /** Motores baseados em LLM (IA) — o nome deles aparece em AMARELO na aba Motores. */
-const LLM_ENGINES = new Set(["llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv"]);
+const LLM_ENGINES = new Set(["llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds"]);
 const isLlmEngine = (id: string) => LLM_ENGINES.has(id);
 /** Nome do motor — destacado em amarelo quando é LLM. */
 const EngineName = ({ id, text }: { id: string; text: string }) => (
@@ -1149,7 +1150,43 @@ function VsCompare({ engines }: { engines: EngineStat[] }) {
   );
 }
 
-function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, survival, now }: { engines: EngineStat[]; byClassEngine: ClassEngines[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; daily: DailyRow[]; survival: SurvivalArena | null; now: number }) {
+/**
+ * 🧬 EVOLUÇÃO — os núcleos vigentes dos motores darwinianos: geração, mortes,
+ * cruzamento de origem e o texto da estratégia (auditável — o núcleo evolui,
+ * o contrato de saída é fixo no código).
+ */
+function EvoCard({ evo }: { evo: EvoInfo[] | null }) {
+  if (!evo?.length) return null;
+  const MUTED = "#aebccd";
+  return (
+    <div style={{ border: "1px solid var(--line-2)", borderRadius: 14, padding: "15px 18px", marginBottom: 18, background: `linear-gradient(135deg, color-mix(in srgb, ${ENGINE_COLOR.evo_gpt} 7%, transparent), color-mix(in srgb, ${ENGINE_COLOR.evo_ds} 9%, transparent))` }}>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 10 }}>
+        🧬 Evolução darwiniana · o núcleo que quebra a banca morre e é cruzado
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {evo.map((e) => (
+          <div key={e.slot} style={{ flex: "1 1 320px", minWidth: 280, border: "1px solid var(--line-2)", borderRadius: 12, padding: "12px 14px", background: "var(--panel-2,#0a0e15)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6, flexWrap: "wrap" }}>
+              <EngineDot id={e.slot} />
+              <b style={{ fontSize: "0.84rem" }}><EngineName id={e.slot} text={ENGINE_TAG[e.slot] ?? e.slot} /></b>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", color: "#e8edf5", background: "rgba(132,204,22,.14)", border: "1px solid rgba(132,204,22,.3)", borderRadius: 999, padding: "2px 8px" }}>geração {e.generation}</span>
+              {e.deaths > 0 ? <span style={{ fontSize: "0.66rem", color: "var(--bear,#dc2626)", fontWeight: 700 }}>{e.deaths}✝ na linhagem</span> : <span style={{ fontSize: "0.66rem", color: MUTED }}>linhagem sem mortes</span>}
+            </div>
+            <div style={{ fontSize: "0.66rem", color: MUTED, marginBottom: 8, fontFamily: "var(--font-mono)" }}>
+              nasceu {new Date(e.bornAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}{e.parents ? ` · origem: ${e.parents}` : ""}
+            </div>
+            <details>
+              <summary style={{ cursor: "pointer", fontSize: "0.72rem", color: "var(--cyan,#54a8ff)" }}>ver núcleo da estratégia</summary>
+              <pre style={{ margin: "8px 0 0", whiteSpace: "pre-wrap", fontSize: "0.7rem", lineHeight: 1.5, color: "#cdd8e6", fontFamily: "var(--font-mono)", background: "rgba(0,0,0,.25)", borderRadius: 8, padding: "10px 12px" }}>{e.core}</pre>
+            </details>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, survival, evo, now }: { engines: EngineStat[]; byClassEngine: ClassEngines[]; open: OpenPosition[]; byClass: BreakdownRow[]; byTimeframe: BreakdownRow[]; byAsset: BreakdownRow[]; bySymbolTf: BreakdownRow[]; equity: EquityPoint[]; closed: ClosedOpRow[]; daily: DailyRow[]; survival: SurvivalArena | null; evo: EvoInfo[] | null; now: number }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   // Motores visíveis (colunas do comparativo + recortes).
@@ -1265,6 +1302,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
       <LlmDuel engines={engines} />
       <VsCompare engines={engines} />
       <SurvivalArenaCard survival={survival} />
+      <EvoCard evo={evo} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: "0.78rem", color: "#aebccd" }}>Motores visíveis:</span>
@@ -1442,7 +1480,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
                     <td style={TD}><EngineName id={o.engine} text={ENGINE_TAG[o.engine] ?? o.engine} /></td>
                     <td style={TD}><b>{o.symbol}</b> · {o.timeframe.toUpperCase()}</td>
                     <td style={{ ...TD, color: o.side === "sell" ? RED : GREEN }}>{o.side === "sell" ? "Venda" : "Compra"}</td>
-                    <td style={{ ...TD, color: oc.color, fontWeight: 600 }}>{oc.label}</td>
+                    <td style={{ ...TD, color: oc.color, fontWeight: 600 }} title={o.autopsy ?? undefined}>{oc.label}{o.autopsy ? <span style={{ marginLeft: 5, cursor: "help" }} aria-label="autópsia disponível">🔬</span> : null}</td>
                     <td style={{ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: o.pnlR >= 0 ? GREEN : RED }}>{sgn(o.pnlR)}</td>
                     <td style={{ ...TD, textAlign: "right" }}>{ago(o.resolvedAt, now)}</td>
                   </tr>

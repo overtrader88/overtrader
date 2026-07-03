@@ -21,6 +21,8 @@ const ENGINE_TABS: { key: string; label: string; filter?: EngineFilter; tm?: boo
   { key: "llm_ds_vsf", label: "Vol/S-R/Fib · DeepSeek", filter: "llm_ds_vsf", tm: true, beta: true, experimental: true, group: "ia" },
   { key: "llm_vsf_surv", label: "VSF+Sobrev · GPT", filter: "llm_vsf_surv", tm: true, beta: true, experimental: true, group: "ia" },
   { key: "llm_ds_vsf_surv", label: "VSF+Sobrev · DeepSeek", filter: "llm_ds_vsf_surv", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "evo_gpt", label: "Evolutivo · GPT", filter: "evo_gpt", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "evo_ds", label: "Evolutivo · DeepSeek", filter: "evo_ds", tm: true, beta: true, experimental: true, group: "ia" },
   { key: "condicional", label: "Condicional", filter: "condicional", tm: true, experimental: true, group: "det" },
   { key: "contrario", label: "Contrário", filter: "contrario", tm: true, experimental: true, group: "det" },
   { key: "consenso", label: "Consenso", filter: "consenso", tm: true, experimental: true, group: "det" },
@@ -32,7 +34,7 @@ const GROUP_LABEL: Record<string, string> = { producao: "Produção", ab: "Varia
 const ENGINE_SHORT: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "GPT", llm_ds: "DeepSeek",
   llm_surv: "Sobrev·GPT", llm_ds_surv: "Sobrev·DS", llm_vsf: "VSF·GPT", llm_ds_vsf: "VSF·DS",
-  llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS",
+  llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS", evo_gpt: "Evo·GPT", evo_ds: "Evo·DS",
   condicional: "Cond", contrario: "Contra", consenso: "Cons",
 };
 

@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { signalSide } from "@tradeai/shared";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitLlmDsSignal, emitLlmSurvSignal, emitLlmDsSurvSignal, emitLlmVsfSignal, emitLlmDsVsfSignal, emitLlmVsfSurvSignal, emitLlmDsVsfSurvSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
+import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitLlmDsSignal, emitLlmSurvSignal, emitLlmDsSurvSignal, emitLlmVsfSignal, emitLlmDsVsfSignal, emitLlmVsfSurvSignal, emitLlmDsVsfSurvSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, emitEvoSignal, prepareEvoSlots, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
 import { broadcastSignal } from "@/lib/notify/dispatch";
@@ -45,7 +45,10 @@ async function handle(req: Request): Promise<NextResponse> {
   let llmDsVsfEmitted = 0;
   let llmVsfSurvEmitted = 0;
   let llmDsVsfSurvEmitted = 0;
+  let evoEmitted = 0;
   let condEmitted = 0;
+  // EVOLUÇÃO: semeia/renasce os núcleos ANTES das emissões (morte → cruzamento → g+1).
+  const evoSlots = await prepareEvoSlots();
   let invEmitted = 0;
   let consEmitted = 0;
   for (const m of TRACKED_MARKETS) {
@@ -101,6 +104,9 @@ async function handle(req: Request): Promise<NextResponse> {
         if (llmDsVsf.reason === "emitted") llmDsVsfEmitted++;
         if (llmVsfSurv.reason === "emitted") llmVsfSurvEmitted++;
         if (llmDsVsfSurv.reason === "emitted") llmDsVsfSurvEmitted++;
+        // Motores EVOLUTIVOS (núcleos vigentes) — em paralelo entre si.
+        const evoResults = await Promise.all(evoSlots.map((slot) => emitEvoSignal(dto, extras, m.symbol, m.assetType, m.timeframe, slot)));
+        for (const r of evoResults) if (r.reason === "emitted") evoEmitted++;
         // Motores experimentais determinísticos (condicional / contrário / consenso).
         const cond = await emitConditionalSignal(dto, m.symbol, m.assetType, m.timeframe);
         if (cond.reason === "emitted") condEmitted++;
@@ -115,7 +121,7 @@ async function handle(req: Request): Promise<NextResponse> {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, llmSurvEmitted, llmDsSurvEmitted, llmVsfEmitted, llmDsVsfEmitted, llmVsfSurvEmitted, llmDsVsfSurvEmitted, condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, llmSurvEmitted, llmDsSurvEmitted, llmVsfEmitted, llmDsVsfEmitted, llmVsfSurvEmitted, llmDsVsfSurvEmitted, evoEmitted, evoGen: evoSlots.map((s) => `${s.slot}:g${s.generation}`), condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
 }
 
 export const GET = handle;

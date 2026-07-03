@@ -10,9 +10,10 @@ import type { AssetType, Timeframe } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
-import type { EngineComparison, EngineStat, ClassEngines, OpenPosition, GroupStat, BreakdownRow, EquityPoint, ClosedOpRow, DailyRow, DailyCell, SurvivalArena, SurvivalLine } from "@/components/admin-shared";
+import type { EngineComparison, EngineStat, ClassEngines, OpenPosition, GroupStat, BreakdownRow, EquityPoint, ClosedOpRow, DailyRow, DailyCell, SurvivalArena, SurvivalLine, EvoInfo } from "@/components/admin-shared";
 
 interface Row {
+  id: string;
   engine: string | null;
   symbol: string;
   asset_type: string;
@@ -129,10 +130,11 @@ const ENGINE_LABELS: Record<string, string> = {
   llm_surv: "Sobrevivência · GPT (capital finito)", llm_ds_surv: "Sobrevivência · DeepSeek (capital finito)",
   llm_vsf: "Vol/S-R/Fib · GPT", llm_ds_vsf: "Vol/S-R/Fib · DeepSeek",
   llm_vsf_surv: "Vol/S-R/Fib+Sobrev · GPT", llm_ds_vsf_surv: "Vol/S-R/Fib+Sobrev · DeepSeek",
+  evo_gpt: "Evolutivo · GPT (darwiniano)", evo_ds: "Evolutivo · DeepSeek (darwiniano)",
   condicional: "Condicional (lógica por regime)", contrario: "Contrário (controle — inverso do padrão)",
   consenso: "Consenso (padrão ∩ classe)",
 };
-const ENGINE_IDS = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "condicional", "contrario", "consenso"] as const;
+const ENGINE_IDS = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds", "condicional", "contrario", "consenso"] as const;
 const DAY = 86_400_000;
 
 /** Marca a mercado: R não-realizado de uma posição aberta dado o preço atual. */
@@ -186,7 +188,7 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
 
   const { data, error } = await sb
     .from("signals")
-    .select("engine, symbol, asset_type, timeframe, side, direction, entry, stop_loss, outcome, pnl_r, emitted_at, resolved_at")
+    .select("id, engine, symbol, asset_type, timeframe, side, direction, entry, stop_loss, outcome, pnl_r, emitted_at, resolved_at")
     .order("emitted_at", { ascending: false })
     .limit(5000);
   if (error) return null;
@@ -256,14 +258,25 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
   });
 
   // Operações FECHADAS (resolvidas) recentes, todos os motores.
-  const closed: ClosedOpRow[] = rows
+  const closedRows = rows
     .filter((r) => r.outcome != null && r.resolved_at)
     .sort((a, b) => new Date(b.resolved_at!).getTime() - new Date(a.resolved_at!).getTime())
-    .slice(0, 60)
-    .map((r) => ({
-      engine: r.engine ?? "padrao", symbol: r.symbol, timeframe: r.timeframe, side: r.side,
-      direction: r.direction, outcome: r.outcome as string, pnlR: r.pnl_r != null ? Number(r.pnl_r) : 0, resolvedAt: r.resolved_at,
-    }));
+    .slice(0, 60);
+  // Autópsias das fechadas (query separada e best-effort: a coluna é da migration
+  // 0015 — se ausente, o admin segue funcionando sem elas).
+  const autopsyOf = new Map<string, string>();
+  try {
+    const slIds = closedRows.filter((r) => r.outcome === "SL").map((r) => r.id);
+    if (slIds.length > 0) {
+      const { data: aData } = await sb.from("signals").select("id, autopsy").in("id", slIds).not("autopsy", "is", null);
+      for (const a of (aData ?? []) as { id: string; autopsy: string }[]) autopsyOf.set(a.id, a.autopsy);
+    }
+  } catch { /* pré-migration */ }
+  const closed: ClosedOpRow[] = closedRows.map((r) => ({
+    engine: r.engine ?? "padrao", symbol: r.symbol, timeframe: r.timeframe, side: r.side,
+    direction: r.direction, outcome: r.outcome as string, pnlR: r.pnl_r != null ? Number(r.pnl_r) : 0, resolvedAt: r.resolved_at,
+    autopsy: autopsyOf.get(r.id) ?? null,
+  }));
 
   // Resultado DIÁRIO das finalizadas (por dia × motor), mais recentes primeiro.
   const dmap = new Map<string, Record<string, DailyCell>>();
@@ -284,5 +297,15 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
 
   const survival = buildSurvival(rows, open);
 
-  return { engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, survival };
+  // Slots da EVOLUÇÃO (best-effort — tabela é da migration 0015).
+  let evo: EvoInfo[] | null = null;
+  try {
+    const { data: eData } = await sb.from("evo_engines").select("slot, provider, core, generation, deaths, parents, born_at").order("slot");
+    if (eData?.length) {
+      evo = (eData as { slot: string; provider: string; core: string; generation: number; deaths: number; parents: string | null; born_at: string }[])
+        .map((e) => ({ slot: e.slot, provider: e.provider, core: e.core, generation: e.generation, deaths: e.deaths, parents: e.parents, bornAt: e.born_at }));
+    }
+  } catch { /* pré-migration */ }
+
+  return { engines, byClassEngine, open, byClass, byTimeframe, byAsset, bySymbolTf, equity, closed, daily, survival, evo };
 }

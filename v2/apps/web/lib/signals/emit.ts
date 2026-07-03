@@ -10,7 +10,7 @@ import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
-import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, type LlmDecision } from "@/lib/analysis/narrative";
+import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, generateEvoDecision, breedEvoCore, EVO_SEED_CORES, type LlmDecision } from "@/lib/analysis/narrative";
 import { replayBank, type BankState } from "./survival";
 
 export type EmitReason = "emitted" | "neutral" | "low-seal" | "open-exists" | "no-db" | "error";
@@ -194,19 +194,21 @@ export async function emitClassSignalB(
  *  dois lados. Mudança versionada no engineVersion (~a14). */
 const LLM_ATR_SCALE = 1.4;
 
-/** Estado da banca de sobrevivência do motor (replay dos resolvidos). `null` = sem histórico/DB. */
-async function fetchBank(engine: string): Promise<BankState | null> {
+/** Estado da banca de sobrevivência do motor (replay dos resolvidos). `null` = sem histórico/DB.
+ *  `sinceIso` restringe aos sinais emitidos após a data — usado pela EVOLUÇÃO (a banca
+ *  de um núcleo conta só a partir do nascimento dele). */
+export async function fetchBank(engine: string, sinceIso?: string): Promise<BankState | null> {
   const sb = supabaseService();
   if (!sb) return null;
   try {
-    const { data, error } = await sb
+    let q = sb
       .from("signals")
       .select("pnl_r, direction")
       .eq("engine", engine)
       .not("outcome", "is", null)
-      .not("resolved_at", "is", null)
-      .order("resolved_at", { ascending: true })
-      .limit(500);
+      .not("resolved_at", "is", null);
+    if (sinceIso) q = q.gte("emitted_at", sinceIso);
+    const { data, error } = await q.order("resolved_at", { ascending: true }).limit(500);
     if (error || !data?.length) return null;
     return replayBank(data.map((r) => ({ pnlR: Number(r.pnl_r ?? 0), direction: String(r.direction ?? "") })));
   } catch {
@@ -342,6 +344,64 @@ export async function emitLlmVsfSurvSignal(
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
   const bank = await fetchBank("llm_vsf_surv");
   return emitLlmWith(() => generateLlmDecisionVsfSurv(dto, assetType, extras, bank), "llm_vsf_surv", `${ENGINE_VERSION}+vsf-surv`, dto, symbol, assetType, timeframe, true);
+}
+
+/** Slot da EVOLUÇÃO (linha da tabela evo_engines). */
+export interface EvoSlot { slot: string; provider: "gpt" | "ds"; core: string; generation: number; born_at: string }
+
+/**
+ * Ciclo de vida darwiniano — roda 1× por execução do cron, ANTES das emissões:
+ * 1) semeia a geração 1 se a tabela estiver vazia;
+ * 2) para cada slot, calcula a banca do núcleo VIGENTE (sinais desde born_at);
+ * 3) banca quebrou (deaths>0) → CRUZA o núcleo morto com o do outro slot e
+ *    renasce como geração+1 (mutação). Falha no cruzamento → renasce igual.
+ * Best-effort: sem tabela (antes da migration 0015) devolve [] e nada quebra.
+ */
+export async function prepareEvoSlots(): Promise<EvoSlot[]> {
+  const sb = supabaseService();
+  if (!sb) return [];
+  try {
+    const first = await sb.from("evo_engines").select("slot, provider, core, generation, deaths, born_at");
+    if (first.error) return []; // tabela ausente (migration pendente)
+    let data = first.data;
+    if (!data || data.length === 0) {
+      const ins = await sb.from("evo_engines").insert([
+        { slot: "evo_gpt", provider: "gpt", core: EVO_SEED_CORES.gpt, generation: 1, parents: "semente g1" },
+        { slot: "evo_ds", provider: "ds", core: EVO_SEED_CORES.ds, generation: 1, parents: "semente g1" },
+      ]).select("slot, provider, core, generation, deaths, born_at");
+      data = ins.data ?? [];
+    }
+    const rows = (data ?? []) as (EvoSlot & { deaths: number })[];
+    for (const s of rows) {
+      const bank = await fetchBank(s.slot, s.born_at);
+      if (!bank || bank.deaths === 0) continue; // núcleo vivo
+      const other = rows.find((o) => o.slot !== s.slot);
+      const deathCtx = `Pior queda ${bank.maxDrawdownPct}% do pico; últimos trades: ${bank.lastResults.join("") || "—"}; ${bank.lifeTrades} trades na vida final.`;
+      const child = await breedEvoCore(s.core, other?.core ?? s.core, s.provider, deathCtx);
+      const core = child && child.length > 40 ? child.slice(0, 2000) : s.core; // cruzamento falhou → renasce igual
+      const nowIso = new Date().toISOString();
+      await sb.from("evo_engines").update({
+        core, generation: s.generation + 1, deaths: s.deaths + 1,
+        parents: `g${s.generation} × ${other?.slot ?? "clone"}`, born_at: nowIso, updated_at: nowIso,
+      }).eq("slot", s.slot);
+      s.core = core; s.generation += 1; s.born_at = nowIso;
+    }
+    return rows.map(({ slot, provider, core, generation, born_at }) => ({ slot, provider, core, generation, born_at }));
+  } catch {
+    return [];
+  }
+}
+
+/** MOTOR EVOLUTIVO — decide com o núcleo VIGENTE do slot (nascido no cruzamento).
+ *  A banca do núcleo (desde born_at) vai no prompt; a morte é tratada no cron. */
+export async function emitEvoSignal(
+  dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe, slot: EvoSlot,
+): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  const bank = await fetchBank(slot.slot, slot.born_at);
+  return emitLlmWith(
+    () => generateEvoDecision(slot.core, slot.provider, dto, assetType, extras, bank),
+    slot.slot, `${ENGINE_VERSION}+evo-g${slot.generation}`, dto, symbol, assetType, timeframe,
+  );
 }
 
 /** MOTOR VSF+SOBREVIVÊNCIA·DS — idem, decisão da DeepSeek. No-op gracioso sem DEEPSEEK_API_KEY. */

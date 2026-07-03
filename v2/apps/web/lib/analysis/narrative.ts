@@ -310,6 +310,102 @@ export function generateLlmDecisionDsVsfSurv(dto: FullAnalysis, assetType: Asset
   return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, withBank(toLevelsFacts(dto), bank));
 }
 
+// ===================== EVOLUÇÃO DARWINIANA (motores evo_*) =====================
+
+/** Chamada de TEXTO genérica a um provedor (autópsia, cruzamento). `null` em falha. */
+async function callProviderText(p: LlmProvider, system: string, user: string, maxTokens: number, temperature = 0.4): Promise<string | null> {
+  if (!p.apiKey) return null;
+  try {
+    const res = await withTimeout(
+      fetch(`${p.baseURL}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.apiKey}` },
+        body: JSON.stringify({
+          model: p.model, temperature, max_tokens: maxTokens,
+          messages: [{ role: "system", content: system }, { role: "user", content: user }],
+          ...(p.extraBody ?? {}),
+        }),
+      }),
+      25000,
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as ChatResponse;
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Contrato FIXO dos motores evolutivos — o núcleo evolui, o contrato nunca.
+ *  Garante que nenhuma mutação quebre o formato de saída nem as regras da casa. */
+const EVO_CONTRACT = [
+  "Você é um MOTOR DE DECISÃO de trading evolutivo com capital FINITO (se a banca quebrar, esta estratégia MORRE e é substituída).",
+  "Aplique a ESTRATÉGIA-NÚCLEO acima sobre os dados MEDIDOS fornecidos. NÃO invente dados além dos fornecidos.",
+  CONVICTION_RUBRIC,
+  "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
+].join("\n");
+
+/** Núcleos-semente da geração 1 (derivados das famílias com melhor forward até aqui). */
+export const EVO_SEED_CORES: Record<"gpt" | "ds", string> = {
+  gpt: [
+    "ESTRATÉGIA-NÚCLEO (g1 — níveis seletivos): opere APENAS quando o preço estiver encostado num nível objetivo — order block, zona de liquidez, VAL/VAH do perfil de volume ou PRZ de Fibonacci.",
+    "Compra em suporte com volume confirmando; venda em resistência com volume confirmando. Preço no meio do range → neutro.",
+    "Exija pelo menos DOIS pilares independentes concordando. Em regime de transição/explosão de volatilidade, exija três.",
+  ].join("\n"),
+  ds: [
+    "ESTRATÉGIA-NÚCLEO (g1 — tendência com estrutura): opere APENAS a favor da estrutura de mercado (SMC) quando o multi-timeframe estiver alinhado.",
+    "Entre em pullbacks: preço voltando a uma média (EMA20/50) ou order block A FAVOR da tendência dominante. Contra-tendência → neutro, sempre.",
+    "ADX baixo (<20) ou estrutura lateral → neutro. Prefira poucos trades com tendência clara a muitos trades medianos.",
+  ].join("\n"),
+};
+
+/** Decisão de um motor EVOLUTIVO: núcleo (do banco) + contrato fixo + fatos completos. */
+export function generateEvoDecision(core: string, provider: "gpt" | "ds", dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, bank?: BankState | null): Promise<LlmDecision | null> {
+  const p = provider === "gpt" ? openAiProvider() : deepSeekProvider();
+  const system = `${core}\n\n${EVO_CONTRACT}`;
+  // fatos completos (indicadores+classe) + níveis + banca — o núcleo escolhe o que usar
+  const facts = { ...(toDecisionFacts(dto, assetType, extras) as Record<string, unknown>), niveis: toLevelsFacts(dto), banca_sobrevivencia: bankFacts(bank) };
+  return runLlmDecision(p, dto, assetType, extras, system, facts);
+}
+
+/** CRUZAMENTO: gera o núcleo-filho a partir de dois núcleos-pais (com mutação).
+ *  Chamado quando a banca do núcleo atual QUEBRA. `null` em falha (mantém o pai). */
+export function breedEvoCore(parentA: string, parentB: string, provider: "gpt" | "ds", deathContext: string): Promise<string | null> {
+  const p = provider === "gpt" ? openAiProvider() : deepSeekProvider();
+  const system = [
+    "Você é um engenheiro de estratégias de trading. O motor que usava o NÚCLEO A quebrou a banca e morreu.",
+    "Crie um NÚCLEO-FILHO em português: combine os pontos fortes de A e B e introduza UMA mutação significativa que ataque a causa da morte (ex.: filtro novo, exigência de confluência maior, regime a evitar, gestão mais defensiva).",
+    "Regras: 3 a 6 linhas, começando por 'ESTRATÉGIA-NÚCLEO'; critérios OBJETIVOS e verificáveis nos dados (indicadores, SMC, volume, Fibonacci, regime, multi-timeframe); em dúvida, mande ser neutro.",
+    "Responda APENAS com o texto do núcleo — sem comentários.",
+  ].join("\n");
+  const user = `NÚCLEO A (morto):\n${parentA}\n\nNÚCLEO B (sobrevivente):\n${parentB}\n\nCONTEXTO DA MORTE:\n${deathContext}`;
+  return callProviderText(p, system, user, 350, 0.7);
+}
+
+// ===================== AUTÓPSIA (post-mortem de sinal no SL) =====================
+
+/** Autópsia de um sinal que morreu no stop — 3-4 frases honestas sobre O QUE falhou.
+ *  gpt-4o-mini (volume baixo, custo centavos). `null` em falha (coluna fica vazia). */
+export async function generateAutopsy(sig: {
+  symbol: string; timeframe: string; side: string; engine: string;
+  entry: number; stopLoss: number; exitPrice: number | null; durationCandles: number | null;
+  conviction: number | null; rationale: string | null; regime: string | null;
+}): Promise<string | null> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  const system = [
+    "Você é o legista de sinais do Overtrader. Um sinal morreu no STOP LOSS. Escreva a AUTÓPSIA em português do Brasil: 3-4 frases, tom técnico e honesto.",
+    "Estrutura: (1) o que a tese esperava; (2) o que o mercado fez em vez disso; (3) a lição objetiva (qual tipo de filtro/contexto teria evitado ou reduzido o dano).",
+    "Nunca culpe 'azar', nunca prometa que a próxima acerta, não invente dados além dos fornecidos. Sem emojis.",
+  ].join("\n");
+  const facts = {
+    ativo: sig.symbol, timeframe: sig.timeframe, lado: sig.side === "sell" ? "venda" : "compra", motor: sig.engine,
+    entrada: sig.entry, stop: sig.stopLoss, saida: sig.exitPrice, duracao_candles: sig.durationCandles,
+    conviccao_na_emissao: sig.conviction, tese_na_emissao: sig.rationale, regime_na_emissao: sig.regime,
+  };
+  return callProviderText({ ...openAiProvider(), model: "gpt-4o-mini" }, system, `Dados do óbito (JSON):\n${JSON.stringify(facts)}`, 260, 0.3);
+}
+
 /** Diagnóstico de um provedor: ping mínimo que revela o motivo REAL da falha
  *  (chave ausente no deploy / 401 valor errado / 400 modelo errado). Nunca
  *  vaza a key — `detail` é só o corpo de erro do provedor (que mascara a key). */

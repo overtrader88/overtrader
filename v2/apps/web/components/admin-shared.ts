@@ -103,6 +103,19 @@ export interface ClosedOpRow {
   outcome: string; // TP1/TP2/TP3/SL/EXPIRED
   pnlR: number;
   resolvedAt: string | null;
+  /** Post-mortem da IA (sinais mortos no SL; coluna da migration 0015). */
+  autopsy?: string | null;
+}
+
+/** Slot da EVOLUÇÃO darwiniana (núcleo vigente + linhagem). */
+export interface EvoInfo {
+  slot: string;
+  provider: string;
+  core: string;
+  generation: number;
+  deaths: number;
+  parents: string | null;
+  bornAt: string;
 }
 
 /** Mesmas métricas por motor, recortadas por uma classe de ativo (filtro do ranking). */
@@ -142,6 +155,7 @@ export interface SurvivalArena {
 export interface EngineComparison {
   engines: EngineStat[];
   survival?: SurvivalArena | null;
+  evo?: EvoInfo[] | null;
   /** Stats por classe de ativo × motor — alimenta o filtro de classe no ranking. */
   byClassEngine: ClassEngines[];
   open: OpenPosition[];

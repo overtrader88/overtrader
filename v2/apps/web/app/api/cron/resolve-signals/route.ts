@@ -12,6 +12,10 @@ import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
 import { sendScoreboardToAdmin, type ClosedOp } from "@/lib/signals/scoreboard";
+import { generateAutopsy } from "@/lib/analysis/narrative";
+
+/** Teto de autópsias por rodada (cada uma é 1 chamada LLM ~1-2s; maxDuration=120). */
+const MAX_AUTOPSIES = 8;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +28,7 @@ const FETCH_LIMIT = 400;
 interface SignalRow {
   id: string; symbol: string; asset_type: string; timeframe: string; side: string;
   entry: number; stop_loss: number; tp1: number; tp2: number; tp3: number; emitted_at: string;
-  engine?: string | null;
+  engine?: string | null; regime?: string | null; conviction?: number | null; rationale?: string | null;
 }
 
 function authorized(req: Request): boolean {
@@ -42,7 +46,7 @@ async function handle(req: Request): Promise<NextResponse> {
   const limit = Math.min(100, Math.max(1, Number(new URL(req.url).searchParams.get("limit") ?? "50") || 50));
   const { data, error } = await sb
     .from("signals")
-    .select("id, symbol, asset_type, timeframe, side, entry, stop_loss, tp1, tp2, tp3, emitted_at, engine")
+    .select("id, symbol, asset_type, timeframe, side, entry, stop_loss, tp1, tp2, tp3, emitted_at, engine, regime, conviction, rationale")
     .is("outcome", null)
     .order("emitted_at", { ascending: true })
     .limit(limit);
@@ -54,6 +58,7 @@ async function handle(req: Request): Promise<NextResponse> {
   let resolved = 0;
   let open = 0;
   let skipped = 0;
+  let autopsies = 0;
   const closedDecisive: ClosedOp[] = []; // fechadas por lucro/prejuízo nesta rodada
 
   for (const s of (data ?? []) as SignalRow[]) {
@@ -87,6 +92,22 @@ async function handle(req: Request): Promise<NextResponse> {
             side: s.side, outcome: res.outcome, pnlR: res.pnlR ?? 0,
           });
         }
+        // AUTÓPSIA: sinal morto no stop ganha post-mortem da IA (update separado e
+        // best-effort — sem a coluna `autopsy` da 0015, falha silencioso).
+        if (res.outcome === "SL" && autopsies < MAX_AUTOPSIES) {
+          try {
+            const autopsy = await generateAutopsy({
+              symbol: s.symbol, timeframe: s.timeframe, side: s.side, engine: s.engine ?? "padrao",
+              entry: s.entry, stopLoss: s.stop_loss, exitPrice: res.exitPrice ?? null,
+              durationCandles: res.durationCandles ?? null,
+              conviction: s.conviction ?? null, rationale: s.rationale ?? null, regime: s.regime ?? null,
+            });
+            if (autopsy) {
+              await sb.from("signals").update({ autopsy }).eq("id", s.id);
+              autopsies++;
+            }
+          } catch { /* autópsia nunca derruba a resolução */ }
+        }
       } else {
         await sb.from("signals").update(lifecycle).eq("id", s.id);
         open++;
@@ -101,7 +122,7 @@ async function handle(req: Request): Promise<NextResponse> {
     scoreboard = await sendScoreboardToAdmin(closedDecisive[closedDecisive.length - 1]!);
   }
 
-  return NextResponse.json({ total: data?.length ?? 0, resolved, open, skipped, closedDecisive: closedDecisive.length, scoreboard });
+  return NextResponse.json({ total: data?.length ?? 0, resolved, open, skipped, autopsies, closedDecisive: closedDecisive.length, scoreboard });
 }
 
 export const GET = handle;
