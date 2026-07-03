@@ -5,11 +5,12 @@
  * lança (não pode derrubar a análise nem o cron).
  */
 import { signalSide } from "@tradeai/shared";
-import { ENGINE_VERSION, computeConditionalSignal, DEFAULT_ENGINE_CONFIG, NAMES } from "@tradeai/engine";
+import { ENGINE_VERSION, DEFAULT_ENGINE_CONFIG } from "@tradeai/engine";
 import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
+import { conditionalDirection, invertDirection } from "@/lib/analysis/position-stress";
 import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, generateEvoDecision, breedEvoCore, EVO_SEED_CORES, type LlmDecision } from "@/lib/analysis/narrative";
 import { replayBank, type BankState } from "./survival";
 
@@ -418,64 +419,28 @@ export async function emitLlmDsVsfSurvSignal(
  * pergunta falsificável; o track record por motor é o juiz.
  * ===================================================================== */
 
-type ConditionalValues = Parameters<typeof computeConditionalSignal>[0];
-type ConditionalRegime = Parameters<typeof computeConditionalSignal>[1];
-
-/** Reconstrói os VALORES de indicadores a partir do dto (a UI guarda os valores
- *  em `analysis.indicators[].value` sob os NAMES canônicos do motor). */
-function valuesFromDto(dto: FullAnalysis): ConditionalValues | null {
-  const by = new Map<string, unknown>((dto.analysis?.indicators ?? []).map((i) => [i.name, i.value as unknown]));
-  const num = (n: string): number => { const v = by.get(n); return typeof v === "number" ? v : NaN; };
-  const obj = <T,>(n: string): T | null => { const v = by.get(n); return v != null && typeof v === "object" ? (v as T) : null; };
-  const lastClose = dto.analysis?.risk?.entry;
-  const macd = obj<{ macdLine: number; signal: number; histogram: number }>(NAMES.macd);
-  const stoch = obj<{ k: number; d: number }>(NAMES.stoch);
-  const adx14 = obj<{ adx: number; plusDI: number; minusDI: number }>(NAMES.adx);
-  const boll = obj<{ upper: number; middle: number; lower: number; bandwidth?: number }>(NAMES.bollinger);
-  const obv = obj<{ current: number; slope: number }>(NAMES.obv);
-  if (!lastClose || !(lastClose > 0) || !macd || !stoch || !adx14 || !boll) return null;
-  return {
-    lastClose,
-    ema20: num(NAMES.ema20), ema50: num(NAMES.ema50), ema200: num(NAMES.ema200),
-    sma50: num(NAMES.sma50), vwma20: num(NAMES.vwma20),
-    rsi14: num(NAMES.rsi), macd, stoch,
-    cci20: num(NAMES.cci), williamsR14: num(NAMES.williamsR),
-    awesome: num(NAMES.awesome), mfi14: num(NAMES.mfi), roc14: num(NAMES.roc),
-    adx14, supertrend: { value: NaN, trend: "up" as const }, trix14: num(NAMES.trix),
-    bollinger: { upper: boll.upper, middle: boll.middle, lower: boll.lower, bandwidth: boll.bandwidth ?? 0 },
-    atr14: num(NAMES.atr), obv: obv ?? { current: 0, slope: 0 }, cmf20: num(NAMES.cmf),
-  };
-}
-
 /**
  * MOTOR CONDICIONAL (experimental, forward): a tese do `conditional.ts` —
  * trend-following SÓ em tendência, fade de extremos SÓ em lateral, neutro em
  * transição/explosão — que está DESLIGADA no motor de produção. Gate seletivo:
  * ≥4 dos 5 checks do regime concordando. Plano ATR padrão (geometria constante
- * entre os motores = experimento controlado da DECISÃO).
+ * entre os motores = experimento controlado da DECISÃO). A decisão em si vive
+ * em `position-stress.ts` (compartilhada com o stress test da posição).
  */
 export async function emitConditionalSignal(
   dto: FullAnalysis, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  const v = valuesFromDto(dto);
-  if (!v) return { reason: "no-geometry", id: null };
-  const regime = (dto.analysis.meta?.regime ?? "transitional") as ConditionalRegime;
-  const cfg = { ...DEFAULT_ENGINE_CONFIG, signal: { ...DEFAULT_ENGINE_CONFIG.signal, filters: { macroAlign: false, volumeConfirm: false, minAgree: 4 } } };
-  const out = computeConditionalSignal(v, regime, cfg);
-  const side = signalSide(out.signal);
+  const dir = conditionalDirection(dto);
+  if (!dir) return { reason: "no-geometry", id: null };
+  const side = signalSide(dir);
   if (side === "neutral") return { reason: "neutral", id: null };
   const plan = buildClassPlan(dto, side);
   if (!plan) return { reason: "no-geometry", id: null };
   return recordVariant({
-    symbol, assetType, timeframe, direction: out.signal, side, seal: "yellow", plan,
+    symbol, assetType, timeframe, direction: dir, side, seal: "yellow", plan,
     regime: dto.analysis.meta?.regime ?? null, engine: "condicional", engineVersion: `${ENGINE_VERSION}+cond`,
   });
 }
-
-const INVERT: Record<SignalDirection, SignalDirection> = {
-  STRONG_BUY: "STRONG_SELL", BUY: "SELL", WEAK_BUY: "WEAK_SELL", NEUTRAL: "NEUTRAL",
-  WEAK_SELL: "WEAK_BUY", SELL: "BUY", STRONG_SELL: "STRONG_BUY",
-};
 
 /**
  * MOTOR CONTRÁRIO (controle experimental): emite EXATAMENTE quando o Motor 1
@@ -496,7 +461,7 @@ export async function emitContrarianSignal(
   const plan = buildClassPlan(dto, invSide);
   if (!plan) return { reason: "no-geometry", id: null };
   return recordVariant({
-    symbol, assetType, timeframe, direction: INVERT[dto.analysis.signal.signal], side: invSide, seal: "yellow", plan,
+    symbol, assetType, timeframe, direction: invertDirection(dto.analysis.signal.signal), side: invSide, seal: "yellow", plan,
     regime: dto.analysis.meta?.regime ?? null, engine: "contrario", engineVersion: `${ENGINE_VERSION}+inv`,
   });
 }
