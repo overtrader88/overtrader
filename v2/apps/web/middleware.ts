@@ -17,7 +17,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 // Dados do usuário — exigem login em QUALQUER modo (pré ou pós-lançamento).
-const PROTECTED = ["/dashboard", "/analise", "/ao-vivo", "/monitor", "/track-record", "/historico", "/alertas", "/creditos", "/watchlist"];
+const PROTECTED = ["/dashboard", "/analise", "/posicao", "/ao-vivo", "/monitor", "/track-record", "/historico", "/alertas", "/creditos", "/watchlist"];
 // Navegável sem login em QUALQUER modo (marketing + auth + legais).
 // Navegável sem login em QUALQUER modo (marketing + auth + legais).
 // /planos e /roadmap são páginas de marketing (linkadas na landing) e públicas
