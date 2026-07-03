@@ -14,6 +14,16 @@ export const analyzeInputSchema = z.object({
 });
 export type AnalyzeInput = z.infer<typeof analyzeInputSchema>;
 
+/** POST /api/simulator — Máquina do Tempo. A checagem "data no passado" fica
+ *  na rota (depende do relógio; o schema é puro). */
+export const simulatorInputSchema = z.object({
+  symbol: z.string().min(1).max(20).transform((s) => s.toUpperCase()),
+  assetType: assetTypeSchema,
+  timeframe: timeframeSchema,
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data no formato AAAA-MM-DD"),
+});
+export type SimulatorInput = z.infer<typeof simulatorInputSchema>;
+
 /** Gatilho de alerta da watchlist: qualquer sinal ACIONÁVEL (compra ou venda). */
 export const minSignalStrengthSchema = signalDirectionSchema.refine(
   (s) => s !== "NEUTRAL",

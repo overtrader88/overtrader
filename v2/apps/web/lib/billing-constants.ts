@@ -9,3 +9,9 @@ export const WATCHLIST_ALERT_DAYS = 5;
 
 /** Validade em milissegundos (derivada). */
 export const WATCHLIST_ALERT_MS = WATCHLIST_ALERT_DAYS * 24 * 60 * 60 * 1000;
+
+/** Simulador "Máquina do Tempo": simulações grátis por dia (dia UTC). */
+export const SIMULATOR_FREE_PER_DAY = 3;
+
+/** Custo, em créditos, de cada simulação além da cota grátis diária. */
+export const SIMULATOR_CREDIT_COST = 1;
