@@ -249,7 +249,10 @@
       "Bash(cat v2/apps/web/tsconfig.json)",
       "Bash(cat v2/tsconfig.json)",
       "Bash(cat v2/tsconfig.base.json)",
-      "Bash(echo \"=== EXIT CODE: $? ===\")"
+      "Bash(echo \"=== EXIT CODE: $? ===\")",
+      "PowerShell(pnpm --dir v2/apps/web lint)",
+      "PowerShell(git add .claude/settings.local.json)",
+      "PowerShell(git push -u origin claude/great-blackburn-0c8ed4)"
     ]
   }
 }
