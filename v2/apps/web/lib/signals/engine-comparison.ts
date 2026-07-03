@@ -35,9 +35,15 @@ const isWin = (o: SignalOutcome) => o === "TP1" || o === "TP2" || o === "TP3";
 
 // ===== RINGUE DE SOBREVIVÊNCIA — regras da banca em lib/signals/survival.ts (fonte única) =====
 import { SURV_START, SURV_FLOOR, RISK_NORMAL, RISK_STRONG, survFraction } from "./survival";
+import { isHumanEngine, humanEngineLabel } from "./human";
+
+/** Competidores HUMANOS presentes nas linhas ("humano_<slug>", dinâmicos), ordenados. */
+function humanEnginesIn(rows: Row[]): string[] {
+  return [...new Set(rows.map((r) => r.engine ?? "").filter(isHumanEngine))].sort();
+}
 
 /** Replay determinístico de UMA conta de sobrevivência sobre os trades de um motor. */
-function survivalLine(engine: string, label: string, flavor: "mente" | "gestao", provider: "gpt" | "ds", rows: Row[], open: OpenPosition[]): SurvivalLine {
+function survivalLine(engine: string, label: string, flavor: SurvivalLine["flavor"], provider: SurvivalLine["provider"], rows: Row[], open: OpenPosition[]): SurvivalLine {
   const resolved = rows
     .filter((r) => (r.engine ?? "padrao") === engine && r.outcome != null && r.pnl_r != null && r.resolved_at)
     .sort((a, b) => new Date(a.resolved_at!).getTime() - new Date(b.resolved_at!).getTime());
@@ -73,7 +79,8 @@ function survivalLine(engine: string, label: string, flavor: "mente" | "gestao",
   };
 }
 
-/** Ringue: 4 contas — GPT/DeepSeek × mente(prompt sobrevivência)/gestão(decisão normal + sizing). */
+/** Ringue: contas GPT/DeepSeek × mente(prompt sobrevivência)/gestão(decisão normal + sizing)
+ *  + competidores HUMANOS (desafio Humanos vs Máquinas), quando têm sinal. */
 function buildSurvival(rows: Row[], open: OpenPosition[]): SurvivalArena {
   return {
     start: SURV_START, floorPct: SURV_FLOOR, riskNormalPct: RISK_NORMAL * 100, riskStrongPct: RISK_STRONG * 100,
@@ -86,6 +93,7 @@ function buildSurvival(rows: Row[], open: OpenPosition[]): SurvivalArena {
       survivalLine("llm_vsf", "VSF·GPT · gestão", "gestao", "gpt", rows, open),
       survivalLine("llm_ds_vsf_surv", "VSF·DS · mente", "mente", "ds", rows, open),
       survivalLine("llm_ds_vsf", "VSF·DS · gestão", "gestao", "ds", rows, open),
+      ...humanEnginesIn(rows).map((e) => survivalLine(e, `🧑 ${humanEngineLabel(e)}`, "humano", "humano", rows, open)),
     ],
   };
 }
@@ -144,14 +152,15 @@ function unrealizedR(side: string, entry: number, stop: number, price: number): 
   return side === "sell" ? (entry - price) / dist : (price - entry) / dist;
 }
 
-/** Agrega os EngineStat (por motor) de um conjunto de linhas + posições abertas (já marcadas a mercado). Reusado no agregado global e por classe de ativo. */
+/** Agrega os EngineStat (por motor) de um conjunto de linhas + posições abertas (já marcadas a mercado). Reusado no agregado global e por classe de ativo. Motores humanos (dinâmicos) entram no fim, só quando têm sinal no recorte. */
 function buildEngineStats(rows: Row[], open: OpenPosition[]): EngineStat[] {
   const byEngine = new Map<string, Row[]>();
   for (const r of rows) {
     const e = r.engine ?? "padrao";
     (byEngine.get(e) ?? byEngine.set(e, []).get(e)!).push(r);
   }
-  return ENGINE_IDS.map((e) => {
+  const ids: string[] = [...ENGINE_IDS, ...humanEnginesIn(rows)];
+  return ids.map((e) => {
     const list = byEngine.get(e) ?? [];
     const resolved = list.filter((r) => r.outcome != null && r.pnl_r != null);
     const stats = aggregateTrackRecord(resolved.map((r) => ({ outcome: r.outcome as SignalOutcome, pnlR: Number(r.pnl_r) })));
@@ -168,7 +177,7 @@ function buildEngineStats(rows: Row[], open: OpenPosition[]): EngineStat[] {
     const last = emittedAts[emittedAts.length - 1] ?? null;
     const spanDays = first && last ? Math.max(1, (new Date(last).getTime() - new Date(first).getTime()) / DAY) : 1;
     return {
-      engine: e, label: ENGINE_LABELS[e] ?? e,
+      engine: e, label: ENGINE_LABELS[e] ?? (isHumanEngine(e) ? `Humano · ${humanEngineLabel(e)}` : e),
       resolved: stats.n, decisive: stats.decisive, wins, losses: stats.outcomes.SL, expired: stats.outcomes.EXPIRED,
       winRatePct: stats.winRate.value * 100, profitFactor: stats.profitFactor.value, avgR: stats.avgR.value, totalR: stats.totalR,
       avgWinR, avgLossR, payoff,
@@ -242,18 +251,20 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
   const byAsset = breakdownBy(rows, (r) => r.symbol, (k) => k);
   const bySymbolTf = breakdownBy(rows, (r) => `${r.symbol}__${r.timeframe}`, (k) => { const [s, t] = k.split("__"); return `${s} · ${(t ?? "").toUpperCase()}`; });
 
-  // Curva de R acumulado por motor (os 5): timeline de resolvidos (asc) com running
-  // total por motor; cada ponto carrega o snapshot de TODOS os motores.
+  // Curva de R acumulado por motor: timeline de resolvidos (asc) com running
+  // total por motor; cada ponto carrega o snapshot de TODOS os motores
+  // (estáticos + humanos presentes).
+  const equityIds: string[] = [...ENGINE_IDS, ...humanEnginesIn(rows)];
   const resolvedSorted = rows
     .filter((r) => r.outcome != null && r.pnl_r != null && r.resolved_at)
     .sort((a, b) => new Date(a.resolved_at!).getTime() - new Date(b.resolved_at!).getTime());
   const cum: Record<string, number> = {};
-  for (const e of ENGINE_IDS) cum[e] = 0;
+  for (const e of equityIds) cum[e] = 0;
   const equity: EquityPoint[] = resolvedSorted.map((r) => {
     const e = r.engine ?? "padrao";
     cum[e] = (cum[e] ?? 0) + Number(r.pnl_r);
     const values: Record<string, number> = {};
-    for (const id of ENGINE_IDS) values[id] = Math.round((cum[id] ?? 0) * 100) / 100;
+    for (const id of equityIds) values[id] = Math.round((cum[id] ?? 0) * 100) / 100;
     return { t: r.resolved_at!, values };
   });
 

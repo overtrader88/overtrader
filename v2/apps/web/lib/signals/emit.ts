@@ -148,6 +148,28 @@ async function recordVariant(p: {
 }
 
 /**
+ * DESAFIO HUMANOS vs MÁQUINAS: carimba um sinal de competidor HUMANO no MESMO
+ * track record forward dos motores. A decisão e o plano (entrada/stop/tp1-3)
+ * são MANUAIS (informados pelo admin no form); a resolução é do mesmo cron
+ * resolve-signals — mesmas regras, mesmo juiz. `engine = "humano_<slug>"`,
+ * selo 'yellow' (sem backtest — como toda variante sem histórico próprio).
+ */
+export function emitHumanSignal(p: {
+  slug: string; symbol: string; assetType: AssetType; timeframe: Timeframe;
+  side: "buy" | "sell"; strong?: boolean;
+  plan: { entry: number; stopLoss: number; takeProfit1: number; takeProfit2: number; takeProfit3: number };
+}): Promise<{ reason: ClassEmitReason; id: string | null }> {
+  const direction: SignalDirection = p.side === "buy"
+    ? (p.strong ? "STRONG_BUY" : "BUY")
+    : (p.strong ? "STRONG_SELL" : "SELL");
+  return recordVariant({
+    symbol: p.symbol, assetType: p.assetType, timeframe: p.timeframe,
+    direction, side: p.side, seal: "yellow", plan: p.plan,
+    regime: null, engine: `humano_${p.slug}`, engineVersion: "humano-v1",
+  });
+}
+
+/**
  * VARIANTE Padrão-B (experimental, forward A/B): mesma DIREÇÃO do Motor 1, mas
  * plano com stop/alvos mais largos (ATR ×1.4) — testa gestão de risco. Mesmo gate
  * do Motor 1 (selo verde/amarelo + direção acionável). Sem backtest do plano novo.

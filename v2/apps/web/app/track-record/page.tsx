@@ -1,6 +1,7 @@
 import { AppBar, Panel, PanelLabel } from "@/components/ui";
 import { getCurrentUser, planLabel, initialsOf } from "@/lib/supabase/auth";
 import { getTrackRecord, type EngineFilter } from "@/lib/signals/track-record";
+import { isHumanEngine, humanEngineTag } from "@/lib/signals/human";
 import type { TrackRecordStats } from "@tradeai/engine";
 import { AssetGlyph } from "@/components/asset-glyph";
 import { TrackLiveTable } from "@/components/track-live-table";
@@ -37,6 +38,8 @@ const ENGINE_SHORT: Record<string, string> = {
   llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS", evo_gpt: "Evo·GPT", evo_ds: "Evo·DS",
   condicional: "Cond", contrario: "Contra", consenso: "Cons",
 };
+/** Rótulo curto com fallback p/ competidores HUMANOS (dinâmicos, "humano_<slug>"). */
+const engineShort = (e: string): string => ENGINE_SHORT[e] ?? (isHumanEngine(e) ? humanEngineTag(e) : e);
 
 const pct = (x: number) => `${x.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 const signed = (x: number) => `${x > 0 ? "+" : ""}${x.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`;
@@ -139,7 +142,13 @@ export default async function TrackRecordPage({
   searchParams: Promise<{ engine?: string }>;
 }) {
   const sp = await searchParams;
-  const activeTab = ENGINE_TABS.find((t) => t.key === sp.engine) ?? ENGINE_TABS[0]!;
+  // Competidores HUMANOS não têm aba estática — aceita ?engine=humano_<slug>
+  // com uma aba sintética (fallback genérico do desafio Humanos vs Máquinas).
+  const spEngine = sp.engine ?? "";
+  const humanTab = /^humano_[a-z0-9][a-z0-9_-]*$/.test(spEngine)
+    ? { key: spEngine, label: humanEngineTag(spEngine), filter: spEngine as EngineFilter, tm: false, experimental: true, group: "humano" }
+    : null;
+  const activeTab = ENGINE_TABS.find((t) => t.key === spEngine) ?? humanTab ?? ENGINE_TABS[0]!;
   const [user, tr] = await Promise.all([getCurrentUser(), getTrackRecord(activeTab.filter)]);
   const { overall, byRegime, recent, live, openCount, configured } = tr;
   const sufficient = overall.decisive >= MIN_DECISIVE;
@@ -182,6 +191,12 @@ export default async function TrackRecordPage({
                 }
                 return [node];
               })}
+              {humanTab ? (
+                <>
+                  <span className="tr-sep" aria-hidden>Humanos</span>
+                  <a href={`/track-record?engine=${humanTab.key}`} className={`tr-tab${humanTab.key === activeTab.key ? " on" : ""}`}>{humanTab.label}</a>
+                </>
+              ) : null}
             </div>
             {activeTab.key === "todos" ? (
               <p className="note" style={{ maxWidth: "70ch", margin: "0 0 14px" }}>
@@ -277,7 +292,7 @@ export default async function TrackRecordPage({
                       <span className="trk-asset">
                         <AssetGlyph symbol={r.symbol} size={30} />
                         <span className="trk-sym"><b>{r.symbol}</b> · {r.timeframe.toUpperCase()}</span>
-                        {activeTab.key === "todos" ? <span className="trk-eng">{ENGINE_SHORT[r.engine] ?? r.engine}</span> : null}
+                        {activeTab.key === "todos" ? <span className="trk-eng">{engineShort(r.engine)}</span> : null}
                       </span>
                       <span className={`trk-dir ${buy ? "up" : sell ? "dn" : "neu"}`}>{buy ? "↗ Compra" : sell ? "↘ Venda" : "—"}</span>
                       <span className={`trk-oc ${oc.cls}`}>{oc.label}</span>
