@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  analyzeInputSchema, watchlistCreateSchema, hublaWebhookSchema, telegramUpdateSchema, parseTelegramCommand,
+  analyzeInputSchema, watchlistCreateSchema, warCouncilSchema, hublaWebhookSchema, telegramUpdateSchema, parseTelegramCommand,
 } from "./schemas";
 
 describe("analyzeInputSchema", () => {
@@ -24,6 +24,25 @@ describe("watchlistCreateSchema", () => {
   });
   it("rejeita NEUTRAL (gatilho precisa ser acionável)", () => {
     expect(watchlistCreateSchema.safeParse({ symbol: "ETH", timeframe: "4h", min_signal_strength: "NEUTRAL" }).success).toBe(false);
+  });
+});
+
+describe("warCouncilSchema", () => {
+  const id = "11111111-2222-3333-4444-555555555555";
+  it("aceita analysisId + pergunta, com history default vazio", () => {
+    const r = warCouncilSchema.parse({ analysisId: id, question: "Por que o selo é amarelo?" });
+    expect(r.history).toEqual([]);
+  });
+  it("aceita dto serializado no lugar do analysisId", () => {
+    expect(warCouncilSchema.safeParse({ dto: { generatedAt: 1 }, question: "Qual o risco?" }).success).toBe(true);
+  });
+  it("rejeita sem analysisId E sem dto (não há análise pra ancorar)", () => {
+    expect(warCouncilSchema.safeParse({ question: "Qual o risco?" }).success).toBe(false);
+  });
+  it("rejeita pergunta curta demais e histórico acima do teto", () => {
+    expect(warCouncilSchema.safeParse({ analysisId: id, question: "a" }).success).toBe(false);
+    const history = Array.from({ length: 25 }, () => ({ role: "user", content: "x" }));
+    expect(warCouncilSchema.safeParse({ analysisId: id, question: "Qual o risco?", history }).success).toBe(false);
   });
 });
 

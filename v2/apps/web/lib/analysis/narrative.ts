@@ -146,8 +146,9 @@ const LLM_VSF_SYSTEM = [
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
 ].join("\n");
 
-/** Fatos BRUTOS p/ a decisão da LLM — sem o veredito do Motor 1 (independência). */
-function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): unknown {
+/** Fatos BRUTOS p/ a decisão da LLM — sem o veredito do Motor 1 (independência).
+ *  Exportado: o Conselho de Guerra reusa os mesmos fatos p/ ancorar o chat. */
+export function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): unknown {
   const a = dto.analysis;
   return {
     ativo: a.meta.asset, timeframe: a.meta.timeframe, classe: assetType,
@@ -247,8 +248,9 @@ export function generateLlmDecisionDsSurv(dto: FullAnalysis, assetType: AssetTyp
 }
 
 /** Fatos focados em NÍVEIS (volume + S/R + Fibonacci) — alimenta o motor VSF com os
- *  números REAIS do dto (POC/área de valor, order blocks/liquidez/FVG, PRZ harmônicas). */
-function toLevelsFacts(dto: FullAnalysis): unknown {
+ *  números REAIS do dto (POC/área de valor, order blocks/liquidez/FVG, PRZ harmônicas).
+ *  Exportado: o Conselho de Guerra reusa os mesmos fatos p/ ancorar o chat. */
+export function toLevelsFacts(dto: FullAnalysis): unknown {
   const a = dto.analysis;
   const price = a.risk?.entry ?? null;
   const vp = dto.volumeProfile;

@@ -9,3 +9,6 @@ export const WATCHLIST_ALERT_DAYS = 5;
 
 /** Validade em milissegundos (derivada). */
 export const WATCHLIST_ALERT_MS = WATCHLIST_ALERT_DAYS * 24 * 60 * 60 * 1000;
+
+/** Custo, em créditos, de cada pergunta ao Conselho de Guerra (chat pós-análise). */
+export const WAR_COUNCIL_COST = 1;
