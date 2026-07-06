@@ -19,7 +19,8 @@
     "measure:concordance": "tsx scripts/concordance-matrix.ts",
     "measure:gates": "tsx scripts/calibrate-gates.ts",
     "measure:regime": "tsx scripts/regime-runlength.ts",
-    "measure:breakeven": "tsx scripts/audit-breakeven.ts"
+    "measure:breakeven": "tsx scripts/audit-breakeven.ts",
+    "sweep:regime-votes": "tsx scripts/sweep-regime-votes.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",

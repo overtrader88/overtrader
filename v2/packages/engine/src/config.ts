@@ -49,6 +49,24 @@ export interface EngineConfig {
      * Quando false, usa a votação ponderada dos 20 indicadores (default histórico).
      */
     conditionalByRegime: boolean;
+    /**
+     * EXPERIMENTO GATEADO (achado 1 da revisão 05/07/2026 — variante de sweep
+     * 'fade-ranging'): quando true, RSI/CCI/MFI votam FADE em regime RANGING
+     * (RSI/MFI reusam mrOversold/mrOverbought; CCI inverte os próprios limiares
+     * ±100 — zero thresholds novos, proibido sweepar limiares). Default false:
+     * produção e os 17 motores ficam INTOCADOS; só as variantes de backtest
+     * ligam. Critério de promoção pré-registrado: PF OOS mediano deve superar
+     * o DEFAULT E a variante COND (conditionalByRegime=true), com PF em
+     * ranging (byRegime) melhorado — senão descarta.
+     */
+    regimeAwareVotes: boolean;
+    /**
+     * Complemento do experimento (variante 'fade-ranging+trend-class'): quando
+     * true, RSI/Stoch/CCI/MFI são tratados como 'trend' no multiplicador de
+     * regime em TRENDING (a semântica implementada deles é momentum — achado 1
+     * + matriz de concordância do Pacote B). Default false.
+     */
+    regimeAwareTrendClass: boolean;
     /** Limiares de mean-reversion no modo condicional (ranging). */
     mrOversold: number;
     mrOverbought: number;
@@ -225,6 +243,8 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   },
   signal: {
     conditionalByRegime: false,
+    regimeAwareVotes: false,
+    regimeAwareTrendClass: false,
     mrOversold: 35,
     mrOverbought: 65,
     strongAdx: 30,

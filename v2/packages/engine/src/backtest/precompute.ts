@@ -352,8 +352,9 @@ export function runAnalysisAt(
   config: EngineConfig = DEFAULT_ENGINE_CONFIG,
 ): AnalysisAt {
   const values = indicatorValuesAt(candles, i, base);
-  const indicators = buildIndicatorResults(values, config);
+  // Regime ANTES dos votos (paridade com runAnalysis — experimento regimeAwareVotes).
   const regimeInfo = regimeAt(i, base, config);
+  const indicators = buildIndicatorResults(values, config, regimeInfo.regime);
   const baseSignal = config.signal.conditionalByRegime
     ? computeConditionalSignal(values, regimeInfo.regime, config)
     : computeSignal(indicators, config, regimeInfo.regime);

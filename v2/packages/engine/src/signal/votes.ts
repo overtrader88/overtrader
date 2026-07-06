@@ -8,7 +8,7 @@
  */
 import type { IndicatorVote } from "@tradeai/shared";
 import type { EngineConfig } from "../config";
-import type { IndicatorResult } from "../types";
+import type { IndicatorResult, MarketRegime } from "../types";
 import type { IndicatorValues } from "../indicators";
 
 export const NAMES = {
@@ -47,13 +47,26 @@ function priceVote(last: number, ref: number): IndicatorVote {
   return last > ref ? "BUY" : "SELL";
 }
 
+/**
+ * `regime` é OPCIONAL e só tem efeito com `config.signal.regimeAwareVotes`
+ * ligado (experimento gateado — achado 1 da revisão 05/07/2026): em RANGING,
+ * RSI/CCI/MFI passam a votar FADE de extremos (semântica mean-reversion
+ * coerente com o rótulo/multiplicador deles), reusando limiares existentes
+ * (mrOversold/mrOverbought do conditional.ts; CCI inverte os próprios ±100).
+ * Sem regime ou com o flag off (default), o comportamento é IDÊNTICO ao
+ * histórico — assinatura retrocompatível.
+ */
 export function buildIndicatorResults(
   v: IndicatorValues,
   config: EngineConfig,
+  regime?: MarketRegime,
 ): IndicatorResult[] {
   const t = config.voteThresholds;
   const last = v.lastClose;
   const out: IndicatorResult[] = [];
+  // Fade em ranging (variante 'fade-ranging'): só com flag + regime informado.
+  const fade = config.signal.regimeAwareVotes && regime === "ranging";
+  const { mrOversold, mrOverbought } = config.signal;
 
   // ---- Médias Móveis ----
   out.push({ name: NAMES.ema20, category: CAT.ma, value: v.ema20, vote: priceVote(last, v.ema20), note: `Preço ${last > v.ema20 ? "acima" : "abaixo"} da EMA 20` });
@@ -65,7 +78,9 @@ export function buildIndicatorResults(
   // ---- Osciladores ----
   out.push({
     name: NAMES.rsi, category: CAT.osc, value: v.rsi14,
-    vote: v.rsi14 > t.rsi.buyAbove ? "BUY" : v.rsi14 < t.rsi.sellBelow ? "SELL" : "NEUTRAL",
+    vote: fade
+      ? (v.rsi14 < mrOversold ? "BUY" : v.rsi14 > mrOverbought ? "SELL" : "NEUTRAL")
+      : (v.rsi14 > t.rsi.buyAbove ? "BUY" : v.rsi14 < t.rsi.sellBelow ? "SELL" : "NEUTRAL"),
     note: v.rsi14 > t.rsi.overbought ? "Sobrecomprado" : v.rsi14 < t.rsi.oversold ? "Sobrevendido" : "Neutro",
   });
   out.push({
@@ -83,7 +98,9 @@ export function buildIndicatorResults(
   });
   out.push({
     name: NAMES.cci, category: CAT.osc, value: v.cci20,
-    vote: v.cci20 > t.cci.buyAbove ? "BUY" : v.cci20 < t.cci.sellBelow ? "SELL" : "NEUTRAL",
+    vote: fade
+      ? (v.cci20 > t.cci.buyAbove ? "SELL" : v.cci20 < t.cci.sellBelow ? "BUY" : "NEUTRAL")
+      : (v.cci20 > t.cci.buyAbove ? "BUY" : v.cci20 < t.cci.sellBelow ? "SELL" : "NEUTRAL"),
   });
   out.push({
     name: NAMES.williamsR, category: CAT.osc, value: v.williamsR14,
@@ -96,7 +113,9 @@ export function buildIndicatorResults(
   });
   out.push({
     name: NAMES.mfi, category: CAT.osc, value: v.mfi14,
-    vote: v.mfi14 > t.mfi.buyAbove ? "BUY" : v.mfi14 < t.mfi.sellBelow ? "SELL" : "NEUTRAL",
+    vote: fade
+      ? (v.mfi14 < mrOversold ? "BUY" : v.mfi14 > mrOverbought ? "SELL" : "NEUTRAL")
+      : (v.mfi14 > t.mfi.buyAbove ? "BUY" : v.mfi14 < t.mfi.sellBelow ? "SELL" : "NEUTRAL"),
   });
   out.push({
     name: NAMES.roc, category: CAT.osc, value: v.roc14,

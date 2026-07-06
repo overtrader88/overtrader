@@ -140,6 +140,16 @@ export interface ParamVariantResult {
   isPfMedian: number;
   /** Mediana do win rate OOS (proporção 0..1). */
   oosWinRateMedian: number;
+  /**
+   * IQR do PF OOS entre os casos (dispersão — achado 5 da revisão 05/07/2026).
+   * Proxy documentado do erro-padrão da mediana: SE ≈ IQR/1.35/sqrt(n_casos);
+   * empates dentro de 1 SE resolvem por menos parâmetros + mais totalDecisive.
+   */
+  oosPfIqr: number;
+  /** Soma dos trades DECISIVOS (win+SL) nos casos suficientes — desempate da regra 1-SE. */
+  totalDecisive: number;
+  /** Mediana do PF por regime de mercado (byRegime do BacktestSummary), sobre os casos suficientes. */
+  byRegime: Partial<Record<MarketRegime, number>>;
   /** Casos com amostra suficiente. */
   sufficientCases: number;
   /** Casos cujo PF OOS > 1 (edge positivo fora da amostra). */
@@ -154,6 +164,17 @@ function median(xs: number[]): number {
   return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 }
 
+/** Quantil linear-interpolado (q em 0..1) — base do IQR. */
+function quantile(xs: number[], q: number): number {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const pos = (s.length - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  if (lo === hi) return s[lo]!;
+  return s[lo]! + (s[hi]! - s[lo]!) * (pos - lo);
+}
+
 /**
  * Roda cada variante de config sobre todos os casos e agrega por desempenho
  * OUT-OF-SAMPLE (a métrica que importa — resistência a overfitting). Ordena da
@@ -166,22 +187,35 @@ export function runParamSweep(cases: SweepCase[], variants: ConfigVariant[]): Pa
     const oosPfs: number[] = [];
     const isPfs: number[] = [];
     const oosWrs: number[] = [];
+    const regimePfs: Partial<Record<MarketRegime, number[]>> = {};
     let sufficient = 0;
     let positiveOos = 0;
+    let totalDecisive = 0;
     for (const c of cases) {
       const s = runBacktest(c.input, { config: v.config });
       if (!s.sampleSufficient || !s.outOfSample) continue;
       sufficient++;
+      totalDecisive += s.decisiveTrades;
       oosPfs.push(s.outOfSample.profitFactor.value);
       isPfs.push(s.profitFactor.value);
       oosWrs.push(s.outOfSample.winRate.value);
       if (s.outOfSample.profitFactor.value > 1) positiveOos++;
+      for (const [reg, m] of Object.entries(s.byRegime) as [MarketRegime, { profitFactor: { value: number } }][]) {
+        (regimePfs[reg] ?? (regimePfs[reg] = [])).push(m.profitFactor.value);
+      }
+    }
+    const byRegime: Partial<Record<MarketRegime, number>> = {};
+    for (const [reg, pfs] of Object.entries(regimePfs) as [MarketRegime, number[]][]) {
+      byRegime[reg] = median(pfs);
     }
     results.push({
       label: v.label,
       oosPfMedian: median(oosPfs),
       isPfMedian: median(isPfs),
       oosWinRateMedian: median(oosWrs),
+      oosPfIqr: quantile(oosPfs, 0.75) - quantile(oosPfs, 0.25),
+      totalDecisive,
+      byRegime,
       sufficientCases: sufficient,
       positiveOosCases: positiveOos,
       totalCases: cases.length,

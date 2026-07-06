@@ -53,3 +53,45 @@ describe("computeSignal — através do caminho real", () => {
     expect(sig.confluence).toBeLessThanOrEqual(10);
   });
 });
+
+describe("regimeAwareVotes — experimento gateado (achado 1, Pacote C)", () => {
+  const values = computeIndicatorValues(upTrendCandles(250));
+
+  it("com flag OFF (default), passar o regime NÃO muda nenhum voto", () => {
+    const base = buildIndicatorResults(values, DEFAULT_ENGINE_CONFIG);
+    const withRegime = buildIndicatorResults(values, DEFAULT_ENGINE_CONFIG, "ranging");
+    expect(withRegime).toEqual(base);
+  });
+
+  it("com flag ON em RANGING, RSI/CCI/MFI viram fade (uptrend: BUY momentum → SELL/NEUTRAL fade)", () => {
+    const cfg = structuredClone(DEFAULT_ENGINE_CONFIG);
+    cfg.signal.regimeAwareVotes = true;
+    const base = buildIndicatorResults(values, DEFAULT_ENGINE_CONFIG, "ranging");
+    const fade = buildIndicatorResults(values, cfg, "ranging");
+    const voteOf = (list: typeof base, name: string) => list.find((i) => i.name === name)?.vote;
+    // No uptrend sintético o RSI está alto (>65) → fade vota SELL onde momentum votava BUY.
+    const rsiBase = voteOf(base, "RSI (14)");
+    const rsiFade = voteOf(fade, "RSI (14)");
+    expect(rsiBase).toBe("BUY");
+    expect(rsiFade === "SELL" || rsiFade === "NEUTRAL").toBe(true);
+    // Fora de ranging, flag ON não muda nada (fade só em ranging).
+    expect(buildIndicatorResults(values, cfg, "trending")).toEqual(buildIndicatorResults(values, DEFAULT_ENGINE_CONFIG, "trending"));
+    // Demais indicadores intocados na mesma chamada.
+    expect(voteOf(fade, "EMA (20)")).toBe(voteOf(base, "EMA (20)"));
+    expect(voteOf(fade, "MACD (12,26,9)")).toBe(voteOf(base, "MACD (12,26,9)"));
+  });
+
+  it("regimeAwareTrendClass ON em TRENDING repondera RSI/Stoch/CCI/MFI como trend (ratio muda, votos não)", () => {
+    const cfg = structuredClone(DEFAULT_ENGINE_CONFIG);
+    cfg.signal.regimeAwareTrendClass = true;
+    const ind = buildIndicatorResults(values, DEFAULT_ENGINE_CONFIG, "trending");
+    const off = computeSignal(ind, DEFAULT_ENGINE_CONFIG, "trending");
+    const on = computeSignal(ind, cfg, "trending");
+    // Mesmos votos crus (a reclassificação afeta só o PESO)...
+    expect(on.votes).toEqual(off.votes);
+    // ...e em uptrend (osciladores BUY alinhados) o peso deles sobe (0.5→1.3) → força não diminui.
+    expect(on.strength).toBeGreaterThanOrEqual(off.strength);
+    // Em ranging o flag não atua.
+    expect(computeSignal(ind, cfg, "ranging")).toEqual(computeSignal(ind, DEFAULT_ENGINE_CONFIG, "ranging"));
+  });
+});

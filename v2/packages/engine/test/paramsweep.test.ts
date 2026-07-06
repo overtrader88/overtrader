@@ -32,4 +32,17 @@ describe("runParamSweep", () => {
       expect(["DEFAULT", "conf7"]).toContain(v.label);
     }
   });
+
+  it("expõe oosPfIqr/totalDecisive/byRegime (regra 1-SE — Pacote C)", () => {
+    const r = runParamSweep(cases(), variants());
+    for (const v of r) {
+      expect(v.oosPfIqr).toBeGreaterThanOrEqual(0);
+      expect(Number.isFinite(v.totalDecisive)).toBe(true);
+      expect(v.totalDecisive).toBeGreaterThanOrEqual(0);
+      expect(typeof v.byRegime).toBe("object");
+      for (const pf of Object.values(v.byRegime)) {
+        expect(Number.isFinite(pf)).toBe(true);
+      }
+    }
+  });
 });

@@ -41,6 +41,11 @@ function regimeMultiplier(config: EngineConfig, regime: MarketRegime, type: IndT
   return type === "trend" ? m.trend : m.meanReversion;
 }
 
+/** Indicadores cuja semântica IMPLEMENTADA é momentum (achado 1 + matriz de
+ *  concordância): candidatos à reclassificação 'trend' no experimento gateado
+ *  `regimeAwareTrendClass` (variante 'fade-ranging+trend-class'). */
+const MOMENTUM_MISLABELED: ReadonlySet<string> = new Set([NAMES.rsi, NAMES.stoch, NAMES.cci, NAMES.mfi]);
+
 export function computeSignal(
   indicators: IndicatorResult[],
   config: EngineConfig,
@@ -52,9 +57,16 @@ export function computeSignal(
   let weightedBuy = 0;
   let weightedSell = 0;
 
+  // Experimento gateado (default false): em TRENDING, trata RSI/Stoch/CCI/MFI
+  // como 'trend' no multiplicador (a semântica deles como implementada é
+  // momentum; o rótulo mean-reversion corta pela metade votos alinhados).
+  const reclass = config.signal.regimeAwareTrendClass && regime === "trending";
+
   for (const ind of indicators) {
     const baseW = config.categoryWeights[ind.category] ?? 1;
-    const type = TYPE_BY_NAME[ind.name] ?? "neutral";
+    const type: IndType = reclass && MOMENTUM_MISLABELED.has(ind.name)
+      ? "trend"
+      : TYPE_BY_NAME[ind.name] ?? "neutral";
     const w = baseW * regimeMultiplier(config, regime, type);
     if (ind.vote === "BUY") {
       buy++;

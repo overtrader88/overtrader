@@ -52,8 +52,10 @@ export function runAnalysis(input: AnalysisInput, options: RunOptions = {}): Ana
   }
 
   const values = computeIndicatorValues(input.candles);
-  const indicators = buildIndicatorResults(values, config);
+  // Regime ANTES dos votos: buildIndicatorResults aceita o regime como parâmetro
+  // opcional (experimento gateado regimeAwareVotes — no-op com o flag off).
   const regimeInfo = computeMarketRegime(input.candles, config);
+  const indicators = buildIndicatorResults(values, config, regimeInfo.regime);
   const baseSignal = config.signal.conditionalByRegime
     ? computeConditionalSignal(values, regimeInfo.regime, config)
     : computeSignal(indicators, config, regimeInfo.regime);
