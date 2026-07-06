@@ -143,6 +143,14 @@ export interface SurvivalLine {
   peakEquity: number;       // melhor capital atingido (× banca)
   curve: number[];          // pontos de capital (× banca) p/ sparkline; 0 = morte
   open: number;             // posições abertas agora
+  /** DIAGNÓSTICO (achado 9, camada 1): pico da soma de riscos abertos ao mesmo
+   *  tempo, em % da banca (posições simultâneas × 5-10%). SEM regra de teto.
+   *  Opcionais p/ payloads antigos serializados. */
+  maxHeatPct?: number;
+  /** Nº de posições simultâneas no instante do pico de heat. */
+  maxHeatPositions?: number;
+  /** Soma dos riscos das posições abertas AGORA (% da banca). */
+  currentHeatPct?: number;
 }
 export interface SurvivalArena {
   start: number;            // banca inicial (100)

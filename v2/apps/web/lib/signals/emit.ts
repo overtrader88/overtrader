@@ -11,7 +11,7 @@ import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
 import { conditionalDirection, invertDirection } from "@/lib/analysis/position-stress";
-import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, generateEvoDecision, breedEvoCore, EVO_SEED_CORES, type LlmDecision } from "@/lib/analysis/narrative";
+import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, generateEvoDecision, generateLlmShadowSamples, breedEvoCore, EVO_SEED_CORES, type LlmDecision, type ShadowSample } from "@/lib/analysis/narrative";
 import { replayBank, type BankState } from "./survival";
 
 /** `weak` (era -j2): sinal rebaixado pelos gates críticos (WEAK_*) — o próprio
@@ -320,6 +320,7 @@ async function emitLlmWith(
   decide: () => Promise<LlmDecision | null>, engine: string, engineVersion: string,
   dto: FullAnalysis, symbol: string, assetType: AssetType, timeframe: Timeframe,
   useLevelPlan = false,
+  shadow?: () => Promise<ShadowSample[] | null>,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
   const dec = await decide();
   if (!dec) return { reason: "error", id: null }; // IA indisponível/falha (ou key ausente)
@@ -346,22 +347,41 @@ async function emitLlmWith(
     try {
       await supabaseService()?.from("signals").update({ conviction: dec.conviction, rationale: dec.rationale || null }).eq("id", res.id);
     } catch { /* colunas ainda não migradas — segue sem persistir */ }
+    // MODO SOMBRA k=3 (achado 18a): só quando o sinal FOI emitido (custo mínimo),
+    // NUNCA muda a emissão — grava concordância/dispersão como metadado (colunas
+    // sc_* da migration 0017; sem elas o update falha silencioso e nada quebra).
+    if (shadow) {
+      try {
+        const samples = await shadow();
+        if (samples && samples.length > 0) {
+          const agree = samples.filter((s) => s.side === dec.side).length;
+          const sides = samples.map((s) => (s.side === "buy" ? "B" : s.side === "sell" ? "S" : "N")).join("");
+          const convs = samples.map((s) => s.conviction).sort((a, b) => a - b);
+          const spread = convs[convs.length - 1]! - convs[0]!;
+          await supabaseService()?.from("signals").update({
+            sc_k: samples.length, sc_agree: agree, sc_sides: sides, sc_conv_spread: spread,
+          }).eq("id", res.id);
+        }
+      } catch { /* sombra é medição best-effort — nunca derruba a emissão */ }
+    }
   }
   return res;
 }
 
-/** MOTOR LLM·GPT — decisão da OpenAI (gpt-4.1). */
+/** MOTOR LLM·GPT — decisão da OpenAI (gpt-4.1). Sombra k=3 só em sinal emitido. */
 export function emitLlmSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  return emitLlmWith(() => generateLlmDecision(dto, assetType, extras), "llm", `${ENGINE_VERSION}+llm`, dto, symbol, assetType, timeframe);
+  return emitLlmWith(() => generateLlmDecision(dto, assetType, extras), "llm", `${ENGINE_VERSION}+llm`, dto, symbol, assetType, timeframe, false,
+    () => generateLlmShadowSamples("gpt", dto, assetType, extras));
 }
 
-/** MOTOR LLM·DS — decisão da DeepSeek (V4-Pro). No-op gracioso sem DEEPSEEK_API_KEY. */
+/** MOTOR LLM·DS — decisão da DeepSeek (V4-Pro). No-op gracioso sem DEEPSEEK_API_KEY. Sombra k=3 só em sinal emitido. */
 export function emitLlmDsSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
-  return emitLlmWith(() => generateLlmDecisionDS(dto, assetType, extras), "llm_ds", `${ENGINE_VERSION}+llm-ds`, dto, symbol, assetType, timeframe);
+  return emitLlmWith(() => generateLlmDecisionDS(dto, assetType, extras), "llm_ds", `${ENGINE_VERSION}+llm-ds`, dto, symbol, assetType, timeframe, false,
+    () => generateLlmShadowSamples("ds", dto, assetType, extras));
 }
 
 /** MOTOR SOBREVIVÊNCIA·GPT — mentalidade de capital finito + FEEDBACK da banca real. */

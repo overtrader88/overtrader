@@ -171,8 +171,9 @@ export function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras:
   };
 }
 
-/** Núcleo da decisão (estruturada, temp 0) via um provedor OpenAI-compatível. `null` se key ausente/falha. */
-async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, system: string = LLM_DECISION_SYSTEM, factsOverride?: unknown): Promise<LlmDecision | null> {
+/** Núcleo da decisão (estruturada, temp 0 na emissão; o MODO SOMBRA reusa com
+ *  temp 0.7) via um provedor OpenAI-compatível. `null` se key ausente/falha. */
+async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, system: string = LLM_DECISION_SYSTEM, factsOverride?: unknown, temperature = 0): Promise<LlmDecision | null> {
   if (!p.apiKey) return null;
   const facts = factsOverride ?? toDecisionFacts(dto, assetType, extras);
   try {
@@ -182,7 +183,7 @@ async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: Asse
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.apiKey}` },
         body: JSON.stringify({
           model: p.model,
-          temperature: 0,
+          temperature,
           max_tokens: 200,
           response_format: { type: "json_object" },
           messages: [
@@ -216,6 +217,37 @@ export function generateLlmDecision(dto: FullAnalysis, assetType: AssetType, ext
 /** MOTOR LLM·DS (DeepSeek V4-Pro). Concorre lado a lado com o da OpenAI; `null` sem DEEPSEEK_API_KEY. */
 export function generateLlmDecisionDS(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
   return runLlmDecision(deepSeekProvider(), dto, assetType, extras);
+}
+
+// ===================== MODO SOMBRA — self-consistency k=3 (achado 18a) =====================
+
+/** Amostra de sombra: só lado + convicção (o racional da sombra não é persistido). */
+export interface ShadowSample { side: LlmDecision["side"]; conviction: number }
+
+/**
+ * SELF-CONSISTENCY em MODO SOMBRA (achado 18, ajuste do cético): a EMISSÃO
+ * continua exatamente como está (1 chamada, temp 0); esta função colhe k
+ * amostras ADICIONAIS a temp 0.7 (em paralelo — latência ≈ 1 chamada) com o
+ * MESMO system + fatos do motor base, e devolve lado+convicção de cada uma.
+ * A concordância/dispersão vira METADADO do sinal emitido (colunas sc_* da
+ * migration 0017; best-effort). Hipótese pré-registrada: sinais com convicção
+ * 60-65 E dissenso interno têm WR pior — só vira filtro de emissão se
+ * confirmar com ≥100 resolvidos com metadado. `null` = key ausente/tudo falhou.
+ */
+export async function generateLlmShadowSamples(
+  provider: "gpt" | "ds", dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, k = 3,
+): Promise<ShadowSample[] | null> {
+  const p = provider === "gpt" ? openAiProvider() : deepSeekProvider();
+  if (!p.apiKey) return null;
+  try {
+    const runs = await Promise.all(
+      Array.from({ length: k }, () => runLlmDecision(p, dto, assetType, extras, LLM_DECISION_SYSTEM, undefined, 0.7)),
+    );
+    const ok = runs.filter((r): r is LlmDecision => r != null);
+    return ok.length > 0 ? ok.map((r) => ({ side: r.side, conviction: r.conviction })) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Estado da banca em formato de FATO pro prompt (ciclo fechado da sobrevivência). */

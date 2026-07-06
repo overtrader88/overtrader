@@ -60,6 +60,17 @@ export {
   type BacktestSummary,
   type BacktestTrade,
 } from "./backtest";
+// Replay incremental (mesma matemática do backtest; paridade garantida por
+// test/parity.test.ts) — exportado p/ os scripts de MEDIÇÃO offline
+// (concordância de votos, bind-rate de gates, run-length de regime).
+export {
+  precomputeBase,
+  indicatorValuesAt,
+  regimeAt,
+  runAnalysisAt,
+  type PrecomputedBase,
+  type AnalysisAt,
+} from "./backtest/precompute";
 export {
   computeQualityBanner,
   DEFAULT_QUALITY_THRESHOLDS,

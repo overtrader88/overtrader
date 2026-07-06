@@ -34,7 +34,7 @@ const ASSET_PT: Record<string, string> = {
 const isWin = (o: SignalOutcome) => o === "TP1" || o === "TP2" || o === "TP3";
 
 // ===== RINGUE DE SOBREVIVÊNCIA — regras da banca em lib/signals/survival.ts (fonte única) =====
-import { SURV_START, SURV_FLOOR, RISK_NORMAL, RISK_STRONG, survFraction } from "./survival";
+import { SURV_START, SURV_FLOOR, RISK_NORMAL, RISK_STRONG, survFraction, computeHeat } from "./survival";
 import { isHumanEngine, humanEngineLabel } from "./human";
 
 /** Competidores HUMANOS presentes nas linhas ("humano_<slug>", dinâmicos), ordenados. */
@@ -66,6 +66,13 @@ function survivalLine(engine: string, label: string, flavor: SurvivalLine["flavo
   const openList = open.filter((o) => o.engine === engine);
   let liveEquity = equity;
   for (const o of openList) liveEquity = liveEquity * (1 + (o.unrealizedR ?? 0) * survFraction(o.direction));
+  // HEAT simultâneo (achado 9, camada 1 — só diagnóstico): sweep-line sobre
+  // (emitted_at, resolved_at) do motor, INCLUINDO posições ainda abertas.
+  const heat = computeHeat(
+    rows
+      .filter((r) => (r.engine ?? "padrao") === engine)
+      .map((r) => ({ emittedAt: r.emitted_at, resolvedAt: r.resolved_at, direction: r.direction })),
+  );
   const x = (v: number) => Math.round((v / SURV_START) * 100) / 100;
   return {
     engine, label, flavor, provider,
@@ -76,6 +83,9 @@ function survivalLine(engine: string, label: string, flavor: SurvivalLine["flavo
     currentLifeTrades: lifeTrades,
     maxDrawdownPct: Math.round(maxDD * 100),
     peakEquity: x(peak), curve: curve.slice(-40), open: openList.length,
+    maxHeatPct: Math.round(heat.maxConcurrentHeat * 1000) / 10,
+    maxHeatPositions: heat.maxConcurrentPositions,
+    currentHeatPct: Math.round(heat.currentHeat * 1000) / 10,
   };
 }
 

@@ -15,7 +15,11 @@
     "calibrate:htf": "tsx scripts/calibrate-htf.ts",
     "calibrate:conditional": "tsx scripts/calibrate-conditional.ts",
     "calibrate:confluence": "tsx scripts/calibrate-confluence.ts",
-    "calibrate:cs": "tsx scripts/calibrate-cs.ts"
+    "calibrate:cs": "tsx scripts/calibrate-cs.ts",
+    "measure:concordance": "tsx scripts/concordance-matrix.ts",
+    "measure:gates": "tsx scripts/calibrate-gates.ts",
+    "measure:regime": "tsx scripts/regime-runlength.ts",
+    "measure:breakeven": "tsx scripts/audit-breakeven.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",

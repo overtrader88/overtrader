@@ -1062,6 +1062,13 @@ function SurvivalArenaCard({ survival }: { survival: SurvivalArena | null }) {
           <span>Trades/vida: <b style={{ color: "#e8edf5" }}>{l.avgTradesPerLife}</b></span>
           <span>Pior queda: <b style={{ color: l.maxDrawdownPct >= 50 ? RED : "#e8edf5" }}>−{l.maxDrawdownPct}%</b></span>
           <span>Pico: <b style={{ color: "#e8edf5" }}>{fmtX(l.peakEquity)}</b></span>
+          {/* HEAT simultâneo (diagnóstico — achado 9): soma dos riscos abertos ao mesmo tempo. */}
+          <span title={`Pico de exposição simultânea (${l.maxHeatPositions ?? 0} posições ao mesmo tempo). Diagnóstico — sem teto ainda.`}>
+            Heat máx: <b style={{ color: (l.maxHeatPct ?? 0) >= 30 ? RED : (l.maxHeatPct ?? 0) >= 20 ? "#eab308" : "#e8edf5" }}>{(l.maxHeatPct ?? 0).toFixed(0)}%</b>
+          </span>
+          <span title="Soma dos riscos das posições abertas agora (% da banca).">
+            Heat agora: <b style={{ color: "#e8edf5" }}>{(l.currentHeatPct ?? 0).toFixed(0)}%</b>
+          </span>
         </div>
         <div style={{ marginTop: 6, fontSize: "0.63rem", color: MUTED, fontFamily: "var(--font-mono)" }}>{l.resolved} resolv · {l.open} aberto</div>
       </div>
