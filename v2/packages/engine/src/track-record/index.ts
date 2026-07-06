@@ -39,9 +39,19 @@ export interface ResolvedOutcome {
 
 const OPEN: ResolvedOutcome = { status: "open", outcome: null, exitIndex: -1, exitPrice: null, pnlR: null, durationCandles: 0 };
 
+/** Fill gap-aware do STOP (era -j2): se o candle já ABRE além do stop (gap
+ *  de fim de semana em SPX/forex/XAUUSD, movimento violento em cripto), a saída
+ *  real é no open — pior que o stop —, não no preço exato do stop. Nos ALVOS o
+ *  gap NÃO dá crédito: limite tocada paga o preço do TP, nunca o open. */
+function stopFill(side: "buy" | "sell", open: number, stop: number): number {
+  return side === "buy" ? Math.min(open, stop) : Math.max(open, stop);
+}
+
 /**
  * Resolve o desfecho de um sinal contra os candles POSTERIORES à emissão.
  *  - Verifica o STOP antes dos alvos no mesmo candle (conservador, credibilidade-first).
+ *  - Stop com gap: candle que abre além do stop sai no OPEN (fill realista);
+ *    alvos pagam sempre o preço do TP (sem crédito de gap a favor).
  *  - Retorna o maior alvo atingido (TP1<TP2<TP3) ou SL — o primeiro a tocar.
  *  - `EXPIRED` (marca-a-mercado no fechamento) só após `maxDuration` candles.
  *  - `open` enquanto não tocou nada E ainda não atingiu `maxDuration` candles.
@@ -55,12 +65,18 @@ export function resolveOutcome(plan: SignalPlan, futureCandles: Candle[], maxDur
   for (let j = 0; j < scan; j++) {
     const c = futureCandles[j]!;
     if (side === "buy") {
-      if (c.low <= stopLoss) return resolved("SL", j, stopLoss, (stopLoss - entry) / risk);
+      if (c.low <= stopLoss) {
+        const exit = stopFill(side, c.open, stopLoss);
+        return resolved("SL", j, exit, (exit - entry) / risk);
+      }
       if (c.high >= takeProfit3) return resolved("TP3", j, takeProfit3, (takeProfit3 - entry) / risk);
       if (c.high >= takeProfit2) return resolved("TP2", j, takeProfit2, (takeProfit2 - entry) / risk);
       if (c.high >= takeProfit1) return resolved("TP1", j, takeProfit1, (takeProfit1 - entry) / risk);
     } else {
-      if (c.high >= stopLoss) return resolved("SL", j, stopLoss, (entry - stopLoss) / risk);
+      if (c.high >= stopLoss) {
+        const exit = stopFill(side, c.open, stopLoss);
+        return resolved("SL", j, exit, (entry - exit) / risk);
+      }
       if (c.low <= takeProfit3) return resolved("TP3", j, takeProfit3, (entry - takeProfit3) / risk);
       if (c.low <= takeProfit2) return resolved("TP2", j, takeProfit2, (entry - takeProfit2) / risk);
       if (c.low <= takeProfit1) return resolved("TP1", j, takeProfit1, (entry - takeProfit1) / risk);
@@ -118,7 +134,8 @@ const OPEN_LC: LifecycleState = {
 /**
  * Resolve o CICLO DE VIDA de um sinal contra os candles posteriores, com saída
  * escalonada (1/3 em cada TP) e breakeven automático. Verifica o stop antes dos
- * alvos no mesmo candle (conservador). Devolve o estado vivo (para sinais ainda
+ * alvos no mesmo candle (conservador); stop com gap sai no OPEN do candle (fill
+ * realista), alvos pagam o preço do TP. Devolve o estado vivo (para sinais ainda
  * abertos: quais alvos já bateram + onde está o stop) ou o desfecho final.
  */
 export function resolveLifecycle(plan: SignalPlan, futureCandles: Candle[], maxDuration: number): LifecycleState {
@@ -147,11 +164,13 @@ export function resolveLifecycle(plan: SignalPlan, futureCandles: Candle[], maxD
   const scan = Math.min(futureCandles.length, maxDuration);
   for (let j = 0; j < scan; j++) {
     const c = futureCandles[j]!;
-    // 1) Stop primeiro (conservador).
+    // 1) Stop primeiro (conservador). Fill gap-aware (era -j2): candle que abre
+    //    além do stop vigente (inicial OU trailado a breakeven/TP1) sai no open.
     if (hitStop(c, stop)) {
-      realizedR += (1 - closed) * rOf(stop);
+      const exit = stopFill(side, c.open, stop);
+      realizedR += (1 - closed) * rOf(exit);
       const outcome: SignalOutcome = stage === 0 ? "SL" : stage === 1 ? "TP1" : "TP2";
-      return finish(outcome, j, stop);
+      return finish(outcome, j, exit);
     }
     // 2) Alvos — do maior para o menor (candle pode estourar vários).
     if (!tp3Hit && reachedTp(c, tp3)) {

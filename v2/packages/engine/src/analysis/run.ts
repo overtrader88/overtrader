@@ -18,7 +18,15 @@ import { computeGates, CRITICAL_GATE_IDS } from "../gates";
 import { buildExplanation } from "./explain";
 import { last } from "../math/series";
 
-export const ENGINE_VERSION = "v2.0.0-m1";
+/**
+ * Era da MEDIÇÃO (Pacote A, 06/07/2026): o sufixo `-j2` ("juiz v2") marca a
+ * correção conjunta do juiz — 1º candle pós-emissão visível ao resolve, fill
+ * gap-aware no stop, gate de mercado fechado/frescor/candle em formação na
+ * emissão, janela de expiração por timeframe, epsilon no gate D (minRr1),
+ * emissão exige isActionable e VSF filtra níveis antes do guarda-corpo.
+ * Sinais pré/pós `-j2` NÃO são comparáveis na mesma estatística.
+ */
+export const ENGINE_VERSION = "v2.0.0-m1-j2";
 
 export interface RunOptions {
   config?: EngineConfig;

@@ -58,8 +58,11 @@ export function computeGates(
     detail: volOk ? "Volume recente próximo da média" : "Volume recente abaixo da média — possível baixa liquidez",
   });
 
-  // D — R:R mínimo (só para sinais acionáveis)
-  const rrOk = !actionable || risk.rr1 >= g.minRr1;
+  // D — R:R mínimo (só para sinais acionáveis). Epsilon anti-ruído de float
+  // (era -j2): rr1 = tp1Mult/slMult chega como 1.4999999999999998 em parte dos
+  // ativos e o `>= 1.5` cru rebaixava sinais aleatoriamente por representação
+  // binária, não por qualidade. O RR estrutural (nível oposto) é outro achado.
+  const rrOk = !actionable || risk.rr1 >= g.minRr1 - 1e-9;
   gates.push({
     id: "D",
     name: `R:R mínimo 1:${g.minRr1}`,

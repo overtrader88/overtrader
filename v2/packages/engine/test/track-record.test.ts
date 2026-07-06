@@ -6,6 +6,11 @@ function c(high: number, low: number, close = (high + low) / 2): Candle {
   return { time: 0, open: close, high, low, close, volume: 0 };
 }
 
+/** Candle com OPEN explícito (p/ cenários de gap). */
+function g(open: number, high: number, low: number, close = (high + low) / 2): Candle {
+  return { time: 0, open, high, low, close, volume: 0 };
+}
+
 const BUY: SignalPlan = { side: "buy", entry: 100, stopLoss: 95, takeProfit1: 110, takeProfit2: 120, takeProfit3: 130 };
 const SELL: SignalPlan = { side: "sell", entry: 100, stopLoss: 105, takeProfit1: 90, takeProfit2: 80, takeProfit3: 70 };
 
@@ -61,6 +66,37 @@ describe("resolveOutcome", () => {
     const bad: SignalPlan = { ...BUY, stopLoss: 100 };
     expect(resolveOutcome(bad, [c(120, 90)], 50).status).toBe("open");
   });
+
+  it("gap ABAIXO do stop em compra → sai no OPEN, perda > 1R (fill realista)", () => {
+    // stop 95, candle abre em 92 (gap de fim de semana) → exit 92, pnlR -1.6
+    const r = resolveOutcome(BUY, [g(92, 93, 90)], 50);
+    expect(r.outcome).toBe("SL");
+    expect(r.exitPrice).toBe(92);
+    expect(r.pnlR).toBeCloseTo((92 - 100) / 5, 5); // -1.6
+  });
+
+  it("gap ACIMA do stop em venda → sai no OPEN (espelhado)", () => {
+    // stop 105, candle abre em 108 → exit 108, pnlR -1.6
+    const r = resolveOutcome(SELL, [g(108, 110, 107)], 50);
+    expect(r.outcome).toBe("SL");
+    expect(r.exitPrice).toBe(108);
+    expect(r.pnlR).toBeCloseTo((100 - 108) / 5, 5);
+  });
+
+  it("gap ALÉM do TP paga o preço do TP, não o open (sem crédito de gap)", () => {
+    // candle abre em 135 (acima do TP3=130) → exit 130, pnlR +6 (não +7)
+    const r = resolveOutcome(BUY, [g(135, 140, 132)], 50);
+    expect(r.outcome).toBe("TP3");
+    expect(r.exitPrice).toBe(130);
+    expect(r.pnlR).toBeCloseTo(6, 5);
+  });
+
+  it("toque normal do stop (sem gap) continua saindo no preço do stop", () => {
+    const r = resolveOutcome(BUY, [g(98, 99, 94, 96)], 50);
+    expect(r.outcome).toBe("SL");
+    expect(r.exitPrice).toBe(95);
+    expect(r.pnlR).toBeCloseTo(-1, 5);
+  });
 });
 
 describe("resolveLifecycle (multi-TP + breakeven automático)", () => {
@@ -111,6 +147,29 @@ describe("resolveLifecycle (multi-TP + breakeven automático)", () => {
     const r = resolveLifecycle(SELL, [c(99, 89), c(101, 98)], 50);
     expect(r.outcome).toBe("TP1");
     expect(r.pnlR).toBeCloseTo((1 / 3) * 2, 4);
+  });
+
+  it("gap através do stop INICIAL → SL no open (perda maior que 1R)", () => {
+    const r = resolveLifecycle(BUY, [g(92, 93, 90)], 50);
+    expect(r.outcome).toBe("SL");
+    expect(r.exitPrice).toBe(92);
+    expect(r.pnlR).toBeCloseTo((92 - 100) / 5, 4); // -1.6
+  });
+
+  it("gap através do stop TRAILADO (breakeven após TP1) → sai no open do gap", () => {
+    // TP1 (110) bate → stop sobe pro entry (100); candle seguinte abre em 97.
+    const r = resolveLifecycle(BUY, [c(111, 108), g(97, 98, 96)], 50);
+    expect(r.outcome).toBe("TP1");
+    expect(r.exitPrice).toBe(97);
+    // 1/3 travado no TP1 (+2R) + 2/3 saindo a 97 (-0.6R cada)
+    expect(r.pnlR).toBeCloseTo((1 / 3) * 2 + (2 / 3) * ((97 - 100) / 5), 4);
+  });
+
+  it("venda: gap através do stop inicial → SL no open (espelhado)", () => {
+    const r = resolveLifecycle(SELL, [g(108, 110, 107)], 50);
+    expect(r.outcome).toBe("SL");
+    expect(r.exitPrice).toBe(108);
+    expect(r.pnlR).toBeCloseTo((100 - 108) / 5, 4);
   });
 });
 
