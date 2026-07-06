@@ -4,7 +4,7 @@
  * `record_signal` deduplica (1 sinal aberto por símbolo+TF). Best-effort: nunca
  * lança (não pode derrubar a análise nem o cron).
  */
-import { signalSide } from "@tradeai/shared";
+import { signalSide, isActionable } from "@tradeai/shared";
 import { ENGINE_VERSION, DEFAULT_ENGINE_CONFIG } from "@tradeai/engine";
 import type { AssetType, Timeframe, SignalDirection } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
@@ -14,7 +14,9 @@ import { conditionalDirection, invertDirection } from "@/lib/analysis/position-s
 import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, generateEvoDecision, breedEvoCore, EVO_SEED_CORES, type LlmDecision } from "@/lib/analysis/narrative";
 import { replayBank, type BankState } from "./survival";
 
-export type EmitReason = "emitted" | "neutral" | "low-seal" | "open-exists" | "no-db" | "error";
+/** `weak` (era -j2): sinal rebaixado pelos gates críticos (WEAK_*) — o próprio
+ *  motor declarou o plano insuficiente; não entra mais no track record. */
+export type EmitReason = "emitted" | "neutral" | "weak" | "low-seal" | "open-exists" | "no-db" | "error";
 export type ClassEmitReason = EmitReason | "low-conviction" | "no-geometry";
 
 export interface EmitResult {
@@ -31,6 +33,10 @@ export async function emitSignal(
 ): Promise<EmitResult> {
   const side = signalSide(dto.analysis.signal.signal);
   if (side === "neutral") return { reason: "neutral", id: null };
+  // Gates críticos com dente (era -j2): WEAK_* (rebaixado pelos gates A/D) tem
+  // lado mas NÃO é acionável — não entra no track record com o plano que o
+  // próprio motor reprovou. O tally do cron mede quanto é filtrado.
+  if (!isActionable(dto.analysis.signal.signal)) return { reason: "weak", id: null };
   const seal = dto.quality?.status;
   // Só carimba sinais que o backtest SUSTENTA (verde) ou sustenta com ressalva (amarelo).
   if (seal !== "green" && seal !== "yellow") return { reason: "low-seal", id: null };
@@ -180,6 +186,8 @@ export async function emitSignalB(
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
   const side = signalSide(dto.analysis.signal.signal);
   if (side === "neutral") return { reason: "neutral", id: null };
+  // Mesmo gate do Motor 1 (era -j2): WEAK_* não emite — pareamento A/B preservado.
+  if (!isActionable(dto.analysis.signal.signal)) return { reason: "weak", id: null };
   const seal = dto.quality?.status;
   if (seal !== "green" && seal !== "yellow") return { reason: "low-seal", id: null };
   const plan = buildClassPlan(dto, side, 1.4);
@@ -239,18 +247,27 @@ export async function fetchBank(engine: string, sinceIso?: string): Promise<Bank
   }
 }
 
+type VsfPlan = { entry: number; stopLoss: number; takeProfit1: number; takeProfit2: number; takeProfit3: number };
+/** `nolvl` = nenhum nível protegido (ou sem preço/ATR); `gc` = havia níveis, mas o guarda-corpo rejeitou todos. */
+type VsfPlanResult = { plan: VsfPlan; reject: null } | { plan: null; reject: "nolvl" | "gc" };
+
 /**
- * Plano por NÍVEL (família VSF): o stop vai atrás do nível que JUSTIFICA o trade
- * (compra → abaixo do suporte: order block bullish / liquidez / VAL; venda →
- * espelhado), com folga de 0.25×ATR. Alvos preservam a estrutura de RR da casa
- * (mesmos ratios tp/sl do computeRiskFrom). Guarda-corpo: stop entre 0.6 e 2.5
- * ATR do preço; fora disso devolve null e o chamador cai no plano ATR (~a14fb).
+ * Plano por NÍVEL (família VSF, era -j2 = ~lvl2): o stop vai atrás de um nível
+ * que protege o trade (compra → suporte abaixo: order block bullish / liquidez /
+ * VAL; venda → espelhado), com folga de 0.25×ATR. Alvos preservam a estrutura de
+ * RR da casa (mesmos ratios tp/sl do computeRiskFrom).
+ * ORDEM corrigida (achado 8 da revisão): primeiro FILTRA os níveis cujo stop
+ * (nível ± buffer) cai no guarda-corpo [0.6, 2.5] ATR do entry, e SÓ ENTÃO
+ * escolhe o mais próximo entre os VÁLIDOS — antes, o guarda-corpo era aplicado
+ * apenas ao nível mais próximo e descartava o plano inteiro mesmo havendo nível
+ * válido mais fundo (por isso ~lvl disparou em só 3/22). Sem plano, devolve o
+ * motivo (`nolvl` vs `gc`) para o fallback ATR ser instrumentado por tag.
  */
-function buildVsfPlan(dto: FullAnalysis, side: "buy" | "sell"): { entry: number; stopLoss: number; takeProfit1: number; takeProfit2: number; takeProfit3: number } | null {
+function buildVsfPlan(dto: FullAnalysis, side: "buy" | "sell"): VsfPlanResult {
   const entry = dto.analysis?.risk?.entry;
-  if (!entry || !(entry > 0)) return null;
+  if (!entry || !(entry > 0)) return { plan: null, reject: "nolvl" };
   const atrVal = dto.atr && dto.atr > 0 ? dto.atr : dto.analysis.meta?.atrRatio ? dto.analysis.meta.atrRatio * entry : 0;
-  if (!(atrVal > 0)) return null;
+  if (!(atrVal > 0)) return { plan: null, reject: "nolvl" };
   const smc = dto.smc;
   const vp = dto.volumeProfile;
   const levels: number[] = [];
@@ -263,27 +280,37 @@ function buildVsfPlan(dto: FullAnalysis, side: "buy" | "sell"): { entry: number;
     for (const z of smc?.liquidityZones ?? []) if (z.type === "buy_stops_above" && z.level > entry) levels.push(z.level);
     if (vp && vp.vah > entry) levels.push(vp.vah);
   }
-  if (levels.length === 0) return null;
+  if (levels.length === 0) return { plan: null, reject: "nolvl" };
   const buffer = atrVal * 0.25;
-  // nível protegido mais PRÓXIMO do preço (maior suporte abaixo / menor resistência acima)
-  const stopLoss = side === "buy" ? Math.max(...levels) - buffer : Math.min(...levels) + buffer;
+  // distância computada EXATAMENTE como o stop final será computado (nível ± buffer)
+  const stopOf = (l: number): number => (side === "buy" ? l - buffer : l + buffer);
+  const valid = levels.filter((l) => {
+    const d = Math.abs(entry - stopOf(l));
+    return d >= atrVal * 0.6 && d <= atrVal * 2.5;
+  });
+  if (valid.length === 0) return { plan: null, reject: "gc" };
+  // nível VÁLIDO mais PRÓXIMO do preço (maior suporte abaixo / menor resistência acima)
+  const stopLoss = side === "buy" ? Math.max(...valid) - buffer : Math.min(...valid) + buffer;
   const dist = Math.abs(entry - stopLoss);
-  if (dist < atrVal * 0.6 || dist > atrVal * 2.5) return null;
   const { slMult, tp1Mult, tp2Mult, tp3Mult } = DEFAULT_ENGINE_CONFIG.risk;
   const k = dist / slMult; // mantém os RRs da casa com o stop ancorado no nível
   const dir = side === "buy" ? 1 : -1;
   return {
-    entry, stopLoss,
-    takeProfit1: entry + dir * k * tp1Mult,
-    takeProfit2: entry + dir * k * tp2Mult,
-    takeProfit3: entry + dir * k * tp3Mult,
+    plan: {
+      entry, stopLoss,
+      takeProfit1: entry + dir * k * tp1Mult,
+      takeProfit2: entry + dir * k * tp2Mult,
+      takeProfit3: entry + dir * k * tp3Mult,
+    },
+    reject: null,
   };
 }
 
 /**
  * MOTOR LLM (experimental, forward): a DECISÃO (direção + convicção) é da LLM, a
  * partir dos dados brutos (independente do Motor 1). Plano determinístico:
- * ATR ×1.4 (~a14) ou, na família VSF, stop por nível (~lvl; fallback ~a14fb).
+ * ATR ×1.4 (~a14) ou, na família VSF, stop por nível (~lvl2; fallback
+ * ~a14fb-nolvl/~a14fb-gc conforme o motivo).
  * Carimba quando: lado acionável + convicção ≥ 60. Sem backtest (seal 'yellow').
  * Gate idêntico entre provedores → experimento controlado da DECISÃO.
  * A convicção e o racional são persistidos no sinal (colunas da migration 0014;
@@ -298,8 +325,14 @@ async function emitLlmWith(
   if (!dec) return { reason: "error", id: null }; // IA indisponível/falha (ou key ausente)
   if (dec.side === "neutral") return { reason: "neutral", id: null };
   if (dec.conviction < 60) return { reason: "low-conviction", id: null };
-  let plan = useLevelPlan ? buildVsfPlan(dto, dec.side) : null;
-  const planTag = plan ? "~lvl" : useLevelPlan ? "~a14fb" : "~a14";
+  // Tags de plano (era -j2): ~lvl2 = stop por nível com o filtro corrigido;
+  // fallback ATR instrumentado por motivo — ~a14fb-nolvl (sem nível protegido)
+  // vs ~a14fb-gc (guarda-corpo 0.6-2.5 ATR rejeitou todos). Predição pré-
+  // registrada (achado 8): se a causa dominante era o guarda-corpo no candidato
+  // errado, a taxa de ~lvl2 deve subir materialmente; a amostra ~lvl (n=3) morre.
+  const vsf = useLevelPlan ? buildVsfPlan(dto, dec.side) : null;
+  let plan = vsf?.plan ?? null;
+  const planTag = plan ? "~lvl2" : vsf ? `~a14fb-${vsf.reject}` : "~a14";
   if (!plan) plan = buildClassPlan(dto, dec.side, LLM_ATR_SCALE);
   if (!plan) return { reason: "no-geometry", id: null };
   const direction: SignalDirection = dec.side === "buy"
@@ -347,7 +380,7 @@ export async function emitLlmDsSurvSignal(
   return emitLlmWith(() => generateLlmDecisionDsSurv(dto, assetType, extras, bank), "llm_ds_surv", `${ENGINE_VERSION}+ds-surv`, dto, symbol, assetType, timeframe);
 }
 
-/** MOTOR VSF·GPT — volume + S/R + Fibonacci; stop ancorado no nível (~lvl). */
+/** MOTOR VSF·GPT — volume + S/R + Fibonacci; stop ancorado no nível (~lvl2). */
 export function emitLlmVsfSignal(
   dto: FullAnalysis, extras: ClassExtras, symbol: string, assetType: AssetType, timeframe: Timeframe,
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
@@ -477,6 +510,9 @@ export async function emitContrarianSignal(
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
   const side = signalSide(dto.analysis.signal.signal);
   if (side === "neutral") return { reason: "neutral", id: null };
+  // isActionable na direção ORIGINAL, antes da inversão (era -j2): o contrário é
+  // controle pareado do padrão — filtra exatamente quando o padrão filtra.
+  if (!isActionable(dto.analysis.signal.signal)) return { reason: "weak", id: null };
   const seal = dto.quality?.status;
   if (seal !== "green" && seal !== "yellow") return { reason: "low-seal", id: null };
   const invSide = side === "buy" ? "sell" as const : "buy" as const;
@@ -500,6 +536,8 @@ export async function emitConsensusSignal(
 ): Promise<{ reason: ClassEmitReason; id: string | null }> {
   const side = signalSide(dto.analysis.signal.signal);
   if (side === "neutral") return { reason: "neutral", id: null };
+  // Herda a direção do Motor 1 → herda também o gate isActionable (era -j2).
+  if (!isActionable(dto.analysis.signal.signal)) return { reason: "weak", id: null };
   const seal = dto.quality?.status;
   if (seal !== "green" && seal !== "yellow") return { reason: "low-seal", id: null };
   const reading = computeClassReading(dto, assetType, extras);

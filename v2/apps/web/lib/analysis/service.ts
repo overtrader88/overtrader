@@ -26,16 +26,28 @@ export const SEASONALITY_LIMIT = 3000;
 export const SESSION_TF: Timeframe = "1h";
 export const SESSION_LIMIT = 2000;
 
+export interface AnalyzeOptions {
+  /**
+   * Descarta candles EM FORMAÇÃO em TODAS as séries buscadas (TF principal,
+   * TFs superiores, sazonalidade, heatmap). Era -j2: ligado SÓ na emissão do
+   * track record (cron emit-signals) — a análise passa a operar exatamente a
+   * distribuição do backtest (candles fechados). UI/demais rotas seguem "vivas".
+   */
+  dropForming?: boolean;
+}
+
 export async function analyzeSymbol(
   symbol: string,
   assetType: AssetType,
   timeframe: Timeframe,
   type: "simple" | "complete" = "complete",
+  opts: AnalyzeOptions = {},
 ): Promise<FullAnalysis> {
+  const dropForming = opts.dropForming ?? false;
   const providers = realProviders({ twelveDataKey: process.env.TWELVEDATA_API_KEY });
   const cache = getMarketCache();
   const candles = await getCandles(symbol, assetType, timeframe, CANDLE_LIMIT, {
-    providers, cache, cacheTtlSeconds: 60, minCandles: MIN_CANDLES,
+    providers, cache, cacheTtlSeconds: 60, minCandles: MIN_CANDLES, dropForming,
   });
 
   // Confluência multi-TF + sazonalidade (só no modo completo). Buscas em
@@ -50,7 +62,7 @@ export async function analyzeSymbol(
       if (!tf) return null;
       try {
         const tfCandles = await getCandles(symbol, assetType, tf, HIGHER_TF_LIMIT, {
-          providers, cache, cacheTtlSeconds: 60, minCandles: MIN_CANDLES,
+          providers, cache, cacheTtlSeconds: 60, minCandles: MIN_CANDLES, dropForming,
         });
         return { symbol, assetType, timeframe: tf, candles: tfCandles };
       } catch {
@@ -62,7 +74,7 @@ export async function analyzeSymbol(
       if (timeframe === SEASONALITY_TF) return candles;
       try {
         return await getCandles(symbol, assetType, SEASONALITY_TF, SEASONALITY_LIMIT, {
-          providers, cache, cacheTtlSeconds: 3600, minCandles: MIN_CANDLES,
+          providers, cache, cacheTtlSeconds: 3600, minCandles: MIN_CANDLES, dropForming,
         });
       } catch {
         return undefined;
@@ -73,7 +85,7 @@ export async function analyzeSymbol(
       if (timeframe === SESSION_TF) return candles;
       try {
         return await getCandles(symbol, assetType, SESSION_TF, SESSION_LIMIT, {
-          providers, cache, cacheTtlSeconds: 1800, minCandles: MIN_CANDLES,
+          providers, cache, cacheTtlSeconds: 1800, minCandles: MIN_CANDLES, dropForming,
         });
       } catch {
         return undefined;

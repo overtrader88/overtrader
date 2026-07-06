@@ -49,6 +49,8 @@ export interface FullAnalysis {
   wyckoffEvents?: WyckoffEvent[];
   /** ATR(14) absoluto — usado p/ derivar o plano do Motor 2 quando o motor principal é neutro. */
   atr?: number;
+  /** Timestamp (ms, open) do ÚLTIMO candle da série analisada — p/ o gate de frescor na emissão (era -j2). */
+  lastCandleTime?: number;
 }
 
 export interface RunFullOptions {
@@ -86,9 +88,10 @@ export function runFullAnalysis(input: AnalysisInput, options: RunFullOptions): 
   const type = options.type ?? "complete";
   const analysis = runAnalysis(input, { generatedAt });
   const period = periodLabel(input.candles);
+  const lastCandleTime = input.candles.at(-1)?.time;
 
   if (type === "simple") {
-    return { generatedAt, type, period, analysis };
+    return { generatedAt, type, period, analysis, lastCandleTime };
   }
 
   const { candles, assetType, timeframe } = input;
@@ -115,5 +118,5 @@ export function runFullAnalysis(input: AnalysisInput, options: RunFullOptions): 
   const volumeProfile = computeVolumeProfile(candles) ?? undefined;
   const wyckoffEvents = detectWyckoffEvents(candles);
 
-  return { generatedAt, type, period, analysis, montecarlo, scenarios, smc, harmonics, wegd, seasonality, sessions, multiTimeframe, backtest, quality, equityCurve: equityFromTrades(bt.trades), volumeProfile, wyckoffEvents, atr: atr14 };
+  return { generatedAt, type, period, analysis, montecarlo, scenarios, smc, harmonics, wegd, seasonality, sessions, multiTimeframe, backtest, quality, equityCurve: equityFromTrades(bt.trades), volumeProfile, wyckoffEvents, atr: atr14, lastCandleTime };
 }

@@ -11,6 +11,8 @@ import { analyzeSymbol } from "@/lib/analysis/service";
 import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitLlmDsSignal, emitLlmSurvSignal, emitLlmDsSurvSignal, emitLlmVsfSignal, emitLlmDsVsfSignal, emitLlmVsfSurvSignal, emitLlmDsVsfSurvSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, emitEvoSignal, prepareEvoSlots, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
+import { marketState } from "@/lib/market/hours";
+import { isStaleForEmission } from "@/lib/market/freshness";
 import { broadcastSignal } from "@/lib/notify/dispatch";
 import { generateNarrative } from "@/lib/analysis/narrative";
 import { supabaseService } from "@/lib/supabase/server";
@@ -29,10 +31,13 @@ function authorized(req: Request): boolean {
 async function handle(req: Request): Promise<NextResponse> {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const tally: Record<EmitReason, number> = { emitted: 0, neutral: 0, "low-seal": 0, "open-exists": 0, "no-db": 0, error: 0 };
+  const tally: Record<EmitReason, number> = { emitted: 0, neutral: 0, weak: 0, "low-seal": 0, "open-exists": 0, "no-db": 0, error: 0 };
   const classTally: Record<ClassEmitReason, number> = {
-    emitted: 0, neutral: 0, "low-seal": 0, "open-exists": 0, "no-db": 0, error: 0, "low-conviction": 0, "no-geometry": 0,
+    emitted: 0, neutral: 0, weak: 0, "low-seal": 0, "open-exists": 0, "no-db": 0, error: 0, "low-conviction": 0, "no-geometry": 0,
   };
+  // Mercados PULADOS antes de qualquer análise/emissão (era -j2, achado 19):
+  // fechado no fim de semana ou último candle fechado velho demais (dado morto).
+  const skippedMarkets = { "market-closed": 0, "stale-data": 0 };
   let broadcast = 0;
   let classEmitted = 0;
   let padraoBEmitted = 0;
@@ -53,7 +58,21 @@ async function handle(req: Request): Promise<NextResponse> {
   let consEmitted = 0;
   for (const m of TRACKED_MARKETS) {
     try {
-      const dto = await analyzeSymbol(m.symbol, m.assetType, m.timeframe, "complete");
+      // Gate 1 (era -j2): mercado FECHADO (fim de semana em forex/índices/metais)
+      // → não emite a preço morto. 100% upstream, uniforme pros 17 motores.
+      if (!marketState(m.assetType, new Date()).open) {
+        skippedMarkets["market-closed"]++;
+        continue;
+      }
+      // dropForming: a análise da emissão só vê candles FECHADOS (mesma
+      // distribuição do backtest que dá o selo). UI/resolve seguem intactos.
+      const dto = await analyzeSymbol(m.symbol, m.assetType, m.timeframe, "complete", { dropForming: true });
+      // Gate 2 (era -j2): frescor pelo CLOSE esperado do último candle fechado —
+      // mata os ticks intraday fantasma do SPX 4h e protege de provider degradado.
+      if (dto.lastCandleTime != null && isStaleForEmission(dto.lastCandleTime, m.timeframe, m.assetType, Date.now())) {
+        skippedMarkets["stale-data"]++;
+        continue;
+      }
       const { reason, id } = await emitSignal(dto, m.symbol, m.assetType, m.timeframe);
       tally[reason]++;
       // Sinal novo carimbado → gera+guarda a narrativa (1×) e publica no canal (C2).
@@ -121,7 +140,7 @@ async function handle(req: Request): Promise<NextResponse> {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, llmSurvEmitted, llmDsSurvEmitted, llmVsfEmitted, llmDsVsfEmitted, llmVsfSurvEmitted, llmDsVsfSurvEmitted, evoEmitted, evoGen: evoSlots.map((s) => `${s.slot}:g${s.generation}`), condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, skippedMarkets, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, llmSurvEmitted, llmDsSurvEmitted, llmVsfEmitted, llmDsVsfEmitted, llmVsfSurvEmitted, llmDsVsfSurvEmitted, evoEmitted, evoGen: evoSlots.map((s) => `${s.slot}:g${s.generation}`), condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
 }
 
 export const GET = handle;

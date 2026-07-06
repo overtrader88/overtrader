@@ -40,6 +40,21 @@ describe("getCandles — fallback e cache", () => {
     expect(yahoo).toHaveBeenCalledTimes(1);
   });
 
+  it("dropForming corta o candle em formação, mas o cache guarda a série CHEIA", async () => {
+    const forming: Candle = { time: Date.now(), open: 1, high: 2, low: 0.5, close: 1.5, volume: 1 };
+    const binance = vi.fn().mockResolvedValue([...fakeCandles(99), forming]);
+    const cache = new InMemoryCacheStore(() => 1000);
+    const deps = { providers: { binance } as CandleProviders, cache, minCandles: 60 };
+
+    const cron = await getCandles("BTCUSDT", "crypto", "1h", 100, { ...deps, dropForming: true });
+    expect(cron).toHaveLength(99); // candle vivo descartado
+
+    // cache hit SEM o flag → série cheia (modo "preço vivo" da UI preservado)
+    const live = await getCandles("BTCUSDT", "crypto", "1h", 100, deps);
+    expect(live).toHaveLength(100);
+    expect(binance).toHaveBeenCalledTimes(1);
+  });
+
   it("todos falham → lança erro descritivo", async () => {
     const twelvedata = vi.fn().mockRejectedValue(new Error("td down"));
     const yahoo = vi.fn().mockRejectedValue(new Error("yahoo down"));

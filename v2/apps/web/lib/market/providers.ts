@@ -19,6 +19,7 @@ import {
 } from "./symbols";
 import { parseBinanceKlines, parseTwelveData, parseYahooChart } from "./parse";
 import { fetchBinanceHistory } from "./history";
+import { dropFormingCandles } from "./freshness";
 
 export interface CandleProviders {
   binance?: (symbol: string, tf: Timeframe, limit: number) => Promise<Candle[]>;
@@ -32,6 +33,12 @@ export interface GetCandlesDeps {
   cacheTtlSeconds?: number;
   /** Mínimo de candles para aceitar a resposta de um provedor. */
   minCandles?: number;
+  /**
+   * Descarta o candle EM FORMAÇÃO do fim da série (era -j2; só os crons de
+   * emissão ligam isto — a UI segue com o "preço vivo"). O corte é PÓS-cache:
+   * a chave é compartilhada com a UI, então o cache guarda a série cheia.
+   */
+  dropForming?: boolean;
 }
 
 export async function getCandles(
@@ -45,9 +52,12 @@ export async function getCandles(
   const ttl = deps.cacheTtlSeconds ?? 60;
   const key = `${assetType}:${symbol}:${timeframe}:${limit}`;
 
+  const finalize = (candles: Candle[]): Candle[] =>
+    deps.dropForming ? dropFormingCandles(candles, timeframe, Date.now()) : candles;
+
   if (deps.cache) {
     const cached = await deps.cache.get(key);
-    if (cached && cached.length >= min) return cached;
+    if (cached && cached.length >= min) return finalize(cached);
   }
 
   const p = deps.providers;
@@ -65,8 +75,8 @@ export async function getCandles(
     try {
       const candles = await attempt();
       if (candles.length >= min) {
-        await deps.cache?.set(key, candles, ttl);
-        return candles;
+        await deps.cache?.set(key, candles, ttl); // cache guarda a série CHEIA
+        return finalize(candles);
       }
     } catch (err) {
       lastError = err;
