@@ -51,6 +51,12 @@ export interface FullAnalysis {
   atr?: number;
   /** Timestamp (ms, open) do ÚLTIMO candle da série analisada — p/ o gate de frescor na emissão (era -j2). */
   lastCandleTime?: number;
+  /**
+   * Compressão do range: (máx high − mín low dos últimos 20 candles) ÷ ATR(14).
+   * Número único que denuncia serrote/lateralização (achado 14 — fato escalar
+   * pros motores LLM, era ~c1). Ausente quando ATR indisponível.
+   */
+  compression20Atr?: number;
 }
 
 export interface RunFullOptions {
@@ -118,5 +124,19 @@ export function runFullAnalysis(input: AnalysisInput, options: RunFullOptions): 
   const volumeProfile = computeVolumeProfile(candles) ?? undefined;
   const wyckoffEvents = detectWyckoffEvents(candles);
 
-  return { generatedAt, type, period, analysis, montecarlo, scenarios, smc, harmonics, wegd, seasonality, sessions, multiTimeframe, backtest, quality, equityCurve: equityFromTrades(bt.trades), volumeProfile, wyckoffEvents, atr: atr14, lastCandleTime };
+  // Compressão do range (achado 14): range dos últimos 20 candles em ATRs —
+  // derivada AQUI (única camada com a série completa), consumida em toDecisionFacts.
+  let compression20Atr: number | undefined;
+  if (atr14 > 0 && candles.length > 0) {
+    const tail = candles.slice(-20);
+    let hi = -Infinity;
+    let lo = Infinity;
+    for (const c of tail) {
+      if (c.high > hi) hi = c.high;
+      if (c.low < lo) lo = c.low;
+    }
+    if (hi > lo) compression20Atr = (hi - lo) / atr14;
+  }
+
+  return { generatedAt, type, period, analysis, montecarlo, scenarios, smc, harmonics, wegd, seasonality, sessions, multiTimeframe, backtest, quality, equityCurve: equityFromTrades(bt.trades), volumeProfile, wyckoffEvents, atr: atr14, lastCandleTime, compression20Atr };
 }

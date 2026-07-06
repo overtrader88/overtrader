@@ -8,8 +8,10 @@ import { toNarrativeFacts } from "./narrative-facts";
 import { withTimeout } from "@/lib/http/with-timeout";
 import { SURV_START, SURV_FLOOR, type BankState } from "@/lib/signals/survival";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "./engines";
+import { maxDurationFor } from "@/lib/signals/expiration";
+import { DEFAULT_ENGINE_CONFIG } from "@tradeai/engine";
 import type { FullAnalysis } from "./full";
-import type { AssetType } from "@tradeai/shared";
+import { TIMEFRAME_MS, isTimeframe, type AssetType } from "@tradeai/shared";
 
 export const NARRATIVE_SYSTEM = [
   "Você é o analista técnico do Overtrader, uma ferramenta de ANÁLISE e transparência (não consultoria de investimento).",
@@ -75,7 +77,14 @@ export async function generateNarrative(dto: FullAnalysis): Promise<string | nul
 }
 
 // ===================== MOTOR LLM (decisão pela IA) =====================
-export interface LlmDecision { side: "buy" | "sell" | "neutral"; conviction: number; rationale: string }
+export interface LlmDecision {
+  side: "buy" | "sell" | "neutral";
+  conviction: number;
+  rationale: string;
+  /** Nível de referência declarado pela LLM (família VSF, era ~c1) — VALIDADO
+   *  com régua dura no buildVsfPlan antes de ancorar o stop; null = ausente. */
+  refLevel?: number | null;
+}
 
 /**
  * Provedores do MOTOR LLM. A decisão usa o protocolo OpenAI (chat/completions +
@@ -98,20 +107,57 @@ function deepSeekProvider(): LlmProvider {
   };
 }
 
-/** Régua FIXA de convicção — compartilhada por todos os motores LLM. Combate a
- *  inflação de convicção (ex.: DeepSeek emitindo ≥80 em ~100% dos sinais). */
+/**
+ * Régua FIXA de convicção — compartilhada por todos os motores LLM.
+ * Era ~c1 (achado 15, fase 1): a convicção deixa de ser "confiança" (vibes)
+ * e vira PROBABILIDADE operacional — P(%) de tocar o TP1 antes do stop dentro
+ * da janela de expiração do plano fornecido nos fatos. Calibração vira métrica
+ * objetiva (reliability por bucket contra os desfechos forward). Gate (≥60) e
+ * STRONG (≥80) seguem os MESMOS por ora — só a semântica do número mudou;
+ * qualquer recalibração de corte espera ~100 resolvidos da era nova.
+ */
 const CONVICTION_RUBRIC = [
-  "CALIBRAÇÃO DA CONVICÇÃO (régua fixa — distribua de verdade):",
-  "<60 = sem edge claro → responda 'neutro'; 60-69 = inclinação clara porém comum (a maioria dos seus sinais deve cair AQUI);",
-  "70-79 = confluência forte de múltiplas evidências; 80-89 = confluência EXCEPCIONAL, você apostaria pesado (rare — poucas por semana);",
-  "≥90 = raríssimo (pouquíssimas por ano). Inflar convicção é erro grave: convicção alta em sinal comum destrói a calibração.",
+  "CALIBRAÇÃO DA CONVICÇÃO (semântica probabilística):",
+  "conviccao = sua estimativa (0-100) da PROBABILIDADE de o preço tocar o TP1 ANTES do stop, dentro da janela de expiração do plano_execucao fornecido nos fatos.",
+  "Sua estimativa será AUDITADA contra os desfechos reais: conviccao 70 deve acertar ~70% das vezes; 60, ~60%. Inflar ou deflacionar o número destrói a calibração — esse é o erro grave.",
+  "Se a sua probabilidade estimada for menor que 60, responda 'neutro' (sem edge suficiente para o plano da casa).",
+].join(" ");
+
+/**
+ * Restrições do plano no prompt (achado 16, era ~c1): o plano é FIXO e
+ * determinístico — a LLM não escolhe geometria, só avalia se a tese cabe nela.
+ * Instrução SUAVIZADA (sem mandato absoluto) pra não sobre-suprimir emissão;
+ * monitorar taxa de emissão nas primeiras semanas.
+ */
+const PLAN_HORIZON_NOTE = [
+  "O plano_execucao dos fatos é FIXO e determinístico (stop, alvos e expiração — a geometria NÃO é sua escolha).",
+  "Considere se a resolução da tese cabe no horizonte (expira_em_candles × candle_horas) e se o stop fornecido tolera o pullback normal da própria tese;",
+  "se claramente não couber ou exigir stop mais largo, prefira 'neutro'.",
 ].join(" ");
 
 const LLM_DECISION_SYSTEM = [
   "Você é um MOTOR DE DECISÃO de trading. A partir dos dados MEDIDOS, decida a direção e a convicção.",
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}.",
-  "conviccao = sua confiança na direção (0–100; 50 = indeciso).",
   CONVICTION_RUBRIC,
+  PLAN_HORIZON_NOTE,
+  "Pondere a CONFLUÊNCIA dos indicadores, a estrutura (SMC), o multi-timeframe, o regime e os dados macro/da classe fornecidos.",
+  "Seja honesto: sinais conflitantes ou fracos → 'neutro' ou convicção baixa. NÃO invente dados além dos fornecidos.",
+  "NÃO escreva nada fora do JSON.",
+].join("\n");
+
+/**
+ * MOTOR LLM·CoT (achado 13, era ~c1): o JSON pede a ANÁLISE ANTES de lado e
+ * convicção — num modelo autoregressivo, os tokens de deliberação saem antes
+ * da decisão (no schema atual o 'racional' é justificativa post-hoc). Variante
+ * A/B ao lado do `llm` (mesmo provider, gates, geometria e dedup); `llm` segue
+ * como CONTROLE. A análise vira o rationale persistido (~600 chars).
+ */
+const LLM_COT_SYSTEM = [
+  "Você é um MOTOR DE DECISÃO de trading. A partir dos dados MEDIDOS, DELIBERE por escrito e só então decida.",
+  "Responda EXCLUSIVAMENTE em JSON válido, com os campos NESTA ORDEM:",
+  "{\"analise\":\"3-5 frases pesando as confluências A FAVOR e o caso CONTRA (obrigatório considerar os dois lados)\",\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>}.",
+  CONVICTION_RUBRIC,
+  PLAN_HORIZON_NOTE,
   "Pondere a CONFLUÊNCIA dos indicadores, a estrutura (SMC), o multi-timeframe, o regime e os dados macro/da classe fornecidos.",
   "Seja honesto: sinais conflitantes ou fracos → 'neutro' ou convicção baixa. NÃO invente dados além dos fornecidos.",
   "NÃO escreva nada fora do JSON.",
@@ -125,10 +171,11 @@ const LLM_SURVIVAL_SYSTEM = [
   "REGRAS DE SOBREVIVÊNCIA (nesta ordem):",
   "1) Preservar capital vem ANTES de buscar lucro. Um trade que você NÃO faz nunca te mata; uma sequência de apostas grandes em sinais fracos, sim.",
   "2) Só decida 'compra' ou 'venda' quando o edge for CLARO (confluência forte + estrutura SMC + multi-timeframe alinhados + regime a favor). Na menor dúvida: 'neutro'.",
-  "3) conviccao ≥80 SOMENTE quando você apostaria pesado com o próprio dinheiro. Sinal mediano → conviccao 60-70 ou 'neutro'. Não infle convicção.",
+  "3) A convicção segue a régua probabilística abaixo — estime a probabilidade com honestidade brutal; probabilidade alta em sinal comum é mentira que custa a sua vida.",
   "4) Pense assimétrico: prefira trades onde o ganho potencial é MUITO maior que a perda. Evite risco de ruína.",
-  "5) Você recebe 'banca_sobrevivencia' (capital atual, drawdown, sequência recente, mortes). Após perdas seguidas ou drawdown alto, exija MAIS confluência e REDUZA a convicção — proteger a vida vem primeiro.",
+  "5) Você recebe 'banca_sobrevivencia' (capital atual, drawdown, sequência recente, mortes). Após perdas seguidas ou drawdown alto, exija MAIS confluência antes de estimar probabilidades altas — proteger a vida vem primeiro.",
   CONVICTION_RUBRIC,
+  PLAN_HORIZON_NOTE,
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
 ].join("\n");
 
@@ -140,14 +187,61 @@ const LLM_VSF_SYSTEM = [
   "3) FIBONACCI: as PRZ dos padrões harmônicos são zonas de reversão (confluência de retrações/extensões de Fibonacci).",
   "REGRAS:",
   "- O melhor trade é onde os TRÊS pilares CONFLUEM (ex.: preço numa PRZ de Fibonacci que coincide com um order block de suporte E o limite da área de valor por volume).",
-  "- 'compra' perto de suporte/PRZ bullish com volume confirmando; 'venda' perto de resistência/PRZ bearish. Preço no meio do range, sem nível próximo → 'neutro'.",
-  "- conviccao alta (≥80) SOMENTE com confluência clara dos pilares perto do preço atual. Sinal solto em um pilar só → convicção baixa ou 'neutro'. NÃO invente níveis além dos fornecidos.",
+  "- 'compra' perto de suporte/PRZ bullish com volume confirmando; 'venda' perto de resistência/PRZ bearish. Preço no meio do range, sem nível próximo → 'neutro'. Cada nível traz dist_atr (distância assinada em ATRs do preço atual) já calculada — use-a, não faça aritmética.",
+  "- Probabilidade alta SOMENTE com confluência clara dos pilares perto do preço atual (|dist_atr| pequena). Sinal solto em um pilar só → convicção baixa ou 'neutro'. NÃO invente níveis além dos fornecidos.",
   CONVICTION_RUBRIC,
-  "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
+  PLAN_HORIZON_NOTE,
+  "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\",\"nivel_referencia\":<preço EXATO de um dos níveis fornecidos que ancora a tese (o stop será atrás dele), ou null>}. NÃO escreva nada fora do JSON.",
 ].join("\n");
 
+/** Stop dos motores LLM: ATR ×1.4 — o forward mostrou (padrão vs padrão-B e o
+ *  Contrário TAMBÉM negativo) que o stop ×1.0 fica dentro do ruído e stopa os
+ *  dois lados. Mudança versionada no engineVersion (~a14). Vive AQUI (fonte
+ *  única) porque os fatos do prompt derivam stop_dist_atr dele (achado 16). */
+export const LLM_ATR_SCALE = 1.4;
+
+const round2 = (x: number): number => Math.round(x * 100) / 100;
+
+/**
+ * Restrições INVARIANTES do plano da casa (achado 16, era ~c1) — derivadas em
+ * runtime do config (nunca literais): stop em ATRs, RRs estruturais e a janela
+ * de expiração REAL do juiz (mesmo mapa do cron resolve-signals). A família
+ * VSF recebe a geometria verdadeira dela (stop por nível com guarda-corpo).
+ */
+function planFacts(dto: FullAnalysis, family: "atr" | "vsf"): unknown {
+  const { slMult, tp1Mult, tp2Mult, tp3Mult } = DEFAULT_ENGINE_CONFIG.risk;
+  const tfRaw = dto.analysis.meta.timeframe;
+  const tf = isTimeframe(tfRaw) ? tfRaw : null;
+  const stopAtr = round2(slMult * LLM_ATR_SCALE);
+  return {
+    ...(family === "atr"
+      ? { stop_dist_atr: stopAtr }
+      : { stop: `atrás do nível protegido mais próximo (folga 0.25 ATR; entre 0.6 e 2.5 ATR do preço); sem nível válido → ${stopAtr} ATR` }),
+    tp1_rr: round2(tp1Mult / slMult),
+    tp2_rr: round2(tp2Mult / slMult),
+    tp3_rr: round2(tp3Mult / slMult),
+    expira_em_candles: maxDurationFor(tfRaw),
+    candle_horas: tf ? TIMEFRAME_MS[tf] / 3_600_000 : null,
+  };
+}
+
+/** Contexto de TEMPO derivado do timestamp do ÚLTIMO candle — NUNCA de
+ *  Date.now(): o /simulador reusa os motores com corte histórico e wall-clock
+ *  quebraria a garantia sem-lookahead (achado 14, ajuste do cético). */
+function timeContext(lastCandleMs: number | undefined): unknown {
+  if (!lastCandleMs || !(lastCandleMs > 0)) return null;
+  const d = new Date(lastCandleMs);
+  const h = d.getUTCHours();
+  const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"] as const;
+  const sessao = h < 7 ? "Ásia" : h < 12 ? "Londres" : h < 16 ? "Londres+NY" : h < 21 ? "NY" : "Ásia (abertura)";
+  return { hora_utc: h, dia_semana: DIAS[d.getUTCDay()], sessao };
+}
+
 /** Fatos BRUTOS p/ a decisão da LLM — sem o veredito do Motor 1 (independência).
- *  Exportado: o Conselho de Guerra reusa os mesmos fatos p/ ancorar o chat. */
+ *  Exportado: o Conselho de Guerra reusa os mesmos fatos p/ ancorar o chat.
+ *  Era ~c1 (achados 14+16): + compressao_range20_atr, contexto_tempo e
+ *  plano_execucao (escalares objetivos; SEM regra "comprimido→neutro" no prompt
+ *  — o dado fala primeiro, a regra seria uma segunda mudança a testar separada). */
 export function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): unknown {
   const a = dto.analysis;
   return {
@@ -155,6 +249,10 @@ export function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras:
     // preço atual: sem ele a LLM não consegue situar os níveis (ex.: preço vs EMAs).
     preco_atual: a.risk?.entry ?? null,
     regime: a.meta?.regime ?? null, adx: a.meta?.adxValue ?? null,
+    // compressão do range: range dos últimos 20 candles ÷ ATR (nº único que denuncia serrote)
+    compressao_range20_atr: dto.compression20Atr != null ? round2(dto.compression20Atr) : null,
+    contexto_tempo: timeContext(dto.lastCandleTime),
+    plano_execucao: planFacts(dto, "atr"),
     indicadores: (a.indicators ?? []).map((i) => ({ nome: i.name, cat: i.category, voto: i.vote, valor: typeof i.value === "number" ? i.value : null })),
     smc: dto.smc ? { vies: dto.smc.bias, estrutura: dto.smc.marketStructure } : null,
     multiTimeframe: dto.multiTimeframe ? { score: dto.multiTimeframe.confluenceScore, alinhamento: dto.multiTimeframe.alignment } : null,
@@ -171,9 +269,14 @@ export function toDecisionFacts(dto: FullAnalysis, assetType: AssetType, extras:
   };
 }
 
+/** Ajustes por motor do protocolo de decisão (os defaults preservam os motores
+ *  vigentes byte a byte): CoT precisa de folga p/ deliberar (achado 13); VSF
+ *  ganhou o campo nivel_referencia (achado 17b). */
+interface LlmCallOpts { maxTokens?: number; rationaleMax?: number }
+
 /** Núcleo da decisão (estruturada, temp 0 na emissão; o MODO SOMBRA reusa com
  *  temp 0.7) via um provedor OpenAI-compatível. `null` se key ausente/falha. */
-async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, system: string = LLM_DECISION_SYSTEM, factsOverride?: unknown, temperature = 0): Promise<LlmDecision | null> {
+async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, system: string = LLM_DECISION_SYSTEM, factsOverride?: unknown, temperature = 0, opts?: LlmCallOpts): Promise<LlmDecision | null> {
   if (!p.apiKey) return null;
   const facts = factsOverride ?? toDecisionFacts(dto, assetType, extras);
   try {
@@ -184,7 +287,7 @@ async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: Asse
         body: JSON.stringify({
           model: p.model,
           temperature,
-          max_tokens: 200,
+          max_tokens: opts?.maxTokens ?? 200,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },
@@ -199,11 +302,18 @@ async function runLlmDecision(p: LlmProvider, dto: FullAnalysis, assetType: Asse
     const data = (await res.json()) as ChatResponse;
     const raw = data.choices?.[0]?.message?.content;
     if (!raw) return null;
-    const j = JSON.parse(raw) as { lado?: string; conviccao?: number; racional?: string };
+    const j = JSON.parse(raw) as { lado?: string; conviccao?: number; racional?: string; analise?: string; nivel_referencia?: unknown };
     const lado = String(j.lado ?? "").toLowerCase();
     const side: LlmDecision["side"] = lado.startsWith("compra") ? "buy" : lado.startsWith("venda") ? "sell" : "neutral";
     const conviction = Math.max(0, Math.min(100, Number(j.conviccao) || 0));
-    return { side, conviction, rationale: typeof j.racional === "string" ? j.racional.slice(0, 240) : "" };
+    // CoT (analise-first): a deliberação vira o rationale persistido; senão, o racional clássico.
+    const rationaleRaw = typeof j.analise === "string" && j.analise ? j.analise : typeof j.racional === "string" ? j.racional : "";
+    const nr = Number(j.nivel_referencia);
+    return {
+      side, conviction,
+      rationale: rationaleRaw.slice(0, opts?.rationaleMax ?? 240),
+      refLevel: Number.isFinite(nr) && nr > 0 ? nr : null,
+    };
   } catch {
     return null;
   }
@@ -217,6 +327,14 @@ export function generateLlmDecision(dto: FullAnalysis, assetType: AssetType, ext
 /** MOTOR LLM·DS (DeepSeek V4-Pro). Concorre lado a lado com o da OpenAI; `null` sem DEEPSEEK_API_KEY. */
 export function generateLlmDecisionDS(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
   return runLlmDecision(deepSeekProvider(), dto, assetType, extras);
+}
+
+/** MOTOR LLM·CoT (achado 13): analise-first no MESMO provider/fatos/gates do
+ *  `llm` (controle). max_tokens 450 (3-5 frases PT-BR + JSON sem truncar) e a
+ *  análise persiste como rationale (~600 chars). Thinking da DeepSeek segue
+ *  DESLIGADO em toda parte — uma variável por vez. */
+export function generateLlmDecisionCot(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
+  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_COT_SYSTEM, undefined, 0, { maxTokens: 450, rationaleMax: 600 });
 }
 
 // ===================== MODO SOMBRA — self-consistency k=3 (achado 18a) =====================
@@ -281,41 +399,75 @@ export function generateLlmDecisionDsSurv(dto: FullAnalysis, assetType: AssetTyp
 
 /** Fatos focados em NÍVEIS (volume + S/R + Fibonacci) — alimenta o motor VSF com os
  *  números REAIS do dto (POC/área de valor, order blocks/liquidez/FVG, PRZ harmônicas).
- *  Exportado: o Conselho de Guerra reusa os mesmos fatos p/ ancorar o chat. */
-export function toLevelsFacts(dto: FullAnalysis): unknown {
+ *  Exportado: o Conselho de Guerra reusa os mesmos fatos p/ ancorar o chat.
+ *  Era ~c1 (achado 17a): + `atr` absoluto e `dist_atr` pré-computada (assinada,
+ *  em ATRs do preço) em CADA nível — a LLM não faz mais aritmética de distância.
+ *  O filtro de níveis a >maxAtrDist ATRs é OPT-IN (só a família VSF passa
+ *  { maxAtrDist: 3 }); evo_* e Conselho de Guerra seguem vendo tudo. POC/VAH/VAL
+ *  são SEMPRE mantidos (núcleo do pilar volume), mesmo distantes. Sem ATR,
+ *  omite dist_atr e não filtra (fallback: atrRatio×preço, como buildVsfPlan). */
+export function toLevelsFacts(dto: FullAnalysis, opts?: { maxAtrDist?: number }): unknown {
   const a = dto.analysis;
   const price = a.risk?.entry ?? null;
   const vp = dto.volumeProfile;
   const smc = dto.smc;
   const harm = dto.harmonics;
+  const atrVal = dto.atr && dto.atr > 0
+    ? dto.atr
+    : a.meta?.atrRatio && price ? a.meta.atrRatio * price : null;
+  const distAtr = (level: number): number | null =>
+    atrVal && price != null ? round2((level - price) / atrVal) : null;
+  const keep = (level: number): boolean => {
+    if (!opts?.maxAtrDist || !atrVal || price == null) return true;
+    return Math.abs(level - price) <= opts.maxAtrDist * atrVal;
+  };
   const volInd = (a.indicators ?? []).filter((i) => (i.category ?? "").toLowerCase().includes("vol"))
     .map((i) => ({ nome: i.name, voto: i.vote, valor: typeof i.value === "number" ? i.value : null }));
   return {
     ativo: a.meta.asset, timeframe: a.meta.timeframe, preco_atual: price, regime: a.meta?.regime ?? null,
+    atr: atrVal,
     volume: {
-      perfil: vp ? { poc: vp.poc, area_valor_alta: vp.vah, area_valor_baixa: vp.val } : null,
+      perfil: vp ? {
+        poc: vp.poc, dist_atr_poc: distAtr(vp.poc),
+        area_valor_alta: vp.vah, dist_atr_vah: distAtr(vp.vah),
+        area_valor_baixa: vp.val, dist_atr_val: distAtr(vp.val),
+      } : null,
       indicadores: volInd,
     },
     suporte_resistencia: smc ? {
       vies: smc.bias, estrutura: smc.marketStructure,
-      order_blocks: (smc.orderBlocks ?? []).slice(0, 4).map((o) => ({ tipo: o.type, topo: o.zoneTop, base: o.zoneBottom })),
-      zonas_liquidez: (smc.liquidityZones ?? []).slice(0, 4).map((z) => ({ tipo: z.type, nivel: z.level, varrida: z.swept })),
-      fvgs: (smc.fvgs ?? []).slice(0, 3).map((f) => ({ tipo: f.type, topo: f.zoneTop, base: f.zoneBottom })),
+      order_blocks: (smc.orderBlocks ?? []).filter((o) => keep((o.zoneTop + o.zoneBottom) / 2)).slice(0, 4)
+        .map((o) => ({ tipo: o.type, topo: o.zoneTop, base: o.zoneBottom, dist_atr: distAtr((o.zoneTop + o.zoneBottom) / 2) })),
+      zonas_liquidez: (smc.liquidityZones ?? []).filter((z) => keep(z.level)).slice(0, 4)
+        .map((z) => ({ tipo: z.type, nivel: z.level, varrida: z.swept, dist_atr: distAtr(z.level) })),
+      fvgs: (smc.fvgs ?? []).filter((f) => keep((f.zoneTop + f.zoneBottom) / 2)).slice(0, 3)
+        .map((f) => ({ tipo: f.type, topo: f.zoneTop, base: f.zoneBottom, dist_atr: distAtr((f.zoneTop + f.zoneBottom) / 2) })),
     } : null,
     fibonacci_harmonicos: harm?.patterns?.length
-      ? harm.patterns.slice(0, 3).map((p) => ({ direcao: p.direction, prz_baixo: p.prz.low, prz_alto: p.prz.high, conclusao_pct: p.completion, qualidade: p.quality }))
+      ? harm.patterns.filter((p) => keep((p.prz.low + p.prz.high) / 2)).slice(0, 3)
+        .map((p) => ({ direcao: p.direction, prz_baixo: p.prz.low, prz_alto: p.prz.high, dist_atr: distAtr((p.prz.low + p.prz.high) / 2), conclusao_pct: p.completion, qualidade: p.quality }))
       : null,
   };
 }
 
+/** Fatos da FAMÍLIA VSF: níveis filtrados a ≤3 ATR (ruído distante só gasta
+ *  tokens) + as restrições do plano REAL dela (stop por nível, achado 16c). */
+const vsfFacts = (dto: FullAnalysis): unknown => ({
+  ...(toLevelsFacts(dto, { maxAtrDist: 3 }) as Record<string, unknown>),
+  plano_execucao: planFacts(dto, "vsf"),
+});
+
+/** Folga de tokens da família VSF (era ~c1): o JSON ganhou `nivel_referencia`. */
+const VSF_LLM_OPTS = { maxTokens: 250 } as const;
+
 /** MOTOR VSF (GPT) — decisão por volume + suporte/resistência + Fibonacci. */
 export function generateLlmDecisionVsf(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
-  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_VSF_SYSTEM, toLevelsFacts(dto));
+  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_VSF_SYSTEM, vsfFacts(dto), 0, VSF_LLM_OPTS);
 }
 
 /** MOTOR VSF (DeepSeek) — idem, no provedor DeepSeek. */
 export function generateLlmDecisionDsVsf(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras): Promise<LlmDecision | null> {
-  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SYSTEM, toLevelsFacts(dto));
+  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SYSTEM, vsfFacts(dto), 0, VSF_LLM_OPTS);
 }
 
 /** Sistema VSF + SOBREVIVÊNCIA: decide por níveis (vol/S-R/Fib) com mente de capital finito. */
@@ -327,21 +479,22 @@ const LLM_VSF_SURV_SYSTEM = [
   "3) FIBONACCI: as PRZ dos padrões harmônicos são zonas de reversão.",
   "REGRAS DE SOBREVIVÊNCIA (a 'conviccao' define o TAMANHO da aposta — calibre com honestidade brutal):",
   "- Preservar capital vem ANTES do lucro: sem confluência clara dos pilares perto do preço → 'neutro' (ficar de fora não custa nada).",
-  "- conviccao ≥80 SOMENTE quando os 3 pilares confluem forte e você apostaria pesado com o próprio dinheiro. Sinal solto em um pilar só → convicção baixa ou 'neutro'.",
+  "- Probabilidade alta SOMENTE quando os 3 pilares confluem forte perto do preço (use a dist_atr já calculada de cada nível). Sinal solto em um pilar só → convicção baixa ou 'neutro'.",
   "- Compra perto de suporte/PRZ bullish com volume confirmando; venda perto de resistência/PRZ bearish. NÃO invente níveis além dos fornecidos.",
-  "- Você recebe 'banca_sobrevivencia' (capital atual, drawdown, sequência recente, mortes). Após perdas seguidas ou drawdown alto, exija MAIS confluência e REDUZA a convicção — proteger a vida vem primeiro.",
+  "- Você recebe 'banca_sobrevivencia' (capital atual, drawdown, sequência recente, mortes). Após perdas seguidas ou drawdown alto, exija MAIS confluência antes de estimar probabilidades altas — proteger a vida vem primeiro.",
   CONVICTION_RUBRIC,
-  "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
+  PLAN_HORIZON_NOTE,
+  "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\",\"nivel_referencia\":<preço EXATO de um dos níveis fornecidos que ancora a tese (o stop será atrás dele), ou null>}. NÃO escreva nada fora do JSON.",
 ].join("\n");
 
 /** MOTOR VSF+SOBREVIVÊNCIA (GPT) — níveis com mentalidade de capital finito. */
 export function generateLlmDecisionVsfSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, bank?: BankState | null): Promise<LlmDecision | null> {
-  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, withBank(toLevelsFacts(dto), bank));
+  return runLlmDecision(openAiProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, withBank(vsfFacts(dto), bank), 0, VSF_LLM_OPTS);
 }
 
 /** MOTOR VSF+SOBREVIVÊNCIA (DeepSeek) — idem, no provedor DeepSeek. */
 export function generateLlmDecisionDsVsfSurv(dto: FullAnalysis, assetType: AssetType, extras: ClassExtras, bank?: BankState | null): Promise<LlmDecision | null> {
-  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, withBank(toLevelsFacts(dto), bank));
+  return runLlmDecision(deepSeekProvider(), dto, assetType, extras, LLM_VSF_SURV_SYSTEM, withBank(vsfFacts(dto), bank), 0, VSF_LLM_OPTS);
 }
 
 // ===================== EVOLUÇÃO DARWINIANA (motores evo_*) =====================
@@ -376,6 +529,7 @@ const EVO_CONTRACT = [
   "Você é um MOTOR DE DECISÃO de trading evolutivo com capital FINITO (se a banca quebrar, esta estratégia MORRE e é substituída).",
   "Aplique a ESTRATÉGIA-NÚCLEO acima sobre os dados MEDIDOS fornecidos. NÃO invente dados além dos fornecidos.",
   CONVICTION_RUBRIC,
+  PLAN_HORIZON_NOTE,
   "Responda EXCLUSIVAMENTE em JSON válido: {\"lado\":\"compra|venda|neutro\",\"conviccao\":<0-100>,\"racional\":\"1 frase curta\"}. NÃO escreva nada fora do JSON.",
 ].join("\n");
 

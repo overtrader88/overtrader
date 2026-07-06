@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { resolveLifecycle, type SignalPlan } from "@tradeai/engine";
 import { TIMEFRAME_MS, isTimeframe } from "@tradeai/shared";
 import type { AssetType, Timeframe } from "@tradeai/shared";
+import { maxDurationFor } from "@/lib/signals/expiration";
 import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
 import { getMarketCache } from "@/lib/market/cache-supabase";
@@ -30,9 +31,9 @@ export const maxDuration = 120;
  * JÁ ABERTOS (regra operacional, não fitted): 1d com >25 candles decorridos será
  * marcado EXPIRED na próxima rodada, marcado a mercado no close do candle 25 —
  * efeito one-shot registrado no changelog/commit.
+ * Pacote C: o mapa vive em lib/signals/expiration.ts (fonte única — os fatos
+ * dos motores LLM injetam o MESMO número no prompt via `expira_em_candles`).
  */
-const MAX_DURATION_BY_TF: Partial<Record<Timeframe, number>> = { "1h": 120, "4h": 60, "1d": 25, "1w": 12 };
-const DEFAULT_MAX_DURATION = 60;
 const FETCH_LIMIT = 400;
 
 interface SignalRow {
@@ -89,7 +90,7 @@ async function handle(req: Request): Promise<NextResponse> {
         side: s.side === "sell" ? "sell" : "buy",
         entry: s.entry, stopLoss: s.stop_loss, takeProfit1: s.tp1, takeProfit2: s.tp2, takeProfit3: s.tp3,
       };
-      const maxDuration = (isTimeframe(s.timeframe) ? MAX_DURATION_BY_TF[s.timeframe] : undefined) ?? DEFAULT_MAX_DURATION;
+      const maxDuration = maxDurationFor(s.timeframe);
       const res = resolveLifecycle(plan, future, maxDuration);
       // Progresso do ciclo de vida (gravado mesmo em abertos, p/ a vitrine ao vivo).
       const lifecycle = {
