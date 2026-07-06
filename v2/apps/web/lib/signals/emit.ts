@@ -11,8 +11,8 @@ import { supabaseService } from "@/lib/supabase/server";
 import type { FullAnalysis } from "@/lib/analysis/full";
 import { computeClassReading, buildClassPlan, type ClassExtras } from "@/lib/analysis/engines";
 import { conditionalDirection, invertDirection } from "@/lib/analysis/position-stress";
-import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionCot, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, generateEvoDecision, generateLlmShadowSamples, breedEvoCore, EVO_SEED_CORES, LLM_ATR_SCALE, type LlmDecision, type ShadowSample } from "@/lib/analysis/narrative";
-import { replayBank, type BankState } from "./survival";
+import { generateLlmDecision, generateLlmDecisionDS, generateLlmDecisionCot, generateLlmDecisionSurv, generateLlmDecisionDsSurv, generateLlmDecisionVsf, generateLlmDecisionDsVsf, generateLlmDecisionVsfSurv, generateLlmDecisionDsVsfSurv, generateEvoDecision, generateLlmShadowSamples, breedEvoCore, validateEvoCore, EVO_SEED_CORES, LLM_ATR_SCALE, type LlmDecision, type ShadowSample } from "@/lib/analysis/narrative";
+import { replayBank, fitnessBounds, EVO_MIN_TRADES, type BankState } from "./survival";
 
 /** `weak` (era -j2): sinal rebaixado pelos gates críticos (WEAK_*) — o próprio
  *  motor declarou o plano insuficiente; não entra mais no track record. */
@@ -462,13 +462,131 @@ export async function emitLlmVsfSurvSignal(
 /** Slot da EVOLUÇÃO (linha da tabela evo_engines). */
 export interface EvoSlot { slot: string; provider: "gpt" | "ds"; core: string; generation: number; born_at: string }
 
+// ===================== DARWIN 2.0 (achados 25-30 da revisão de 05/07) =====================
+
+/** Letargia (achado 28a): núcleo com > LETHARGY_DAYS dias de vida e MENOS de
+ *  LETHARGY_MIN_EMITTED sinais direcionais EMITIDOS morre por inatividade —
+ *  emissão mede covardia diretamente (não depende da fila de resolução). */
+const EVO_LETHARGY_DAYS = 14;
+const EVO_LETHARGY_MIN_EMITTED = 3;
+/** Elitismo passivo (achado 29): só registra recorde com amostra mínima. */
+const EVO_BEST_MIN_TRADES = 15;
+
+const round4 = (x: number): number => Math.round(x * 1e4) / 1e4;
+
+/** Nº de sinais direcionais EMITIDOS pelo motor desde `sinceIso` (a tabela signals
+ *  só guarda sinais direcionais — neutro nunca é carimbado). `null` em falha:
+ *  falha de contagem NUNCA mata um núcleo. */
+async function countEmittedSince(sb: NonNullable<ReturnType<typeof supabaseService>>, engine: string, sinceIso: string): Promise<number | null> {
+  try {
+    const { count, error } = await sb
+      .from("signals")
+      .select("id", { count: "exact", head: true })
+      .eq("engine", engine)
+      .gte("emitted_at", sinceIso);
+    if (error || count == null) return null;
+    return count;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Ciclo de vida darwiniano — roda 1× por execução do cron, ANTES das emissões:
+ * Agregado da morte EM CÓDIGO (achado 27): clusters símbolo×timeframe×regime×lado
+ * com ≥3 SLs na vida do núcleo (contagem determinística das linhas de signals —
+ * não extraída do texto das autópsias) + até 3 autópsias recentes truncadas
+ * (~200 chars), rotuladas como HIPÓTESES do legista. Teto total ~1500 chars
+ * (o núcleo-filho é limitado a 350 tokens — prompt inchado só custa).
+ * `null` em falha/sem dados: o chamador cai no deathCtx básico.
+ */
+async function evoAutopsyContext(sb: NonNullable<ReturnType<typeof supabaseService>>, engine: string, sinceIso: string): Promise<string | null> {
+  const { data, error } = await sb
+    .from("signals")
+    .select("symbol, timeframe, regime, side, autopsy, duration_candles")
+    .eq("engine", engine)
+    .gte("emitted_at", sinceIso)
+    .eq("outcome", "SL")
+    .order("emitted_at", { ascending: false })
+    .limit(40);
+  if (error || !data?.length) return null;
+  const rows = data as { symbol: string; timeframe: string; regime: string | null; side: string; autopsy: string | null; duration_candles: number | null }[];
+  const byKey = new Map<string, { n: number; durSum: number; durN: number }>();
+  for (const r of rows) {
+    const key = `${r.symbol} ${r.timeframe} · ${r.regime ?? "regime?"} · ${r.side === "sell" ? "venda" : "compra"}`;
+    const c = byKey.get(key) ?? { n: 0, durSum: 0, durN: 0 };
+    c.n++;
+    if (r.duration_candles != null) { c.durSum += Number(r.duration_candles); c.durN++; }
+    byKey.set(key, c);
+  }
+  const clusters = [...byKey.entries()]
+    .filter(([, v]) => v.n >= 3)
+    .sort((a, b) => b[1].n - a[1].n)
+    .slice(0, 4)
+    .map(([k, v]) => `${v.n}× SL em ${k}${v.durN > 0 ? ` (duração média ${Math.round(v.durSum / v.durN)} candles)` : ""}`);
+  const lessons = rows.filter((r) => r.autopsy).slice(0, 3).map((r) => `- ${String(r.autopsy).slice(0, 200)}`);
+  const parts: string[] = [];
+  parts.push(clusters.length > 0
+    ? `PADRÕES DA MORTE (contados em código sobre os SLs da vida; padrões com MENOS de 3 ocorrências são ruído — ignore): ${clusters.join("; ")}.`
+    : "Nenhum cluster com ≥3 SLs (símbolo×timeframe×regime×lado) — os stops foram dispersos; trate padrões pontuais como ruído.");
+  if (lessons.length > 0) parts.push(`AUTÓPSIAS RECENTES (hipóteses do legista, NÃO fatos):\n${lessons.join("\n")}`);
+  return parts.join("\n").slice(0, 1500);
+}
+
+/** Fixture FIXO do smoke test do núcleo-filho (achado 30, camada b): um dto
+ *  determinístico mínimo — o filho precisa produzir um JSON parseável com lado
+ *  válido sobre ele (generateEvoDecision devolve null em qualquer falha).
+ *  Sem retry: falha de provider e genoma ruim caem ambos no fallback pro pai. */
+const EVO_SMOKE_DTO = {
+  generatedAt: 0,
+  type: "complete",
+  period: null,
+  analysis: {
+    signal: { signal: "BUY", strength: 60, confluence: 7, votes: { buy: 8, sell: 2, neutral: 10 } },
+    risk: { entry: 100, stopLoss: 97.6, takeProfit1: 103.6, takeProfit2: 106, takeProfit3: 109, distSL: 2.4, rr1: 1.5 },
+    explanation: { summary: "" },
+    indicators: [
+      { name: "RSI 14", category: "Momentum", vote: "NEUTRAL", value: 55 },
+      { name: "EMA 20", category: "Tendência", vote: "BUY", value: 99.2 },
+      { name: "ADX 14", category: "Tendência", vote: "BUY", value: 28 },
+    ],
+    meta: { asset: "BTCUSDT", assetType: "crypto", timeframe: "4h", regime: "trending", adxValue: 28, atrRatio: 0.02 },
+  },
+  atr: 2,
+  volumeProfile: { poc: 100.5, vah: 103, val: 99 },
+  smc: {
+    bias: "bullish", marketStructure: "bullish_bos",
+    orderBlocks: [{ type: "bullish", zoneTop: 97, zoneBottom: 96 }],
+    liquidityZones: [{ type: "sell_stops_below", level: 99.7, swept: false }],
+    fvgs: [],
+  },
+} as unknown as FullAnalysis;
+
+type EvoDeathKind = "ruina" | "expectancia" | "letargia";
+
+/**
+ * Ciclo de vida darwiniano (2.0) — roda 1× por execução do cron, ANTES das emissões:
  * 1) semeia a geração 1 se a tabela estiver vazia;
- * 2) para cada slot, calcula a banca do núcleo VIGENTE (sinais desde born_at);
- * 3) banca quebrou (deaths>0) → CRUZA o núcleo morto com o do outro slot e
- *    renasce como geração+1 (mutação). Falha no cruzamento → renasce igual.
- * Best-effort: sem tabela (antes da migration 0015) devolve [] e nada quebra.
+ * 2) SNAPSHOT imutável dos núcleos vigentes (achado 26, fix de bug): o parceiro
+ *    de cruzamento é sempre o núcleo do INÍCIO do cron — se os dois slots morrem
+ *    no mesmo cron, o segundo NÃO cruza com o filho recém-nascido do primeiro;
+ * 3) para cada slot, calcula a banca do núcleo VIGENTE (sinais desde born_at) e
+ *    grava a telemetria de fitness (colunas da migration 0018; best-effort);
+ * 4) MORTE (achados 25+28) — só por evento, nunca por falta de prova de edge:
+ *    a) LETARGIA: > 14 dias de vida E < 3 sinais direcionais EMITIDOS → o
+ *       contexto manda AFROUXAR UM filtro (neutraliza o "em dúvida, neutro");
+ *    b) RUÍNA com amostra: banca quebrou E n ≥ 20 trades resolvidos desde
+ *       born_at (o comprimento do replay — banca quebrada com n < 20 fica
+ *       "em observação", derivado na leitura, sem estado novo persistido);
+ *    c) EXPECTÂNCIA: upper bound 90% (média + 1.28σ/√n) < 0 com n ≥ 20.
+ * 5) morte → autópsias agregadas EM CÓDIGO no deathContext (achado 27) →
+ *    cruzamento → validação em 2 camadas do filho (achado 30: gate duro
+ *    determinístico + smoke test; rejeição observável no `parents`) →
+ *    histórico da linhagem (INSERT em evo_engines_history ANTES do UPDATE,
+ *    achado 29) + recorde best_core/best_expectancy (elitismo PASSIVO — a
+ *    ressurreição fica desligada por design até haver amostra).
+ * Best-effort: sem tabela (antes da migration 0015) devolve [] e nada quebra;
+ * sem as colunas/tabela da 0018, os passos novos falham silenciosos e o ciclo
+ * clássico segue.
  */
 export async function prepareEvoSlots(): Promise<EvoSlot[]> {
   const sb = supabaseService();
@@ -485,19 +603,115 @@ export async function prepareEvoSlots(): Promise<EvoSlot[]> {
       data = ins.data ?? [];
     }
     const rows = (data ?? []) as (EvoSlot & { deaths: number })[];
+    // SNAPSHOT imutável (achado 26): 'other' vem daqui, nunca do row mutado no loop.
+    const originals = rows.map((r) => ({ slot: r.slot, core: r.core }));
+    const nowMs = Date.now();
     for (const s of rows) {
       const bank = await fetchBank(s.slot, s.born_at);
-      if (!bank || bank.deaths === 0) continue; // núcleo vivo
-      const other = rows.find((o) => o.slot !== s.slot);
-      const deathCtx = `Pior queda ${bank.maxDrawdownPct}% do pico; últimos trades: ${bank.lastResults.join("") || "—"}; ${bank.lifeTrades} trades na vida final.`;
+      const n = bank?.resolved ?? 0;
+      const bounds = bank ? fitnessBounds(bank) : null;
+      // Telemetria de fitness a cada cron (achado 25; colunas da migration 0018 —
+      // sem elas o update falha silencioso e nada quebra).
+      try {
+        await sb.from("evo_engines").update({
+          life_resolved: n,
+          life_mean_r: bank ? round4(bank.meanR) : null,
+          life_std_r: bank ? round4(bank.stdR) : null,
+          fitness_lb_r: bounds ? round4(bounds.lb) : null,
+          fitness_ub_r: bounds ? round4(bounds.ub) : null,
+          fitness_at: new Date().toISOString(),
+        }).eq("slot", s.slot);
+      } catch { /* pré-migration 0018 */ }
+
+      // ---- Decisão de MORTE (regra única, parâmetros fixados a priori) ----
+      let kind: EvoDeathKind | null = null;
+      let baseCtx = "";
+      const ageDays = (nowMs - Date.parse(s.born_at)) / 86_400_000;
+      if (Number.isFinite(ageDays) && ageDays > EVO_LETHARGY_DAYS) {
+        // ANTES do check de banca: o caso exato de letargia (0 trades) tem bank=null.
+        const emitted = await countEmittedSince(sb, s.slot, s.born_at);
+        if (emitted != null && emitted < EVO_LETHARGY_MIN_EMITTED) {
+          kind = "letargia";
+          baseCtx = [
+            `MORTE POR LETARGIA: este núcleo morreu por NÃO operar — emitiu apenas ${emitted} sinal(is) direcional(is) em ${Math.floor(ageDays)} dias de vida.`,
+            "IGNORE nesta mutação a regra 'em dúvida, mande ser neutro': AFROUXE UM filtro específico que causou a inatividade (identifique qual exigência é restritiva demais) e NÃO adicione nenhum filtro novo.",
+          ].join("\n");
+        }
+      }
+      if (!kind && bank && n >= EVO_MIN_TRADES) {
+        if (bank.deaths > 0) {
+          kind = "ruina";
+          baseCtx = `Banca quebrou. Pior queda ${bank.maxDrawdownPct}% do pico; últimos trades: ${bank.lastResults.join("") || "—"}; ${bank.lifeTrades} trades na vida final; ${n} trades resolvidos no total do núcleo (expectância média ${round4(bank.meanR)}R).`;
+        } else if (bounds && bounds.ub < 0) {
+          kind = "expectancia";
+          baseCtx = `Expectância NEGATIVA com evidência estatística: média ${round4(bank.meanR)}R por trade em ${n} resolvidos (banda 90%: ${round4(bounds.lb)}R a ${round4(bounds.ub)}R — o teto da banda é negativo). A banca não quebrou, mas a estratégia perde no agregado.`;
+        }
+      }
+      // Vivo — banca quebrada com n<20 fica "em observação" (derivado do próprio
+      // (n, fitness) na leitura; nenhum estado novo persistido).
+      if (!kind) continue;
+
+      const other = originals.find((o) => o.slot !== s.slot);
+      // Autópsias agregadas (achado 27) — best-effort: falhou → deathCtx básico
+      // (o breeding acontece como antes em vez de o slot pular a geração).
+      let deathCtx = baseCtx;
+      if (kind !== "letargia") {
+        try {
+          const agg = await evoAutopsyContext(sb, s.slot, s.born_at);
+          if (agg) deathCtx = `${baseCtx}\n${agg}`;
+        } catch { /* segue com o contexto básico */ }
+      }
+
       const child = await breedEvoCore(s.core, other?.core ?? s.core, s.provider, deathCtx);
-      const core = child && child.length > 40 ? child.slice(0, 2000) : s.core; // cruzamento falhou → renasce igual
+      // Validação em 2 camadas (achado 30). Rejeição → renasce com o PAI, com o
+      // motivo observável no `parents` (senão a evolução clona o pai em silêncio).
+      let core = s.core;
+      let rejected: string | null = null;
+      if (child != null) {
+        const v = validateEvoCore(child);
+        if (!v.ok) {
+          rejected = `formato:${v.reason}`;
+        } else {
+          const smoke = await generateEvoDecision(v.core, s.provider, EVO_SMOKE_DTO, "crypto", {}, null);
+          if (!smoke) rejected = "smoke";
+          else core = v.core;
+        }
+      }
+
       const nowIso = new Date().toISOString();
+      // ARQUIVO da linhagem (achado 29): INSERT do núcleo que MORREU antes do
+      // UPDATE, ignorando erro (o UPDATE nunca fica condicionado ao histórico).
+      try {
+        await sb.from("evo_engines_history").insert({
+          slot: s.slot, generation: s.generation, core: s.core,
+          born_at: s.born_at, died_at: nowIso,
+          life_trades: n,
+          expectancy_r: bank ? round4(bank.meanR) : null,
+          max_dd_pct: bank?.maxDrawdownPct ?? null,
+          death_context: `[${kind}] ${deathCtx}`.slice(0, 4000),
+        });
+      } catch { /* pré-migration 0018 */ }
+      // ELITISMO PASSIVO (achado 29): registra o recorde da linhagem com amostra
+      // mínima; a ressurreição automática fica DESLIGADA por design.
+      if (bank && n >= EVO_BEST_MIN_TRADES) {
+        try {
+          const cur = await sb.from("evo_engines").select("best_expectancy").eq("slot", s.slot).maybeSingle();
+          if (!cur.error) {
+            const best = (cur.data as { best_expectancy: number | null } | null)?.best_expectancy;
+            if (best == null || bank.meanR > Number(best)) {
+              await sb.from("evo_engines").update({
+                best_core: s.core, best_expectancy: round4(bank.meanR), best_generation: s.generation,
+              }).eq("slot", s.slot);
+            }
+          }
+        } catch { /* pré-migration 0018 */ }
+      }
       await sb.from("evo_engines").update({
         core, generation: s.generation + 1, deaths: s.deaths + 1,
-        parents: `g${s.generation} × ${other?.slot ?? "clone"}`, born_at: nowIso, updated_at: nowIso,
+        parents: `g${s.generation} × ${other?.slot ?? "clone"} [${kind}]${rejected ? ` [filho rejeitado: ${rejected}]` : ""}`,
+        born_at: nowIso, updated_at: nowIso,
       }).eq("slot", s.slot);
-      s.core = core; s.generation += 1; s.born_at = nowIso;
+      s.core = core; s.generation += 1; s.born_at = nowIso; s.deaths += 1;
     }
     return rows.map(({ slot, provider, core, generation, born_at }) => ({ slot, provider, core, generation, born_at }));
   } catch {

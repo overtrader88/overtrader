@@ -14,7 +14,11 @@ export const RISK_STRONG = 0.10; // 10% se convicção alta (direção STRONG_*)
 export const survFraction = (direction: string): number =>
   /^STRONG/.test(direction) ? RISK_STRONG : RISK_NORMAL;
 
-/** Estado da banca após o replay dos trades resolvidos (ordem cronológica). */
+/** Estado da banca após o replay dos trades resolvidos (ordem cronológica).
+ *  Campos de FITNESS (achado 25, Darwin 2.0) são ADITIVOS — os motores *_surv
+ *  que só leem os campos originais seguem intocados. `resolved`/`meanR`/`stdR`
+ *  cobrem TODOS os trades do replay (todas as vidas desde o recorte), incluindo
+ *  EXPIRED (pnlR=0) — excluí-los inflaria a expectância aparente. */
 export interface BankState {
   equity: number;          // capital atual da vida corrente (unidades; start=100)
   peak: number;            // pico da vida corrente
@@ -23,6 +27,24 @@ export interface BankState {
   lifeTrades: number;      // trades da vida corrente
   maxDrawdownPct: number;  // pior queda pico→vale (%) dentro de uma vida
   lastResults: ("G" | "P" | "0")[]; // últimos 5 desfechos (Ganho/Perda/neutro)
+  resolved: number;        // nº TOTAL de trades do replay (todas as vidas)
+  meanR: number;           // expectância média em R (0 sem trades)
+  stdR: number;            // desvio-padrão AMOSTRAL do R (0 com n<2)
+}
+
+/** z de 90% (unicaudal) — FIXADO a priori junto com n=20 (achado 25): mexer
+ *  nesses valores depois de olhar resultados é overfit. */
+export const FITNESS_Z90 = 1.28;
+/** n mínimo de trades resolvidos desde born_at para um núcleo evo poder morrer. */
+export const EVO_MIN_TRADES = 20;
+
+/** Bandas de 90% da expectância (média ± z·σ/√n). `null` sem trades.
+ *  Morte estatística (Darwin 2.0): upper bound < 0 com n ≥ EVO_MIN_TRADES —
+ *  morre por evidência de expectância NEGATIVA, nunca por falta de prova de edge. */
+export function fitnessBounds(bank: Pick<BankState, "resolved" | "meanR" | "stdR">): { lb: number; ub: number } | null {
+  if (bank.resolved <= 0) return null;
+  const se = bank.stdR / Math.sqrt(bank.resolved);
+  return { lb: bank.meanR - FITNESS_Z90 * se, ub: bank.meanR + FITNESS_Z90 * se };
 }
 
 // ===================== HEAT DE CARTEIRA (diagnóstico — achado 9, camada 1) =====================
@@ -113,10 +135,13 @@ export function computeHeat(positions: HeatInterval[]): HeatState {
 export function replayBank(trades: { pnlR: number; direction: string }[]): BankState {
   let equity = SURV_START, peak = SURV_START, maxDD = 0;
   let lives = 1, deaths = 0, lifeTrades = 0;
+  let sumR = 0, sumR2 = 0;
   const last: ("G" | "P" | "0")[] = [];
   for (const t of trades) {
     equity = equity * (1 + t.pnlR * survFraction(t.direction));
     lifeTrades++;
+    sumR += t.pnlR;
+    sumR2 += t.pnlR * t.pnlR;
     last.push(t.pnlR > 0 ? "G" : t.pnlR < 0 ? "P" : "0");
     if (last.length > 5) last.shift();
     if (equity <= SURV_FLOOR) {
@@ -127,5 +152,9 @@ export function replayBank(trades: { pnlR: number; direction: string }[]): BankS
       maxDD = Math.max(maxDD, (peak - equity) / peak);
     }
   }
-  return { equity, peak, lives, deaths, lifeTrades, maxDrawdownPct: Math.round(maxDD * 100), lastResults: last };
+  const n = trades.length;
+  const meanR = n > 0 ? sumR / n : 0;
+  // desvio-padrão AMOSTRAL (n−1); variância negativa por float noise → 0
+  const stdR = n >= 2 ? Math.sqrt(Math.max(0, (sumR2 - n * meanR * meanR) / (n - 1))) : 0;
+  return { equity, peak, lives, deaths, lifeTrades, maxDrawdownPct: Math.round(maxDD * 100), lastResults: last, resolved: n, meanR, stdR };
 }

@@ -107,6 +107,15 @@ export interface ClosedOpRow {
   autopsy?: string | null;
 }
 
+/** Geração MORTA da linhagem evo (arquivo evo_engines_history, migration 0018). */
+export interface EvoGeneration {
+  generation: number;
+  diedAt: string;
+  lifeTrades: number | null;
+  expectancyR: number | null;
+  deathContext: string | null;
+}
+
 /** Slot da EVOLUÇÃO darwiniana (núcleo vigente + linhagem). */
 export interface EvoInfo {
   slot: string;
@@ -116,6 +125,18 @@ export interface EvoInfo {
   deaths: number;
   parents: string | null;
   bornAt: string;
+  /** Fitness AO VIVO da vida do núcleo (replay dos resolvidos desde born_at). */
+  lifeResolved: number;
+  lifeMeanR: number | null;
+  /** Upper bound 90% da expectância (média + 1.28σ/√n) — morte se < 0 com n ≥ 20. */
+  fitnessUbR: number | null;
+  /** Darwin 2.0: banca quebrou mas n < 20 — morte adiada até amostra suficiente. */
+  observing: boolean;
+  /** Elitismo passivo (migration 0018): recorde da linhagem. null pré-migration. */
+  bestExpectancy: number | null;
+  bestGeneration: number | null;
+  /** Gerações mortas (mais recentes primeiro). null pré-migration 0018. */
+  history: EvoGeneration[] | null;
 }
 
 /** Mesmas métricas por motor, recortadas por uma classe de ativo (filtro do ranking). */

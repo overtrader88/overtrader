@@ -1171,16 +1171,19 @@ function VsCompare({ engines }: { engines: EngineStat[] }) {
 
 /**
  * 🧬 EVOLUÇÃO — os núcleos vigentes dos motores darwinianos: geração, mortes,
- * cruzamento de origem e o texto da estratégia (auditável — o núcleo evolui,
- * o contrato de saída é fixo no código).
+ * fitness da vida (Darwin 2.0: morte só com n≥20 — ruína OU teto da banda 90%
+ * da expectância < 0 — ou por letargia; banca quebrada com n<20 = "em
+ * observação"), recorde da linhagem (elitismo passivo) e o arquivo de gerações
+ * mortas (evo_engines_history). O núcleo evolui, o contrato de saída é fixo.
  */
 function EvoCard({ evo }: { evo: EvoInfo[] | null }) {
   if (!evo?.length) return null;
   const MUTED = "#aebccd";
+  const r2 = (x: number) => (Math.round(x * 100) / 100).toFixed(2);
   return (
     <div style={{ border: "1px solid var(--line-2)", borderRadius: 14, padding: "15px 18px", marginBottom: 18, background: `linear-gradient(135deg, color-mix(in srgb, ${ENGINE_COLOR.evo_gpt} 7%, transparent), color-mix(in srgb, ${ENGINE_COLOR.evo_ds} 9%, transparent))` }}>
       <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 10 }}>
-        🧬 Evolução darwiniana · o núcleo que quebra a banca morre e é cruzado
+        🧬 Evolução darwiniana · morte com n≥20 (ruína ou expectância negativa) ou letargia · cruzamento com autópsias
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         {evo.map((e) => (
@@ -1189,15 +1192,41 @@ function EvoCard({ evo }: { evo: EvoInfo[] | null }) {
               <EngineDot id={e.slot} />
               <b style={{ fontSize: "0.84rem" }}><EngineName id={e.slot} text={ENGINE_TAG[e.slot] ?? e.slot} /></b>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", color: "#e8edf5", background: "rgba(132,204,22,.14)", border: "1px solid rgba(132,204,22,.3)", borderRadius: 999, padding: "2px 8px" }}>geração {e.generation}</span>
+              {e.observing && (
+                <span title="A banca da vida quebrou, mas n < 20 trades resolvidos: a morte espera amostra suficiente (Darwin 2.0)." style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", color: "#0a0e15", background: "#eab308", borderRadius: 999, padding: "2px 8px", fontWeight: 700 }}>em observação</span>
+              )}
               {e.deaths > 0 ? <span style={{ fontSize: "0.66rem", color: "var(--bear,#dc2626)", fontWeight: 700 }}>{e.deaths}✝ na linhagem</span> : <span style={{ fontSize: "0.66rem", color: MUTED }}>linhagem sem mortes</span>}
             </div>
-            <div style={{ fontSize: "0.66rem", color: MUTED, marginBottom: 8, fontFamily: "var(--font-mono)" }}>
+            <div style={{ fontSize: "0.66rem", color: MUTED, marginBottom: 4, fontFamily: "var(--font-mono)" }}>
               nasceu {new Date(e.bornAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}{e.parents ? ` · origem: ${e.parents}` : ""}
+            </div>
+            <div style={{ fontSize: "0.66rem", color: MUTED, marginBottom: 8, fontFamily: "var(--font-mono)" }}>
+              vida: {e.lifeResolved} resolvidos
+              {e.lifeMeanR != null ? <> · expectância <b style={{ color: e.lifeMeanR >= 0 ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{r2(e.lifeMeanR)}R</b></> : null}
+              {e.fitnessUbR != null ? <> · teto 90% {r2(e.fitnessUbR)}R</> : null}
+              {e.bestExpectancy != null ? <> · 🏆 recorde g{e.bestGeneration ?? "?"}: {r2(e.bestExpectancy)}R</> : null}
             </div>
             <details>
               <summary style={{ cursor: "pointer", fontSize: "0.72rem", color: "var(--cyan,#54a8ff)" }}>ver núcleo da estratégia</summary>
               <pre style={{ margin: "8px 0 0", whiteSpace: "pre-wrap", fontSize: "0.7rem", lineHeight: 1.5, color: "#cdd8e6", fontFamily: "var(--font-mono)", background: "rgba(0,0,0,.25)", borderRadius: 8, padding: "10px 12px" }}>{e.core}</pre>
             </details>
+            {e.history && e.history.length > 0 && (
+              <details style={{ marginTop: 6 }}>
+                <summary style={{ cursor: "pointer", fontSize: "0.72rem", color: "var(--cyan,#54a8ff)" }}>linhagem ({e.history.length} geração(ões) morta(s))</summary>
+                <div style={{ margin: "8px 0 0", display: "grid", gap: 6 }}>
+                  {e.history.map((h) => (
+                    <div key={`${h.generation}-${h.diedAt}`} style={{ fontSize: "0.68rem", fontFamily: "var(--font-mono)", color: "#cdd8e6", background: "rgba(0,0,0,.25)", borderRadius: 8, padding: "8px 10px" }}>
+                      <div style={{ marginBottom: 2 }}>
+                        <b>g{h.generation}</b> ✝ {new Date(h.diedAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        {h.lifeTrades != null ? ` · ${h.lifeTrades} trades` : ""}
+                        {h.expectancyR != null ? ` · ${r2(h.expectancyR)}R/trade` : ""}
+                      </div>
+                      {h.deathContext ? <div style={{ color: MUTED, whiteSpace: "pre-wrap" }}>{h.deathContext.length > 280 ? `${h.deathContext.slice(0, 280)}…` : h.deathContext}</div> : null}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         ))}
       </div>

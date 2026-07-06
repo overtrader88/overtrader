@@ -556,6 +556,53 @@ export function generateEvoDecision(core: string, provider: "gpt" | "ds", dto: F
   return runLlmDecision(p, dto, assetType, extras, system, facts);
 }
 
+/** Resultado da validação DETERMINÍSTICA de um núcleo-filho (achado 30, camada a). */
+export type EvoCoreValidation = { ok: true; core: string } | { ok: false; reason: "vazio" | "curto" | "cabecalho" | "linhas" | "blacklist" };
+
+/** Termos proibidos num núcleo PÚBLICO (RLS de leitura pública): promessa de
+ *  retorno/lucro/garantia e instruções de formato de saída (o contrato fixo é
+ *  quem manda no formato). "lucro" sozinho é legítimo ("capital antes do lucro")
+ *  — só bloqueia acompanhado de promessa/percentual. */
+const EVO_CORE_BLACKLIST: RegExp[] = [
+  // promessa de resultado: garante/promete perto de lucro/retorno/ganho/acerto
+  // (não bloqueia "garanta confluência de 3 pilares" — uso legítimo em filtros)
+  /(garant|promet)\w*[^.\n]{0,60}(lucro|retorno|ganho|resultado|acert)/i,
+  /(lucro|retorno|ganho|resultado)[^.\n]{0,60}(garant|promet)\w*/i,
+  /\d+\s*%[^.\n]{0,40}(retorno|lucro|ganho)/i,   // "20% de retorno/lucro/ganho"
+  /(retorno|lucro|ganho)[^.\n]{0,40}\d+\s*%/i,   // "retorno de 20%"
+  /dobr\w*\s+(a\s+)?(banca|capital|conta)/i,     // "dobra a banca"
+  /\bjson\b/i,                                   // instrução de formato de saída
+  /\bresponda\b/i,
+  /\bformato\b/i,
+];
+
+/**
+ * Validação em DUAS camadas do núcleo-filho (achado 30) — esta é a camada (a),
+ * PURA e determinística (gate duro): normaliza (trim, fences markdown, aspas
+ * envolventes, slice 0-2000 ANTES de validar), exige cabeçalho 'ESTRATÉGIA-NÚCLEO',
+ * 3-8 linhas não-vazias (o breed pede 3-6; quebras extras são comuns), ≥40 chars
+ * e blacklist reputacional. A camada (b) — smoke test com generateEvoDecision
+ * sobre um dto-fixture — vive no chamador (prepareEvoSlots), porque envolve rede.
+ * Só valida FILHOS de breedEvoCore; nunca os EVO_SEED_CORES.
+ */
+export function validateEvoCore(raw: string | null | undefined): EvoCoreValidation {
+  if (!raw) return { ok: false, reason: "vazio" };
+  let core = raw.trim();
+  // fences markdown (```texto ... ```) e aspas envolventes que LLMs adoram adicionar
+  core = core.replace(/^```[a-zA-Z]*\s*/, "").replace(/\s*```\s*$/, "").trim();
+  if ((core.startsWith('"') && core.endsWith('"')) || (core.startsWith("'") && core.endsWith("'"))) {
+    core = core.slice(1, -1).trim();
+  }
+  core = core.slice(0, 2000).trim();
+  if (core.length === 0) return { ok: false, reason: "vazio" };
+  if (core.length < 40) return { ok: false, reason: "curto" };
+  if (!/^estrat[ée]gia-n[úu]cleo/i.test(core)) return { ok: false, reason: "cabecalho" };
+  const lines = core.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 3 || lines.length > 8) return { ok: false, reason: "linhas" };
+  for (const re of EVO_CORE_BLACKLIST) if (re.test(core)) return { ok: false, reason: "blacklist" };
+  return { ok: true, core };
+}
+
 /** CRUZAMENTO: gera o núcleo-filho a partir de dois núcleos-pais (com mutação).
  *  Chamado quando a banca do núcleo atual QUEBRA. `null` em falha (mantém o pai). */
 export function breedEvoCore(parentA: string, parentB: string, provider: "gpt" | "ds", deathContext: string): Promise<string | null> {

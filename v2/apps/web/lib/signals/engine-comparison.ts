@@ -34,7 +34,7 @@ const ASSET_PT: Record<string, string> = {
 const isWin = (o: SignalOutcome) => o === "TP1" || o === "TP2" || o === "TP3";
 
 // ===== RINGUE DE SOBREVIVÊNCIA — regras da banca em lib/signals/survival.ts (fonte única) =====
-import { SURV_START, SURV_FLOOR, RISK_NORMAL, RISK_STRONG, survFraction, computeHeat } from "./survival";
+import { SURV_START, SURV_FLOOR, RISK_NORMAL, RISK_STRONG, survFraction, computeHeat, replayBank, fitnessBounds, EVO_MIN_TRADES } from "./survival";
 import { isHumanEngine, humanEngineLabel } from "./human";
 
 /** Competidores HUMANOS presentes nas linhas ("humano_<slug>", dinâmicos), ordenados. */
@@ -325,7 +325,54 @@ export async function getEngineComparison(): Promise<EngineComparison | null> {
     const { data: eData } = await sb.from("evo_engines").select("slot, provider, core, generation, deaths, parents, born_at").order("slot");
     if (eData?.length) {
       evo = (eData as { slot: string; provider: string; core: string; generation: number; deaths: number; parents: string | null; born_at: string }[])
-        .map((e) => ({ slot: e.slot, provider: e.provider, core: e.core, generation: e.generation, deaths: e.deaths, parents: e.parents, bornAt: e.born_at }));
+        .map((e) => {
+          // Fitness AO VIVO da vida do núcleo (Darwin 2.0, achado 25): replay dos
+          // resolvidos desde born_at — mesma matemática do cron, sem depender da
+          // migration 0018. "Em observação" = banca quebrou mas n < 20 (a morte
+          // espera amostra; estado DERIVADO, nunca persistido).
+          const bornMs = Date.parse(e.born_at);
+          const life = rows
+            .filter((r) => r.engine === e.slot && r.outcome != null && r.pnl_r != null && r.resolved_at
+              && Number.isFinite(bornMs) && Date.parse(r.emitted_at) >= bornMs)
+            .sort((a, b) => new Date(a.resolved_at!).getTime() - new Date(b.resolved_at!).getTime());
+          const bank = replayBank(life.map((r) => ({ pnlR: Number(r.pnl_r), direction: r.direction })));
+          const bounds = fitnessBounds(bank);
+          const r4 = (x: number) => Math.round(x * 1e4) / 1e4;
+          return {
+            slot: e.slot, provider: e.provider, core: e.core, generation: e.generation, deaths: e.deaths, parents: e.parents, bornAt: e.born_at,
+            lifeResolved: bank.resolved,
+            lifeMeanR: bank.resolved > 0 ? r4(bank.meanR) : null,
+            fitnessUbR: bounds ? r4(bounds.ub) : null,
+            observing: bank.deaths > 0 && bank.resolved < EVO_MIN_TRADES,
+            bestExpectancy: null, bestGeneration: null, history: null,
+          };
+        });
+      // Recordes (elitismo passivo) — colunas da migration 0018, best-effort.
+      try {
+        const { data: bData, error: bErr } = await sb.from("evo_engines").select("slot, best_expectancy, best_generation");
+        if (!bErr && bData) {
+          for (const b of bData as { slot: string; best_expectancy: number | null; best_generation: number | null }[]) {
+            const t = evo.find((v) => v.slot === b.slot);
+            if (t) { t.bestExpectancy = b.best_expectancy != null ? Number(b.best_expectancy) : null; t.bestGeneration = b.best_generation; }
+          }
+        }
+      } catch { /* pré-migration 0018 */ }
+      // Arquivo da linhagem (evo_engines_history) — best-effort.
+      try {
+        const { data: hData, error: hErr } = await sb.from("evo_engines_history")
+          .select("slot, generation, died_at, life_trades, expectancy_r, death_context")
+          .order("died_at", { ascending: false }).limit(12);
+        if (!hErr && hData) {
+          const hist = hData as { slot: string; generation: number; died_at: string; life_trades: number | null; expectancy_r: number | null; death_context: string | null }[];
+          for (const v of evo) {
+            v.history = hist.filter((h) => h.slot === v.slot).map((h) => ({
+              generation: h.generation, diedAt: h.died_at, lifeTrades: h.life_trades,
+              expectancyR: h.expectancy_r != null ? Number(h.expectancy_r) : null,
+              deathContext: h.death_context,
+            }));
+          }
+        }
+      } catch { /* pré-migration 0018 */ }
     }
   } catch { /* pré-migration */ }
 
