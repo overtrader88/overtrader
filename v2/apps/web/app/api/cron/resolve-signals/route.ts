@@ -7,6 +7,7 @@
  */
 import { NextResponse } from "next/server";
 import { resolveLifecycle, type SignalPlan } from "@tradeai/engine";
+import { TIMEFRAME_MS, isTimeframe } from "@tradeai/shared";
 import type { AssetType, Timeframe } from "@tradeai/shared";
 import { supabaseService } from "@/lib/supabase/server";
 import { getCandles, realProviders } from "@/lib/market/providers";
@@ -21,8 +22,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-/** Janela máxima (candles após a emissão) antes de marcar EXPIRED. */
-const MAX_DURATION = 60;
+/**
+ * Janela máxima (candles após a emissão) antes de marcar EXPIRED — POR TIMEFRAME
+ * (era -j2, achado 22): 60 candles fixos eram ~10 dias no 4h mas ~2-3 MESES no
+ * 1d, sequestrando o slot do dedup (1 aberto por mercado+motor) por trimestre.
+ * O mapa mantém a vida em tempo-calendário (~10 dias). Vale também pros sinais
+ * JÁ ABERTOS (regra operacional, não fitted): 1d com >25 candles decorridos será
+ * marcado EXPIRED na próxima rodada, marcado a mercado no close do candle 25 —
+ * efeito one-shot registrado no changelog/commit.
+ */
+const MAX_DURATION_BY_TF: Partial<Record<Timeframe, number>> = { "1h": 120, "4h": 60, "1d": 25, "1w": 12 };
+const DEFAULT_MAX_DURATION = 60;
 const FETCH_LIMIT = 400;
 
 interface SignalRow {
@@ -67,12 +77,20 @@ async function handle(req: Request): Promise<NextResponse> {
         providers, cache, cacheTtlSeconds: 300, minCandles: 30,
       });
       const emittedMs = Date.parse(s.emitted_at);
-      const future = candles.filter((c) => c.time > emittedMs);
+      // Inclui o candle DA EMISSÃO (era -j2, achado 20): `c.time` é o OPEN time e
+      // o cron emite segundos após a virada, então `> emittedMs` apagava as
+      // primeiras 4h (24h no 1d) do trade — stop varrido ou TP tocado nesse
+      // candle nunca contava. `> emittedMs - tfMs` inclui o candle cujo intervalo
+      // contém a emissão, com regras SIMÉTRICAS (stop E alvo contam). Resíduo
+      // conservador: o trecho open→emissão do próprio candle entra no julgamento.
+      const tfMs = isTimeframe(s.timeframe) ? TIMEFRAME_MS[s.timeframe] : 0;
+      const future = candles.filter((c) => c.time > emittedMs - tfMs);
       const plan: SignalPlan = {
         side: s.side === "sell" ? "sell" : "buy",
         entry: s.entry, stopLoss: s.stop_loss, takeProfit1: s.tp1, takeProfit2: s.tp2, takeProfit3: s.tp3,
       };
-      const res = resolveLifecycle(plan, future, MAX_DURATION);
+      const maxDuration = (isTimeframe(s.timeframe) ? MAX_DURATION_BY_TF[s.timeframe] : undefined) ?? DEFAULT_MAX_DURATION;
+      const res = resolveLifecycle(plan, future, maxDuration);
       // Progresso do ciclo de vida (gravado mesmo em abertos, p/ a vitrine ao vivo).
       const lifecycle = {
         tp1_hit: res.tp1Hit, tp2_hit: res.tp2Hit, tp3_hit: res.tp3Hit,
