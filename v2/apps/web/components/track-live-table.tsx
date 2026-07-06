@@ -16,7 +16,7 @@ export interface LiveItem {
   emittedAt: string | null;
 }
 
-const ENGINE_SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "GPT", llm_ds: "DeepSeek", llm_surv: "Sobrev·GPT", llm_ds_surv: "Sobrev·DS", llm_vsf: "VSF·GPT", llm_ds_vsf: "VSF·DS", llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS", evo_gpt: "Evo·GPT", evo_ds: "Evo·DS", condicional: "Cond", contrario: "Contra", consenso: "Cons" };
+const ENGINE_SHORT: Record<string, string> = { padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "GPT", llm_ds: "DeepSeek", llm_cot: "CoT·GPT", llm_surv: "Sobrev·GPT", llm_ds_surv: "Sobrev·DS", llm_vsf: "VSF·GPT", llm_ds_vsf: "VSF·DS", llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS", evo_gpt: "Evo·GPT", evo_ds: "Evo·DS", condicional: "Cond", contrario: "Contra", consenso: "Cons" };
 const STOP_PT: Record<string, { label: string; tone: "init" | "be" | "tp1" }> = {
   initial: { label: "stop inicial", tone: "init" },
   breakeven: { label: "stop no breakeven · risco zerado", tone: "be" },

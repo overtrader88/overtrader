@@ -16,6 +16,7 @@ const ENGINE_TABS: { key: string; label: string; filter?: EngineFilter; tm?: boo
   { key: "classe_b", label: "Classe-B", filter: "classe_b", tm: true, experimental: true, group: "ab" },
   { key: "llm", label: "LLM · GPT-4.1", filter: "llm", tm: true, beta: true, experimental: true, group: "ia" },
   { key: "llm_ds", label: "LLM · DeepSeek", filter: "llm_ds", tm: true, beta: true, experimental: true, group: "ia" },
+  { key: "llm_cot", label: "LLM·CoT · GPT", filter: "llm_cot", tm: true, beta: true, experimental: true, group: "ia" },
   { key: "llm_surv", label: "Sobrev. · GPT", filter: "llm_surv", tm: true, beta: true, experimental: true, group: "ia" },
   { key: "llm_ds_surv", label: "Sobrev. · DeepSeek", filter: "llm_ds_surv", tm: true, beta: true, experimental: true, group: "ia" },
   { key: "llm_vsf", label: "Vol/S-R/Fib · GPT", filter: "llm_vsf", tm: true, beta: true, experimental: true, group: "ia" },
@@ -34,6 +35,7 @@ const GROUP_LABEL: Record<string, string> = { producao: "Produção", ab: "Varia
 /** Rótulo curto do motor — usado na tag por linha na visão consolidada. */
 const ENGINE_SHORT: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "GPT", llm_ds: "DeepSeek",
+  llm_cot: "CoT·GPT",
   llm_surv: "Sobrev·GPT", llm_ds_surv: "Sobrev·DS", llm_vsf: "VSF·GPT", llm_ds_vsf: "VSF·DS",
   llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS", evo_gpt: "Evo·GPT", evo_ds: "Evo·DS",
   condicional: "Cond", contrario: "Contra", consenso: "Cons",

@@ -145,6 +145,7 @@ const ENGINE_LABELS: Record<string, string> = {
   padrao: "Motor padrão", classe: "Motor por classe",
   padrao_b: "Padrão-B (ATR largo)", classe_b: "Classe-B (convicção alta)",
   llm: "Motor LLM · GPT-4.1 (decisão da IA)", llm_ds: "Motor LLM · DeepSeek V4-Pro",
+  llm_cot: "Motor LLM·CoT · GPT-4.1 (análise antes da decisão)",
   llm_surv: "Sobrevivência · GPT (capital finito)", llm_ds_surv: "Sobrevivência · DeepSeek (capital finito)",
   llm_vsf: "Vol/S-R/Fib · GPT", llm_ds_vsf: "Vol/S-R/Fib · DeepSeek",
   llm_vsf_surv: "Vol/S-R/Fib+Sobrev · GPT", llm_ds_vsf_surv: "Vol/S-R/Fib+Sobrev · DeepSeek",
@@ -152,7 +153,7 @@ const ENGINE_LABELS: Record<string, string> = {
   condicional: "Condicional (lógica por regime)", contrario: "Contrário (controle — inverso do padrão)",
   consenso: "Consenso (padrão ∩ classe)",
 };
-const ENGINE_IDS = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds", "condicional", "contrario", "consenso"] as const;
+const ENGINE_IDS = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_cot", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds", "condicional", "contrario", "consenso"] as const;
 const DAY = 86_400_000;
 
 /** Marca a mercado: R não-realizado de uma posição aberta dado o preço atual. */

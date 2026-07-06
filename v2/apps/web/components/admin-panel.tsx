@@ -624,21 +624,24 @@ function EquityChart({ equity, engineIds }: { equity: EquityPoint[]; engineIds: 
 
 /** Tabela de recorte (classe ou TF) × motor. */
 // Metadados de motor — fonte única (ordem + rótulo curto + tag com ícone p/ listas).
-const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds", "condicional", "contrario", "consenso"] as const;
+const ENGINE_ORDER = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_cot", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds", "condicional", "contrario", "consenso"] as const;
 const ENGINE_LABEL: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "Classe", classe_b: "Classe-B", llm: "GPT-4.1", llm_ds: "DeepSeek",
+  llm_cot: "CoT·GPT",
   llm_surv: "Sobrev·GPT", llm_ds_surv: "Sobrev·DS", llm_vsf: "VSF·GPT", llm_ds_vsf: "VSF·DS",
   llm_vsf_surv: "VSF+S·GPT", llm_ds_vsf_surv: "VSF+S·DS", evo_gpt: "Evo·GPT", evo_ds: "Evo·DS",
   condicional: "Condicional", contrario: "Contrário", consenso: "Consenso",
 };
 const ENGINE_TAG: Record<string, string> = {
   padrao: "Padrão", padrao_b: "Padrão-B", classe: "⚙ Classe", classe_b: "⚙ Classe-B", llm: "🤖 GPT-4.1", llm_ds: "🐋 DeepSeek",
+  llm_cot: "🧠 CoT·GPT",
   llm_surv: "🛡 Sobrev·GPT", llm_ds_surv: "🛡 Sobrev·DS", llm_vsf: "📊 VSF·GPT", llm_ds_vsf: "📊 VSF·DS",
   llm_vsf_surv: "📊🛡 VSF+S·GPT", llm_ds_vsf_surv: "📊🛡 VSF+S·DS", evo_gpt: "🧬 Evo·GPT", evo_ds: "🧬 Evo·DS",
   condicional: "⚡ Condicional", contrario: "🔁 Contrário", consenso: "🤝 Consenso",
 };
 const ENGINE_COLOR: Record<string, string> = {
   padrao: "#2563eb", padrao_b: "#0ea5e9", classe: "#9333ea", classe_b: "#c026d3", llm: "#f59e0b", llm_ds: "#a78bfa",
+  llm_cot: "#d97706",
   llm_surv: "#f97316", llm_ds_surv: "#c084fc", llm_vsf: "#14b8a6", llm_ds_vsf: "#ec4899",
   llm_vsf_surv: "#0d9488", llm_ds_vsf_surv: "#db2777", evo_gpt: "#84cc16", evo_ds: "#e879f9",
   condicional: "#22c55e", contrario: "#94a3b8", consenso: "#06b6d4",
@@ -653,7 +656,7 @@ const EngineDot = ({ id }: { id: string }) => (
   <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: engineColor(id), flex: "none" }} aria-hidden />
 );
 /** Motores baseados em LLM (IA) — o nome deles aparece em AMARELO na aba Motores. */
-const LLM_ENGINES = new Set(["llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds"]);
+const LLM_ENGINES = new Set(["llm", "llm_ds", "llm_cot", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds"]);
 const isLlmEngine = (id: string) => LLM_ENGINES.has(id);
 /** Nome do motor — amarelo quando é LLM, rosa quando é competidor humano. */
 const EngineName = ({ id, text }: { id: string; text: string }) => (

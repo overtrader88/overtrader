@@ -39,9 +39,9 @@ export interface LiveSignal {
 }
 
 /** `humano_<slug>` = competidor HUMANO (desafio Humanos vs Máquinas) — dinâmico, sem registry estático. */
-export type EngineFilter = "padrao" | "padrao_b" | "classe" | "classe_b" | "llm" | "llm_ds" | "llm_surv" | "llm_ds_surv" | "llm_vsf" | "llm_ds_vsf" | "llm_vsf_surv" | "llm_ds_vsf_surv" | "evo_gpt" | "evo_ds" | "condicional" | "contrario" | "consenso" | `humano_${string}`;
+export type EngineFilter = "padrao" | "padrao_b" | "classe" | "classe_b" | "llm" | "llm_ds" | "llm_cot" | "llm_surv" | "llm_ds_surv" | "llm_vsf" | "llm_ds_vsf" | "llm_vsf_surv" | "llm_ds_vsf_surv" | "evo_gpt" | "evo_ds" | "condicional" | "contrario" | "consenso" | `humano_${string}`;
 /** Todos os motores estáticos — a visão consolidada ("Todos") soma estes + os humanos (humano_*). */
-const ALL_ENGINES = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds", "condicional", "contrario", "consenso"];
+const ALL_ENGINES = ["padrao", "padrao_b", "classe", "classe_b", "llm", "llm_ds", "llm_cot", "llm_surv", "llm_ds_surv", "llm_vsf", "llm_ds_vsf", "llm_vsf_surv", "llm_ds_vsf_surv", "evo_gpt", "evo_ds", "condicional", "contrario", "consenso"];
 /** Filtro PostgREST da visão consolidada: motores estáticos OU prefixo humano_. */
 const ALL_ENGINES_OR = `engine.in.(${ALL_ENGINES.join(",")}),engine.like.humano_*`;
 

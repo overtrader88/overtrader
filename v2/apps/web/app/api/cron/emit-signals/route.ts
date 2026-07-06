@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { signalSide } from "@tradeai/shared";
 import { analyzeSymbol } from "@/lib/analysis/service";
-import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitLlmDsSignal, emitLlmSurvSignal, emitLlmDsSurvSignal, emitLlmVsfSignal, emitLlmDsVsfSignal, emitLlmVsfSurvSignal, emitLlmDsVsfSurvSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, emitEvoSignal, prepareEvoSlots, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
+import { emitSignal, emitClassSignal, emitSignalB, emitClassSignalB, emitLlmSignal, emitLlmDsSignal, emitLlmCotSignal, emitLlmSurvSignal, emitLlmDsSurvSignal, emitLlmVsfSignal, emitLlmDsVsfSignal, emitLlmVsfSurvSignal, emitLlmDsVsfSurvSignal, emitConditionalSignal, emitContrarianSignal, emitConsensusSignal, emitEvoSignal, prepareEvoSlots, type EmitReason, type ClassEmitReason } from "@/lib/signals/emit";
 import { loadServerExtras } from "@/lib/analysis/class-extras";
 import { TRACKED_MARKETS } from "@/lib/signals/tracked";
 import { marketState } from "@/lib/market/hours";
@@ -44,6 +44,7 @@ async function handle(req: Request): Promise<NextResponse> {
   let classeBEmitted = 0;
   let llmEmitted = 0;
   let llmDsEmitted = 0;
+  let llmCotEmitted = 0;
   let llmSurvEmitted = 0;
   let llmDsSurvEmitted = 0;
   let llmVsfEmitted = 0;
@@ -103,11 +104,12 @@ async function handle(req: Request): Promise<NextResponse> {
         if (b1.reason === "emitted") padraoBEmitted++;
         const b2 = await emitClassSignalB(dto, extras, m.symbol, m.assetType, m.timeframe);
         if (b2.reason === "emitted") classeBEmitted++;
-        // Os 8 motores LLM em PARALELO (decisões independentes entre si): com 12
+        // Os 9 motores LLM em PARALELO (decisões independentes entre si): com 12
         // mercados, sequencial estourava o maxDuration=300s da função na Vercel.
-        const [llm, llmDs, llmSurv, llmDsSurv, llmVsf, llmDsVsf, llmVsfSurv, llmDsVsfSurv] = await Promise.all([
+        const [llm, llmDs, llmCot, llmSurv, llmDsSurv, llmVsf, llmDsVsf, llmVsfSurv, llmDsVsfSurv] = await Promise.all([
           emitLlmSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
           emitLlmDsSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
+          emitLlmCotSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
           emitLlmSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
           emitLlmDsSurvSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
           emitLlmVsfSignal(dto, extras, m.symbol, m.assetType, m.timeframe),
@@ -117,6 +119,7 @@ async function handle(req: Request): Promise<NextResponse> {
         ]);
         if (llm.reason === "emitted") llmEmitted++;
         if (llmDs.reason === "emitted") llmDsEmitted++;
+        if (llmCot.reason === "emitted") llmCotEmitted++;
         if (llmSurv.reason === "emitted") llmSurvEmitted++;
         if (llmDsSurv.reason === "emitted") llmDsSurvEmitted++;
         if (llmVsf.reason === "emitted") llmVsfEmitted++;
@@ -140,7 +143,7 @@ async function handle(req: Request): Promise<NextResponse> {
       tally.error++;
     }
   }
-  return NextResponse.json({ markets: TRACKED_MARKETS.length, skippedMarkets, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, llmSurvEmitted, llmDsSurvEmitted, llmVsfEmitted, llmDsVsfEmitted, llmVsfSurvEmitted, llmDsVsfSurvEmitted, evoEmitted, evoGen: evoSlots.map((s) => `${s.slot}:g${s.generation}`), condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
+  return NextResponse.json({ markets: TRACKED_MARKETS.length, skippedMarkets, broadcast, classEmitted, padraoBEmitted, classeBEmitted, llmEmitted, llmDsEmitted, llmCotEmitted, llmSurvEmitted, llmDsSurvEmitted, llmVsfEmitted, llmDsVsfEmitted, llmVsfSurvEmitted, llmDsVsfSurvEmitted, evoEmitted, evoGen: evoSlots.map((s) => `${s.slot}:g${s.generation}`), condEmitted, invEmitted, consEmitted, motor1: tally, motor2: classTally });
 }
 
 export const GET = handle;
