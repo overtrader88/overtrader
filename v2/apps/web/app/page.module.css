@@ -90,9 +90,11 @@
 .navLinks a:hover { color: var(--ink); }
 .navCtas { display: flex; align-items: center; gap: 10px; }
 @media (max-width: 800px) {
-  /* nav âncora vira 2ª linha rolável (antes sumia sem substituto) */
-  .navRow { flex-wrap: wrap; row-gap: 6px; }
-  .navLinks { order: 3; flex-basis: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 20px; padding-bottom: 4px; white-space: nowrap; }
+  /* nav âncora vira 2ª linha rolável (antes sumia sem substituto).
+     height:auto é OBRIGATÓRIO: com os 68px fixos, as linhas embrulhadas
+     vazavam por cima do ticker (bug visto em produção no iPhone). */
+  .navRow { flex-wrap: wrap; row-gap: 8px; height: auto; min-height: 60px; padding: 10px 0; }
+  .navLinks { order: 3; flex-basis: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 20px; padding-bottom: 2px; white-space: nowrap; }
 }
 @media (max-width: 480px) { .navCtas .ghost { padding: 10px 12px; font-size: 12px; } .navCtas .primary { padding: 10px 14px; font-size: 12px; } }
 
