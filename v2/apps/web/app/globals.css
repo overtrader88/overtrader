@@ -2510,3 +2510,133 @@ h1.page-title,
 @media (max-width: 720px) {
   .analysis-page .cfg-grid.pos-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   MOBILE (auditoria 07/2026 — 40 achados, 5 lentes + verificação
+   por DOM em 375px). Bloco ADITIVO no fim do arquivo: vence na
+   cascata regras anteriores de mesma especificidade. Temas:
+   (a) inputs ≥16px no toque — iOS Safari força zoom com <16px;
+   (b) alvos de toque ≥42px nos controles críticos;
+   (c) grids fixos colapsando; (d) conteúdo que sumia no mobile.
+   ============================================================ */
+
+/* ---- iOS: todo campo focável ≥16px no mobile (achados 2,10,20,26,33,34) ---- */
+@media (max-width: 680px) {
+  .auth-page .field input,
+  .analysis-page .cfg-input, .analysis-page .cfg-select, .analysis-page .cfg-dd-search,
+  .analysis-page .pos-entry-input,
+  .war-council .wc-input,
+  .conta .cpw .field input,
+  .hist-page .search input, .wm-sel, .trk-perpage select, .lg-sort select,
+  .sim-input,
+  .admin input, .admin select {
+    font-size: 16px !important; /* !important: vence estilos inline do admin */
+  }
+}
+
+/* ---- auth: respiro no funil de cadastro (achado 1) ---- */
+@media (max-width: 480px) {
+  .auth-page { padding: 16px 12px; }
+  .auth-page .right { padding: 28px 20px; }
+}
+
+/* ---- /planos: toggle mensal×anual com alvo de verdade (achado 4) ---- */
+@media (max-width: 680px) {
+  .planos-page .toggle { gap: 6px; }
+  .planos-page .toggle button { min-height: 44px; padding: 11px 20px; }
+}
+/* preço anual efetivo legível (achado 6) */
+.plan .pp-yr { font-size: 12.5px; }
+
+/* ---- docpage (termos/privacidade): coluna de leitura (achado 8) ---- */
+@media (max-width: 560px) {
+  .docpage .legal-doc { padding: 22px 16px; border-radius: 14px; }
+}
+
+/* ---- /analise (achados 9,11,13,14,16) ---- */
+@media (max-width: 560px) {
+  .analysis-page .cone { overflow: hidden; }          /* pins não geram scroll da página */
+  .analysis-page .cone .pin.b { display: none; }      /* P10/Mediana/P90 já estão nos .mc-stats */
+  .analysis-page .mc-stats { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 680px) {
+  .analysis-page .statusbar { position: static; }     /* sticky de 3 linhas cobria 170px do topo */
+  .analysis-page .mode-switch button { padding: 10px 16px; font-size: 11px; }
+}
+@media (max-width: 480px) {
+  .analysis-page .ind-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---- dashboard: remover da watchlist é destrutivo — alvo 40px (achado 15) ---- */
+.wl-x { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; margin: -8px -8px -8px 0; }
+
+/* ---- /creditos: histórico legível (achado 12) ---- */
+@media (max-width: 520px) {
+  .cr-thead, .cr-trow { grid-template-columns: 84px 1fr 56px; gap: 8px; }
+}
+
+/* ---- /historico + /alertas (achados 17,18,24) ---- */
+@media (max-width: 480px) {
+  .hist-page .thead, .hist-page .trow { grid-template-columns: 60px 1fr auto; gap: 8px; padding: 0 12px; }
+  .hist-page .force, .hist-page .asset .cls { display: none; }
+}
+/* a mensagem do alerta (paga!) volta a aparecer no mobile — vence o display:none do bloco 760px */
+@media (max-width: 760px) {
+  .alert-item .am-msg { display: block; grid-column: 1 / -1; white-space: normal; font-size: 12.5px; color: var(--ink-soft); }
+}
+
+/* ---- /track-record (achados 19,21,22,24) ---- */
+@media (max-width: 680px) {
+  .tr-tabs { gap: 6px; }
+  .tr-tab { padding: 12px 14px; }
+  .tr-sep { flex-basis: 100%; border-left: none; border-top: 1px dashed var(--line-2); padding: 8px 4px 2px; margin-left: 0; }
+  .trk-pg { min-width: 42px; height: 42px; }
+  .trk-pages { gap: 8px; }
+}
+@media (max-width: 720px) {
+  /* duas datas iguais lado a lado sem rótulo → rotula via data-l (JSX) */
+  .trk-row .trk-date::before { content: attr(data-l); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin-right: 6px; }
+  .trk-row .trk-date:not([data-l])::before { content: none; }
+  /* affordance de toque: chevron volta (vencia display:none) */
+  .trk-row .trk-chev { display: block; grid-row: 1; justify-self: end; }
+}
+
+/* ---- /watchlist: remover (destrutivo) com alvo real (achado 23) ---- */
+@media (max-width: 640px) {
+  .wm-x { width: 42px; height: 42px; }
+  .wm-row-act { gap: 18px; }
+  .wm-row-act .cr-link { padding: 10px 4px; }
+}
+
+/* ---- /simulador (achados 33,35,36) ---- */
+@media (max-width: 560px) {
+  .sim-warn { flex-direction: column; gap: 10px; }
+  .sim-warn-tag { align-self: flex-start; }
+}
+@media (max-width: 680px) {
+  .sim-btns { gap: 10px; }
+  .sim-btns .btn { min-height: 44px; flex: 1 1 auto; }
+}
+
+/* ---- Conselho de Guerra (achados 37,38) ---- */
+.war-council .wc-log { max-height: min(380px, 45dvh); } /* teclado aberto: log + form cabem */
+.war-council .wc-chip:active { border-color: var(--cyan); }
+@media (max-width: 680px) {
+  .war-council .wc-chip { padding: 12px 16px; font-size: 12.5px; }
+}
+
+/* ---- /ao-vivo: hit-area do toggle que inicia cobrança (achado 39) ---- */
+.lg-toggle { position: relative; }
+.lg-toggle::before { content: ""; position: absolute; inset: -12px; }
+
+/* ---- /monitor: preço volta pra borda direita no colapso (achado 40) ---- */
+@media (max-width: 680px) {
+  .mon-row { grid-template-columns: 1.4fr 1fr auto; }
+}
+
+/* ---- /admin no celular (achados 26,29,32) ---- */
+.admin .adm-sort { padding: 12px; margin: -12px -12px -12px -7px; }
+@media (max-width: 600px) {
+  .admin .adm-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .admin .adm-tab { flex: none; }
+}

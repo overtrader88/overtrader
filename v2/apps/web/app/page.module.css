@@ -89,8 +89,12 @@
 .navLinks a { text-decoration: none; color: inherit; transition: color 0.16s; }
 .navLinks a:hover { color: var(--ink); }
 .navCtas { display: flex; align-items: center; gap: 10px; }
-@media (max-width: 800px) { .navLinks { display: none; } }
-@media (max-width: 480px) { .navCtas .ghost { display: none; } }
+@media (max-width: 800px) {
+  /* nav âncora vira 2ª linha rolável (antes sumia sem substituto) */
+  .navRow { flex-wrap: wrap; row-gap: 6px; }
+  .navLinks { order: 3; flex-basis: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 20px; padding-bottom: 4px; white-space: nowrap; }
+}
+@media (max-width: 480px) { .navCtas .ghost { padding: 10px 12px; font-size: 12px; } .navCtas .primary { padding: 10px 14px; font-size: 12px; } }
 
 /* ============================================================
    HERO
@@ -226,7 +230,7 @@
 .pn { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
 .pp { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 40px; letter-spacing: -0.02em; color: var(--ink); margin: 12px 0 2px; }
 .pp small { font-size: 14px; color: var(--ink-faint); font-weight: 500; }
-.ppYr { font-family: var(--font-mono); font-size: 11px; color: var(--cyan); }
+.ppYr { font-family: var(--font-mono); font-size: 12.5px; color: var(--cyan); }
 .pd { font-size: 13.5px; color: var(--ink-soft); margin: 12px 0 18px; line-height: 1.5; }
 .list { list-style: none; padding: 0; margin: 0 0 22px; display: grid; gap: 10px; }
 .list li { display: flex; align-items: flex-start; gap: 9px; font-size: 13.5px; color: var(--ink-soft); }
@@ -432,4 +436,11 @@
   .page :global([data-rv]) { opacity: 1; transform: none; transition: none; }
   .card:hover { transform: none; }
   .garc { transition: none; }
+}
+
+/* mobile: o SVG da rede (viewBox 620) encolhe ~2x — labels sobem pra compensar */
+@media (max-width: 680px) {
+  .nlabel { font-size: 15px; }
+  .nsub { font-size: 13px; }
+  .nscore { font-size: 30px; }
 }

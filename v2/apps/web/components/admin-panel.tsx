@@ -483,7 +483,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
                   <td style={{ ...TD, fontWeight: 600, color: activate ? "var(--bull,#16a34a)" : "var(--bear,#dc2626)" }}>{activate ? "ativou" : "cancelou"}</td>
                   <td style={TD}>{a.target ?? "—"}</td>
                   <td style={TD}>{a.metadata?.plan ? planLbl(String(a.metadata.plan)) : "—"}</td>
-                  <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.72rem" }} className="note">{a.metadata?.event ? String(a.metadata.event) : JSON.stringify(a.metadata)}</td>
+                  <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.72rem", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} className="note" title={JSON.stringify(a.metadata)}>{a.metadata?.event ? String(a.metadata.event) : JSON.stringify(a.metadata)}</td>
                 </tr>
               );
             })}</tbody>
@@ -512,7 +512,7 @@ export function AdminPanel({ users, now, extra }: { users: AdminUser[]; now: num
                   <td style={TD}>{a.actor ?? "—"}</td>
                   <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.75rem" }}>{a.action}</td>
                   <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.72rem" }} className="note">{a.target ?? "—"}</td>
-                  <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.72rem" }} className="note">{JSON.stringify(a.metadata)}</td>
+                  <td style={{ ...TD, fontFamily: "ui-monospace,Menlo,monospace", fontSize: "0.72rem", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} className="note" title={JSON.stringify(a.metadata)}>{JSON.stringify(a.metadata)}</td>
                 </tr>
               ))}</tbody>
             </table>
@@ -663,7 +663,7 @@ const EngineName = ({ id, text }: { id: string; text: string }) => (
   <span style={isLlmEngine(id) ? { color: "var(--amber,#eab308)", fontWeight: 700 } : isHumanEngine(id) ? { color: HUMAN_ENGINE_COLOR, fontWeight: 700 } : undefined}>{text}</span>
 );
 /** 1ª coluna fixa em tabelas largas (8 motores → scroll horizontal). */
-const STICKY_COL: React.CSSProperties = { position: "sticky", left: 0, zIndex: 1, background: "var(--panel, #0d1119)" };
+const STICKY_COL: React.CSSProperties = { position: "sticky", left: 0, zIndex: 1, background: "var(--panel, #0d1119)", maxWidth: "38vw", overflowWrap: "break-word" };
 
 type BreakdownSort = "n" | "r" | "wr";
 const BREAKDOWN_SORTS: [BreakdownSort, string][] = [["n", "Amostra (n)"], ["r", "R total"], ["wr", "Win% médio"]];
@@ -979,7 +979,7 @@ function LlmDuel({ engines }: { engines: EngineStat[] }) {
   }
 
   const side = (e: EngineStat | undefined, id: "llm" | "llm_ds") => (
-    <div style={{ flex: 1, minWidth: 0 }}>
+    <div style={{ flex: "1 1 240px", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
         <span style={{ width: 9, height: 9, borderRadius: "50%", background: ENGINE_COLOR[id], boxShadow: `0 0 8px ${ENGINE_COLOR[id]}` }} />
         <span style={{ fontWeight: 800, fontSize: "0.92rem" }}><EngineName id={id} text={ENGINE_TAG[id] ?? id} /></span>
@@ -1008,7 +1008,7 @@ function LlmDuel({ engines }: { engines: EngineStat[] }) {
         <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aebccd", fontWeight: 700 }}>🥊 Duelo LLM · decisão da IA</span>
         <span style={{ fontSize: "0.7rem", color: dsLive ? GREEN : "#eab308", fontWeight: 700 }}>{dsLive ? "● ambos ativos" : "● DeepSeek aguardando 1º cron"}</span>
       </div>
-      <div style={{ display: "flex", gap: 18, alignItems: "stretch" }}>
+      <div style={{ display: "flex", gap: 18, alignItems: "stretch", flexWrap: "wrap" }}>
         {side(gpt, "llm")}
         <div style={{ display: "flex", alignItems: "center", fontWeight: 800, color: "#535f74", fontSize: "0.8rem" }}>VS</div>
         {side(ds, "llm_ds")}
@@ -1368,7 +1368,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
             const on = !hidden.has(id);
             return (
               <button key={id} type="button" onClick={() => toggleEngine(id)}
-                style={{ ...FIELD, cursor: "pointer", fontSize: "0.78rem", fontWeight: on ? 700 : 500, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 6, background: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 14%, transparent)" : "var(--panel-2, #0a0e15)", color: on ? "var(--ink, #e9effa)" : "var(--ink-faint, #535f74)", borderColor: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 45%, transparent)" : "var(--line-2)", opacity: on ? 1 : 0.75 }}>
+                style={{ ...FIELD, cursor: "pointer", fontSize: "0.78rem", fontWeight: on ? 700 : 500, padding: "9px 12px", minHeight: 38, display: "inline-flex", alignItems: "center", gap: 6, background: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 14%, transparent)" : "var(--panel-2, #0a0e15)", color: on ? "var(--ink, #e9effa)" : "var(--ink-faint, #535f74)", borderColor: on ? "color-mix(in srgb, var(--cyan, #54a8ff) 45%, transparent)" : "var(--line-2)", opacity: on ? 1 : 0.75 }}>
                 <EngineDot id={id} /><EngineName id={id} text={engineLabel(id)} />
               </button>
             );
@@ -1420,7 +1420,7 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
                   const hl = (best: boolean, tone: string | null): React.CSSProperties => ({ ...TD, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: best || tone ? 700 : 500, color: tone ?? (best ? "var(--bull,#16a34a)" : "#e8edf5") });
                   return (
                     <tr key={i} style={ROW}>
-                      <td style={{ ...TD, ...STICKY_COL, color: "#aebccd", whiteSpace: "nowrap" }}>{r.label}</td>
+                      <td style={{ ...TD, ...STICKY_COL, color: "#aebccd" }}>{r.label}</td>
                       {cols.map((e, j) => {
                         const tone = r.tone ? r.tone(vals[j] ?? null) : null;
                         return <td key={e.engine} style={hl(j === bi, tone)}>{r.node ? r.node(e) : r.get(e)}</td>;

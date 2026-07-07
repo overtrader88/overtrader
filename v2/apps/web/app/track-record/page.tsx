@@ -299,8 +299,8 @@ export default async function TrackRecordPage({
                       <span className={`trk-dir ${buy ? "up" : sell ? "dn" : "neu"}`}>{buy ? "↗ Compra" : sell ? "↘ Venda" : "—"}</span>
                       <span className={`trk-oc ${oc.cls}`}>{oc.label}</span>
                       <span className="ctr trk-r" style={{ color: r.pnlR >= 0 ? "var(--bull)" : "var(--bear)" }}>{signed(r.pnlR)} R</span>
-                      <span className="trk-date">{fmtDate(r.emittedAt)}</span>
-                      <span className="trk-date">{fmtDate(r.resolvedAt)}</span>
+                      <span className="trk-date" data-l="Emitido">{fmtDate(r.emittedAt)}</span>
+                      <span className="trk-date" data-l="Resolvido">{fmtDate(r.resolvedAt)}</span>
                       <span className="trk-chev" aria-hidden>›</span>
                     </div>
                   );
