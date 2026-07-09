@@ -85,6 +85,25 @@ export default async function AdminPage() {
     };
   }
 
+  // Contas de LOGIN sem perfil (órfãs): existem em auth.users (conseguem logar) mas
+  // não têm linha em `profiles`, então some da lista acima. Reconcilia via service
+  // role. Normalmente é profile apagado à mão — apagar só o profile NÃO revoga o login.
+  let orphans: { id: string; email: string; createdAt: string }[] = [];
+  if (sb) {
+    try {
+      const { data: authList, error: authErr } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (authErr) console.warn("[admin] reconcile órfãos: listUsers falhou —", authErr.message);
+      // profIds de um SELECT dedicado SEM cap: usar `users` (limitado a 1000) marcaria
+      // perfis além do cap como "órfãos" (falso-positivo destrutivo). Só marca órfão
+      // quem realmente não tem NENHUMA linha em profiles.
+      const { data: allIds } = await sb.from("profiles").select("id").limit(100000);
+      const profIds = new Set(((allIds ?? []) as { id: string }[]).map((p) => p.id));
+      orphans = (authList?.users ?? [])
+        .filter((au) => !profIds.has(au.id))
+        .map((au) => ({ id: au.id, email: au.email ?? "(sem e-mail)", createdAt: au.created_at }));
+    } catch (e) { console.warn("[admin] reconcile órfãos: exceção —", e); }
+  }
+
   const total = users.length;
   const byPlan = { free: 0, pro: 0, pro_plus: 0 } as Record<string, number>;
   for (const u of users) byPlan[u.plan] = (byPlan[u.plan] ?? 0) + 1;
@@ -122,6 +141,22 @@ export default async function AdminPage() {
             </div>
           ))}
         </div>
+
+        {orphans.length > 0 ? (
+          <div style={{ border: "1px solid var(--amber)", borderRadius: 12, padding: "12px 16px", margin: "0 0 16px", background: "color-mix(in srgb, var(--amber) 8%, transparent)" }}>
+            <div style={{ fontWeight: 700, color: "var(--amber)", marginBottom: 6 }}>⚠ {orphans.length} conta(s) de login sem perfil (órfãs)</div>
+            <p className="note" style={{ fontSize: "0.8rem", margin: "0 0 8px", maxWidth: "80ch" }}>
+              Existem em <code>auth.users</code> (conseguem logar) mas não têm linha em <code>profiles</code> — por isso não aparecem na lista de usuários. Normalmente é perfil apagado à mão. Para remover de vez, delete em <b>Supabase · Authentication → Users</b> (cascateia os créditos); apagar só o perfil <b>não</b> revoga o login. Quem logar de novo é reprovisionado automaticamente (self-heal) e volta a aparecer aqui.
+            </p>
+            <div style={{ display: "grid", gap: 4, fontSize: "0.8rem" }}>
+              {orphans.map((o) => (
+                <div key={o.id} style={{ fontFamily: "ui-monospace, monospace" }}>
+                  {o.email} <span className="note">· cadastro {new Date(o.createdAt).toLocaleDateString("pt-BR")}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <AdminPanel users={users} now={Date.now()} extra={extra} />
 

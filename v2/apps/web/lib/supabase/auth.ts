@@ -3,6 +3,7 @@
  * créditos num objeto pronto pra UI (AppBar). Retorna null se anônimo.
  */
 import { supabaseServerSSR } from "./server-ssr";
+import { supabaseService } from "./server";
 import { isAdminEmail } from "../admin";
 
 export { isAdminEmail };
@@ -22,16 +23,38 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   } = await sb.auth.getUser();
   if (!user) return null;
 
-  const [{ data: profile }, { data: credit }] = await Promise.all([
+  const [{ data: profile, error: profileErr }, { data: credit }] = await Promise.all([
     sb.from("profiles").select("plan, email, full_name").eq("id", user.id).maybeSingle(),
     sb.from("user_credits").select("balance").eq("user_id", user.id).maybeSingle(),
   ]);
 
+  // SELF-HEAL: sessão de auth VÁLIDA porém SEM linha em `profiles` (conta órfã —
+  // ex.: profile removido à mão no painel, enquanto auth.users + créditos sobrevivem).
+  // Reprovisiona o profile (idempotente, via service role, que ignora RLS). NÃO
+  // concede créditos aqui de propósito: apagar profile e relogar NÃO deve renovar o
+  // trial (anti-farm). Sem isto, a sessão era tratada como "FREE fantasma" invisível
+  // no /admin. Best-effort: se o service role não estiver configurado, degrada.
+  let prof = profile;
+  if (!prof && !profileErr) {
+    const svc = supabaseService();
+    if (svc) {
+      const { data: healed } = await svc
+        .from("profiles")
+        .upsert(
+          { id: user.id, email: user.email ?? "", full_name: (user.user_metadata?.full_name as string | undefined) ?? null },
+          { onConflict: "id" },
+        )
+        .select("plan, email, full_name")
+        .maybeSingle();
+      if (healed) prof = healed;
+    }
+  }
+
   return {
     id: user.id,
-    email: user.email ?? (profile?.email as string | undefined) ?? "",
-    fullName: (profile?.full_name as string | null | undefined) ?? null,
-    plan: (profile?.plan as string | undefined) ?? "free",
+    email: user.email ?? (prof?.email as string | undefined) ?? "",
+    fullName: (prof?.full_name as string | null | undefined) ?? null,
+    plan: (prof?.plan as string | undefined) ?? "free",
     credits: (credit?.balance as number | undefined) ?? 0,
   };
 }
