@@ -108,13 +108,15 @@ function buildSurvival(rows: Row[], open: OpenPosition[]): SurvivalArena {
   };
 }
 
-/** Estatística de um grupo de sinais resolvidos. */
+/** Estatística de um grupo de sinais resolvidos. Expiração reclassificada pelo
+ *  sinal do R (R≥0 → acerto, R<0 → perda) — consistente com o comparativo (admin). */
 function groupStat(resolved: { outcome: SignalOutcome; pnlR: number }[]): GroupStat {
   let wins = 0, sl = 0, totalR = 0;
   for (const r of resolved) {
     totalR += r.pnlR;
     if (isWin(r.outcome)) wins++;
     else if (r.outcome === "SL") sl++;
+    else if (r.outcome === "EXPIRED") { if (r.pnlR >= 0) wins++; else sl++; }
   }
   const decisive = wins + sl;
   return { n: resolved.length, winRatePct: decisive > 0 ? (wins / decisive) * 100 : 0, totalR, wins, decisive };
@@ -175,10 +177,21 @@ function buildEngineStats(rows: Row[], open: OpenPosition[]): EngineStat[] {
     const list = byEngine.get(e) ?? [];
     const resolved = list.filter((r) => r.outcome != null && r.pnl_r != null);
     const stats = aggregateTrackRecord(resolved.map((r) => ({ outcome: r.outcome as SignalOutcome, pnlR: Number(r.pnl_r) })));
-    const wins = stats.outcomes.TP1 + stats.outcomes.TP2 + stats.outcomes.TP3;
-    // Assimetria realizada: ganho médio (TP1/2/3) × perda média (SL) × payoff.
-    const winRs = resolved.filter((r) => isWin(r.outcome as SignalOutcome)).map((r) => Number(r.pnl_r));
-    const lossRs = resolved.filter((r) => r.outcome === "SL").map((r) => Number(r.pnl_r));
+    // Expiração (stop por tempo) reclassificada PELO SINAL DO R — só no admin:
+    // R≥0 → "ganho por expiração" (acerto); R<0 → "perda por expiração" (perda).
+    // Some ao win/loss em vez de ficar num balde neutro. (PF/avgR/totalR já
+    // incluíam o R do expirado — não mudam; muda só a classificação.)
+    const expiredWin = resolved.filter((r) => r.outcome === "EXPIRED" && Number(r.pnl_r) >= 0).length;
+    const expiredLoss = resolved.filter((r) => r.outcome === "EXPIRED" && Number(r.pnl_r) < 0).length;
+    const wins = stats.outcomes.TP1 + stats.outcomes.TP2 + stats.outcomes.TP3 + expiredWin;
+    const losses = stats.outcomes.SL + expiredLoss;
+    const decisive = wins + losses;
+    const winRatePct = decisive > 0 ? (wins / decisive) * 100 : 0;
+    // Assimetria realizada: ganho médio (TP + ganho-exp) × perda média (SL + perda-exp) × payoff.
+    const isGain = (r: { outcome: unknown; pnl_r: number | null }) => isWin(r.outcome as SignalOutcome) || (r.outcome === "EXPIRED" && Number(r.pnl_r) >= 0);
+    const isLoss = (r: { outcome: unknown; pnl_r: number | null }) => r.outcome === "SL" || (r.outcome === "EXPIRED" && Number(r.pnl_r) < 0);
+    const winRs = resolved.filter(isGain).map((r) => Number(r.pnl_r));
+    const lossRs = resolved.filter(isLoss).map((r) => Number(r.pnl_r));
     const avgWinR = winRs.length ? winRs.reduce((s, v) => s + v, 0) / winRs.length : 0;
     const avgLossR = lossRs.length ? lossRs.reduce((s, v) => s + v, 0) / lossRs.length : 0;
     const payoff = avgLossR !== 0 ? avgWinR / Math.abs(avgLossR) : 0;
@@ -189,8 +202,8 @@ function buildEngineStats(rows: Row[], open: OpenPosition[]): EngineStat[] {
     const spanDays = first && last ? Math.max(1, (new Date(last).getTime() - new Date(first).getTime()) / DAY) : 1;
     return {
       engine: e, label: ENGINE_LABELS[e] ?? (isHumanEngine(e) ? `Humano · ${humanEngineLabel(e)}` : e),
-      resolved: stats.n, decisive: stats.decisive, wins, losses: stats.outcomes.SL, expired: stats.outcomes.EXPIRED,
-      winRatePct: stats.winRate.value * 100, profitFactor: stats.profitFactor.value, avgR: stats.avgR.value, totalR: stats.totalR,
+      resolved: stats.n, decisive, wins, losses, expired: stats.outcomes.EXPIRED, expiredWin, expiredLoss,
+      winRatePct, profitFactor: stats.profitFactor.value, avgR: stats.avgR.value, totalR: stats.totalR,
       avgWinR, avgLossR, payoff,
       open: list.filter((r) => r.outcome == null).length, emittedTotal: list.length,
       firstEmittedAt: first, lastEmittedAt: last, perDay: list.length / spanDays,

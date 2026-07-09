@@ -39,6 +39,9 @@ export interface EngineStat {
   wins: number;
   losses: number;
   expired: number;
+  /** Expiração reclassificada (só admin): ganho (R≥0) e perda (R<0). */
+  expiredWin: number;
+  expiredLoss: number;
   winRatePct: number;
   profitFactor: number;
   avgR: number;

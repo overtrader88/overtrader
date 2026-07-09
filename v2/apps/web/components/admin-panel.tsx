@@ -863,12 +863,12 @@ const RANK_METRICS: RankMetric[] = [
   { key: "payoff", label: "Payoff (ganho / |perda|)", value: (e) => (e.wins > 0 && e.losses > 0 ? e.payoff : null), dir: "higher", fmt: (v) => `${v.toFixed(2)}×`, tone: (v) => (v >= 1 ? C_GREEN : C_RED) },
   { key: "stopPct", label: "Stop loss (% dos decisivos)", value: (e) => (e.decisive > 0 ? (e.losses / e.decisive) * 100 : null), dir: "lower", fmt: (v) => `${v.toFixed(0)}%`, tone: () => C_RED },
   { key: "stopsPerTake", label: "Stops por take", value: (e) => (e.wins > 0 ? e.losses / e.wins : null), dir: "lower", fmt: (v) => `${v.toFixed(2)}×`, tone: (v) => (v > 1 ? C_RED : v < 1 ? C_GREEN : null) },
-  { key: "wins", label: "Operações TP (take)", value: (e) => e.wins, dir: "higher", fmt: (v) => String(v), tone: (v) => (v > 0 ? C_GREEN : null) },
-  { key: "losses", label: "Operações SL (stop)", value: (e) => e.losses, dir: "lower", fmt: (v) => String(v), tone: (v) => (v > 0 ? C_RED : null) },
+  { key: "wins", label: "Acertos (TP + ganho exp.)", value: (e) => e.wins, dir: "higher", fmt: (v) => String(v), tone: (v) => (v > 0 ? C_GREEN : null) },
+  { key: "losses", label: "Perdas (SL + perda exp.)", value: (e) => e.losses, dir: "lower", fmt: (v) => String(v), tone: (v) => (v > 0 ? C_RED : null) },
   { key: "open", label: "Abertos agora (qtd)", value: (e) => e.open, dir: "higher", fmt: (v) => String(v) },
   { key: "openUnrealizedR", label: "R não-realizado (abertos)", value: (e) => e.openUnrealizedR, dir: "higher", fmt: (v) => `${sgn(v, 1)}R`, tone: (v) => (v < 0 ? C_RED : v > 0 ? C_GREEN : null) },
   { key: "emittedTotal", label: "Sinais emitidos (total)", value: (e) => e.emittedTotal, dir: "higher", fmt: (v) => String(v) },
-  { key: "decisive", label: "Decisivos (TP+SL)", value: (e) => e.decisive, dir: "higher", fmt: (v) => String(v) },
+  { key: "decisive", label: "Decisivos (todos resolvidos)", value: (e) => e.decisive, dir: "higher", fmt: (v) => String(v) },
 ];
 
 function RankingTable({ engines, byClass, visibleIds }: { engines: EngineStat[]; byClass: ClassEngines[]; visibleIds: string[] }) {
@@ -1298,8 +1298,10 @@ function EnginesTab({ engines, byClassEngine, open, byClass, byTimeframe, byAsse
     {
       title: "Desfechos",
       rows: [
-        { label: "Operações TP (take)", get: (e) => String(e.wins), raw: (e) => e.wins, dir: "none", tone: (v) => (v && v > 0 ? GREEN : null) },
-        { label: "Operações SL (stop)", get: (e) => String(e.losses), raw: (e) => e.losses, dir: "none", tone: (v) => (v && v > 0 ? RED : null) },
+        { label: "Operações TP (take)", get: (e) => String(e.wins - e.expiredWin), raw: (e) => e.wins - e.expiredWin, dir: "none", tone: (v) => (v && v > 0 ? GREEN : null) },
+        { label: "Operações SL (stop)", get: (e) => String(e.losses - e.expiredLoss), raw: (e) => e.losses - e.expiredLoss, dir: "none", tone: (v) => (v && v > 0 ? RED : null) },
+        { label: "Ganho por expiração", get: (e) => String(e.expiredWin), raw: (e) => e.expiredWin, dir: "none", tone: (v) => (v && v > 0 ? GREEN : null) },
+        { label: "Perda por expiração", get: (e) => String(e.expiredLoss), raw: (e) => e.expiredLoss, dir: "none", tone: (v) => (v && v > 0 ? RED : null) },
         { label: "Assertividade (win rate)", get: (e) => `${e.winRatePct.toFixed(1)}%`, raw: (e) => e.winRatePct, dir: "higher" },
         { label: "Stop loss (% dos decisivos)", get: (e) => (e.decisive > 0 ? `${((e.losses / e.decisive) * 100).toFixed(0)}%` : "—"), raw: (e) => (e.decisive > 0 ? (e.losses / e.decisive) * 100 : null), dir: "none", tone: (v) => (v == null ? null : RED) },
         { label: "Stops por take", get: (e) => (e.wins > 0 ? `${(e.losses / e.wins).toFixed(2)}×` : "—"), raw: (e) => (e.wins > 0 ? e.losses / e.wins : null), dir: "none", tone: (v) => (v == null ? null : v > 1 ? RED : v < 1 ? GREEN : null) },
